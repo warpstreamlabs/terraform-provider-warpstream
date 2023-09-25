@@ -36,7 +36,7 @@ type VirtualClusterDeleteRequest struct {
 	Name string `json:"virtual_cluster_name"`
 }
 
-// GetVirtualCluster - Returns description of virtual cluster
+// GetVirtualCluster - Returns description of virtual cluster.
 func (c *Client) GetVirtualCluster(id string) (*VirtualCluster, error) {
 	payload, err := json.Marshal(VirtualClusterDescribeRequest{ID: id})
 	if err != nil {
@@ -62,7 +62,7 @@ func (c *Client) GetVirtualCluster(id string) (*VirtualCluster, error) {
 	return &res.VirtualCluster, nil
 }
 
-// CreateVirtualCluster - Create new virtual cluster
+// CreateVirtualCluster - Create new virtual cluster.
 func (c *Client) CreateVirtualCluster(name string) (*VirtualCluster, error) {
 	payload, err := json.Marshal(VirtualClusterCreateRequest{Name: strings.TrimPrefix(name, "vcn_")})
 	if err != nil {
@@ -89,7 +89,7 @@ func (c *Client) CreateVirtualCluster(name string) (*VirtualCluster, error) {
 	return &vc, nil
 }
 
-// DeleteVirtualCluster - Delete a virtual cluster
+// DeleteVirtualCluster - Delete a virtual cluster.
 func (c *Client) DeleteVirtualCluster(id string, name string) error {
 	payload, err := json.Marshal(VirtualClusterDeleteRequest{ID: id, Name: name})
 	if err != nil {
@@ -113,7 +113,7 @@ func (c *Client) DeleteVirtualCluster(id string, name string) error {
 	return nil
 }
 
-// GetVirtualClusters - Returns list of virtual clusters
+// GetVirtualClusters - Returns list of virtual clusters.
 func (c *Client) GetVirtualClusters() ([]VirtualCluster, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/list_virtual_clusters", c.HostURL), nil)
 	if err != nil {

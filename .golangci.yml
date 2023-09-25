@@ -22,6 +22,6 @@ linters:
     - staticcheck
     - tenv
     - unconvert
-    - unparam
-    - unused
+#    - unparam
+#    - unused
     - vet

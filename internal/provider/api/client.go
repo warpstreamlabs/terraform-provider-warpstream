@@ -7,17 +7,17 @@ import (
 	"time"
 )
 
-// HostURL - Default Warpstream URL
+// HostURL - Default Warpstream URL.
 const HostURL string = "https://api.prod.us-east-1.warpstream.com/api/v1"
 
-// Client -
+// Client.
 type Client struct {
 	HostURL    string
 	HTTPClient *http.Client
 	Token      string
 }
 
-// NewClient -
+// NewClient.
 func NewClient(host string, token *string) (*Client, error) {
 	c := Client{
 		HTTPClient: &http.Client{Timeout: 10 * time.Second},
