@@ -26,11 +26,6 @@ type virtualClusterDataSource struct {
 	client *api.Client
 }
 
-// virtualClusterDataSourceModel maps the data source schema data.
-type virtualClusterDataSourceModel struct {
-	VirtualCluster []virtualClusterModel `tfsdk:"virtual_cluster"`
-}
-
 // virtualClusterModel maps virtual cluster schema data.
 type virtualClusterModel struct {
 	ID            types.String `tfsdk:"id"`
