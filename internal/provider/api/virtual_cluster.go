@@ -1,0 +1,135 @@
+package api
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+)
+
+type VirtualClusterDescribeResponse struct {
+	VirtualCluster VirtualCluster `json:"virtual_cluster"`
+}
+
+type VirtualClusterListResponse struct {
+	VirtualClusters []VirtualCluster `json:"virtual_clusters"`
+}
+
+type VirtualClusterCreateResponse struct {
+	VirtualClusterID string `json:"virtual_cluster_id"`
+	AgentPoolID      string `json:"agent_pool_id"`
+	AgentPoolName    string `json:"agent_pool_name"`
+}
+
+type VirtualClusterDescribeRequest struct {
+	ID string `json:"virtual_cluster_id"`
+}
+
+type VirtualClusterCreateRequest struct {
+	Name string `json:"virtual_cluster_name"`
+}
+
+type VirtualClusterDeleteRequest struct {
+	ID   string `json:"virtual_cluster_id"`
+	Name string `json:"virtual_cluster_name"`
+}
+
+// GetVirtualCluster - Returns description of virtual cluster
+func (c *Client) GetVirtualCluster(id string) (*VirtualCluster, error) {
+	payload, err := json.Marshal(VirtualClusterDescribeRequest{ID: id})
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/describe_virtual_cluster", c.HostURL), bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res := VirtualClusterDescribeResponse{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return &res.VirtualCluster, nil
+}
+
+// CreateVirtualCluster - Create new virtual cluster
+func (c *Client) CreateVirtualCluster(name string) (*VirtualCluster, error) {
+	payload, err := json.Marshal(VirtualClusterCreateRequest{Name: strings.TrimPrefix(name, "vcn_")})
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/create_virtual_cluster", c.HostURL), bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res := VirtualClusterCreateResponse{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	vc := VirtualCluster{ID: res.VirtualClusterID, AgentPoolID: res.AgentPoolID, AgentPoolName: res.AgentPoolName}
+	return &vc, nil
+}
+
+// DeleteVirtualCluster - Delete a virtual cluster
+func (c *Client) DeleteVirtualCluster(id string, name string) error {
+	payload, err := json.Marshal(VirtualClusterDeleteRequest{ID: id, Name: name})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/delete_virtual_cluster", c.HostURL), bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return err
+	}
+
+	if string(body) != "{}" {
+		return errors.New(string(body))
+	}
+
+	return nil
+}
+
+// GetVirtualClusters - Returns list of virtual clusters
+func (c *Client) GetVirtualClusters() ([]VirtualCluster, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/list_virtual_clusters", c.HostURL), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res := VirtualClusterListResponse{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.VirtualClusters, nil
+}
