@@ -60,3 +60,16 @@ In order to run the full suite of Acceptance tests, run `make testacc`.
 ```shell
 make testacc
 ```
+
+## Publish to Terraform Registry
+
+Creating a new provider release is as simple as pushing a corresponding git tag.
+The tag name must follow the Semantic Versioning standard.
+```shell
+git tag v<MAJOR>.<MINOR>.<PATCH>
+git push origin v<MAJOR>.<MINOR>.<PATCH>
+```
+
+See [Publishing Providers][] for details.
+
+[Publishing Providers]: https://developer.hashicorp.com/terraform/registry/providers/publishing)
