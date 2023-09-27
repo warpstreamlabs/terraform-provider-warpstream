@@ -72,4 +72,4 @@ git push origin v<MAJOR>.<MINOR>.<PATCH>
 
 See [Publishing Providers][] for details.
 
-[Publishing Providers]: https://developer.hashicorp.com/terraform/registry/providers/publishing)
+[Publishing Providers]: https://developer.hashicorp.com/terraform/registry/providers/publishing
