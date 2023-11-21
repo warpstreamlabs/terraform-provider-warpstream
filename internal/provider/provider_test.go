@@ -10,12 +10,24 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 )
 
+const (
+	// providerConfig is a shared configuration to combine with the actual
+	// test configuration so the WarpStream client is properly configured.
+	// WARPSTREAM_API_KEY must be set in .github/workflows/test.yml.
+	providerConfig = `
+provider "warpstream" {
+  # base_url = "${WARPSTREAM_API_URL}"
+  # token    = "${$WARPSTREAM_API_KEY}"
+}
+`
+)
+
 // testAccProtoV6ProviderFactories are used to instantiate a provider during
 // acceptance testing. The factory function will be invoked for every Terraform
 // CLI command executed to create a provider server to which the CLI can
 // reattach.
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"scaffolding": providerserver.NewProtocol6WithError(New("test")()),
+	"warpstream": providerserver.NewProtocol6WithError(New("test")()),
 }
 
 func testAccPreCheck(t *testing.T) {
