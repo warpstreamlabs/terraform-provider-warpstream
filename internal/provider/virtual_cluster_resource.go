@@ -182,12 +182,12 @@ func (r *virtualClusterResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	// Delete existing order
+	// Delete existing virtual cluster
 	err := r.client.DeleteVirtualCluster(state.ID.ValueString(), state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Deleting WarpStream Virtual Cluster",
-			"Could not delete order, unexpected error: "+err.Error(),
+			"Could not delete WarpStream Virtual Cluster, unexpected error: "+err.Error(),
 		)
 		return
 	}
