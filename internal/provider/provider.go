@@ -162,5 +162,6 @@ func (p *warpstreamProvider) DataSources(_ context.Context) []func() datasource.
 func (p *warpstreamProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewVirtualClusterResource,
+		NewVirtualClusterCredentialsResource,
 	}
 }
