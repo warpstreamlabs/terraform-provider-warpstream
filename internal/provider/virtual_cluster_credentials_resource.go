@@ -206,6 +206,7 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 		ID:               types.StringValue(c.ID),
 		Name:             types.StringValue(c.Name),
 		UserName:         types.StringValue(c.UserName),
+		Password:         state.Password,
 		AgentPoolID:      types.StringValue(c.AgentPoolID),
 		CreatedAt:        types.StringValue(c.CreatedAt),
 		VirtualClusterID: types.StringValue(cluster.ID),
