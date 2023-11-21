@@ -58,6 +58,9 @@ func (r *virtualClusterResource) Metadata(_ context.Context, req resource.Metada
 // Schema defines the schema for the resource.
 func (r *virtualClusterResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: `
+This resource allows you to create, update and delete virtual clusters.
+`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Virtual Cluster ID.",

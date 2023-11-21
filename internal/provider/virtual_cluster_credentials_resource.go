@@ -67,6 +67,9 @@ func (r *virtualClusterCredentialsResource) Metadata(_ context.Context, req reso
 // Schema defines the schema for the resource.
 func (r *virtualClusterCredentialsResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: `
+This resource allows you to create and delete virtual cluster credentials.
+`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Virtual Cluster Credentials ID.",

@@ -3,12 +3,12 @@
 page_title: "warpstream_virtual_cluster Resource - terraform-provider-warpstream"
 subcategory: ""
 description: |-
-  
+  This resource allows you to create, update and delete virtual clusters.
 ---
 
 # warpstream_virtual_cluster (Resource)
 
-
+This resource allows you to create, update and delete virtual clusters.
 
 ## Example Usage
 
