@@ -58,6 +58,9 @@ func (r *virtualClusterResource) Metadata(_ context.Context, req resource.Metada
 // Schema defines the schema for the resource.
 func (r *virtualClusterResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: `
+This resource allows you to create, update and delete virtual clusters.
+`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Virtual Cluster ID.",
@@ -182,12 +185,12 @@ func (r *virtualClusterResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	// Delete existing order
+	// Delete existing virtual cluster
 	err := r.client.DeleteVirtualCluster(state.ID.ValueString(), state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Deleting WarpStream Virtual Cluster",
-			"Could not delete order, unexpected error: "+err.Error(),
+			"Could not delete WarpStream Virtual Cluster, unexpected error: "+err.Error(),
 		)
 		return
 	}
