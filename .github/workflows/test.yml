@@ -78,5 +78,6 @@ jobs:
       - run: go mod download
       - env:
           TF_ACC: "1"
+          WARPSTREAM_API_KEY: "${TF_ACCEPTANCE_TEST_API_KEY}"
         run: go test -v -cover ./internal/provider/
         timeout-minutes: 10
