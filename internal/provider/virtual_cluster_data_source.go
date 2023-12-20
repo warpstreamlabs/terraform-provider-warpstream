@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/datasourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
@@ -33,6 +35,7 @@ type virtualClusterModel struct {
 	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
 	AgentPoolName types.String `tfsdk:"agent_pool_name"`
 	CreatedAt     types.String `tfsdk:"created_at"`
+	Default       types.Bool   `tfsdk:"default"`
 }
 
 // Metadata returns the data source type name.
@@ -45,10 +48,12 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Required: true,
+				Computed: true,
+				Optional: true,
 			},
 			"name": schema.StringAttribute{
 				Computed: true,
+				Optional: true,
 			},
 			"agent_pool_id": schema.StringAttribute{
 				Computed: true,
@@ -59,7 +64,20 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 			"created_at": schema.StringAttribute{
 				Computed: true,
 			},
+			"default": schema.BoolAttribute{
+				Optional: true,
+			},
 		},
+	}
+}
+
+func (d *virtualClusterDataSource) ConfigValidators(ctx context.Context) []datasource.ConfigValidator {
+	return []datasource.ConfigValidator{
+		datasourcevalidator.ExactlyOneOf(
+			path.MatchRoot("id"),
+			path.MatchRoot("name"),
+			path.MatchRoot("default"),
+		),
 	}
 }
 
@@ -72,7 +90,17 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	vc, err := d.client.GetVirtualCluster(data.ID.ValueString())
+	var vc *api.VirtualCluster
+	var err error
+
+	if data.Default.ValueBool() {
+		vc, err = d.client.GetDefaultCluster()
+	} else if data.Name.ValueString() != "" {
+		vc, err = d.client.FindVirtualCluster(data.Name.ValueString())
+	} else {
+		vc, err = d.client.GetVirtualCluster(data.ID.ValueString())
+	}
+
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Read WarpStream Virtual Cluster",
