@@ -133,3 +133,24 @@ func (c *Client) GetVirtualClusters() ([]VirtualCluster, error) {
 
 	return res.VirtualClusters, nil
 }
+
+// FindVirtualCluster - Returns virtual cluster with given name.
+func (c *Client) FindVirtualCluster(name string) (*VirtualCluster, error) {
+	vcs, err := c.GetVirtualClusters()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, vc := range vcs {
+		if vc.Name == name {
+			return &vc, nil
+		}
+	}
+
+	return nil, fmt.Errorf("could not find virtual cluster with name %s", name)
+}
+
+// GetDefaultCluster - Return the default virtual cluster.
+func (c *Client) GetDefaultCluster() (*VirtualCluster, error) {
+	return c.FindVirtualCluster("vcn_default")
+}
