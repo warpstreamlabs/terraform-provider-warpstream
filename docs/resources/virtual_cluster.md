@@ -30,6 +30,7 @@ resource "warpstream_virtual_cluster" "test" {
 - `agent_pool_id` (String) Agent Pool ID.
 - `agent_pool_name` (String) Agent Pool Name.
 - `created_at` (String) Virtual Cluster Creation Timestamp.
+- `default` (Boolean)
 - `id` (String) Virtual Cluster ID.
 
 ## Import
