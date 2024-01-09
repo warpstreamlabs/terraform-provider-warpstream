@@ -85,6 +85,9 @@ This resource allows you to create, update and delete virtual clusters.
 				Description: "Virtual Cluster Creation Timestamp.",
 				Computed:    true,
 			},
+			"default": schema.BoolAttribute{
+				Computed: true,
+			},
 		},
 	}
 }
@@ -126,6 +129,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		AgentPoolID:   types.StringValue(cluster.AgentPoolID),
 		AgentPoolName: types.StringValue(cluster.AgentPoolName),
 		CreatedAt:     types.StringValue(cluster.CreatedAt),
+		Default:       types.BoolValue(cluster.Name == "vcn_default"),
 	}
 
 	// Set state to fully populated data
@@ -161,6 +165,7 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		AgentPoolID:   types.StringValue(cluster.AgentPoolID),
 		AgentPoolName: types.StringValue(cluster.AgentPoolName),
 		CreatedAt:     types.StringValue(cluster.CreatedAt),
+		Default:       types.BoolValue(cluster.Name == "vcn_default"),
 	}
 
 	// Set state
