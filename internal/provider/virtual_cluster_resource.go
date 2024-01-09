@@ -4,13 +4,17 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
 
@@ -104,6 +108,16 @@ This resource allows you to create, update and delete virtual clusters.
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"configuration": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"enable_acls": schema.BoolAttribute{
+						Description: "Enable ACLs. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)",
+						Optional:    true,
+					},
+				},
+				Description: "Virtual Cluster Configuration.",
+				Optional:    true,
+			},
 		},
 	}
 }
@@ -146,11 +160,23 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		AgentPoolName: types.StringValue(cluster.AgentPoolName),
 		CreatedAt:     types.StringValue(cluster.CreatedAt),
 		Default:       types.BoolValue(cluster.Name == "vcn_default"),
+		Configuration: plan.Configuration,
 	}
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Skip configuration if not specified
+	if plan.Configuration.IsNull() {
+		tflog.Info(ctx, "No virtual cluster configuration provided")
+		return
+	}
+
+	r.applyConfiguration(ctx, state, &resp.State, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -188,10 +214,48 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Skip configuration if null
+	if state.Configuration.IsNull() {
+		return
+	}
+
+	// Get virtual cluster configuration
+	cfg, err := r.client.GetConfiguration(*cluster)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read configuration of Virtual Cluster with ID="+cluster.ID,
+			err.Error(),
+		)
+	}
+
+	cfgState := virtualClusterConfigurationModel{
+		AclsEnabled: types.BoolValue(cfg.AclsEnabled),
+	}
+
+	// Set configuration state
+	diags = resp.State.SetAttribute(ctx, path.Root("configuration"), cfgState)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *virtualClusterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// Retrieve values from plan
+	var plan virtualClusterModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Update virtual cluster configuration
+	r.applyConfiguration(ctx, plan, &resp.State, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
@@ -218,4 +282,89 @@ func (r *virtualClusterResource) Delete(ctx context.Context, req resource.Delete
 func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Retrieve import ID and save to id attribute
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+
+	// Retrieve cluster info from imported state
+	var data virtualClusterModel
+	diags := resp.State.Get(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Fetch virtual cluster configuration
+	cfg, err := r.client.GetConfiguration(data.cluster())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read configuration of Virtual Cluster",
+			err.Error(),
+		)
+	}
+
+	cfgState := virtualClusterConfigurationModel{
+		AclsEnabled: types.BoolValue(cfg.AclsEnabled),
+	}
+
+	// Set configuration state
+	diags = resp.State.SetAttribute(ctx, path.Root("configuration"), cfgState)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+}
+
+func (m virtualClusterModel) cluster() api.VirtualCluster {
+	return api.VirtualCluster{
+		ID:            m.ID.ValueString(),
+		Name:          m.Name.ValueString(),
+		AgentPoolID:   m.AgentPoolID.ValueString(),
+		AgentPoolName: m.AgentPoolName.ValueString(),
+		CreatedAt:     m.CreatedAt.ValueString(),
+	}
+}
+
+func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan virtualClusterModel, state *tfsdk.State, respDiags *diag.Diagnostics) {
+	// Retrieve configuration values from plan
+	var cfgPlan virtualClusterConfigurationModel
+	diags := plan.Configuration.As(ctx, &cfgPlan, basetypes.ObjectAsOptions{})
+	respDiags.Append(diags...)
+	if respDiags.HasError() {
+		return
+	}
+
+	// Update virtual cluster configuration
+	cluster := api.VirtualCluster{
+		ID: plan.ID.ValueString(),
+	}
+	cfg := &api.VirtualClusterConfiguration{
+		AclsEnabled: cfgPlan.AclsEnabled.ValueBool(),
+	}
+	err := r.client.UpdateConfiguration(*cfg, cluster)
+	if err != nil {
+		respDiags.AddError(
+			"Error Updating WarpStream Virtual Cluster Configuration",
+			"Could not update WarpStream Virtual Cluster Configuration, unexpected error: "+err.Error(),
+		)
+		return
+	}
+
+	// Retrieve updated virtual cluster configuration
+	cfg, err = r.client.GetConfiguration(cluster)
+	if err != nil {
+		respDiags.AddError(
+			"Unable to Read configuration of Virtual Cluster with ID="+cluster.ID,
+			err.Error(),
+		)
+		return
+	}
+
+	cfgState := virtualClusterConfigurationModel{
+		AclsEnabled: types.BoolValue(cfg.AclsEnabled),
+	}
+
+	// Set configuration state
+	diags = state.SetAttribute(ctx, path.Root("configuration"), cfgState)
+	respDiags.Append(diags...)
+	if respDiags.HasError() {
+		return
+	}
 }

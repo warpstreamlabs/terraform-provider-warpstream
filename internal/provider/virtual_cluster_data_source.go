@@ -57,6 +57,14 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 			"default": schema.BoolAttribute{
 				Optional: true,
 			},
+			"configuration": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"enable_acls": schema.BoolAttribute{
+						Computed: true,
+					},
+				},
+				Computed: true,
+			},
 		},
 	}
 }
@@ -110,6 +118,26 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 
 	// Set state
 	diags = resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Read virtual cluster configuration
+	cfg, err := d.client.GetConfiguration(*vc)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read configuration of Virtual Cluster with ID="+vc.ID,
+			err.Error(),
+		)
+	}
+
+	cfgState := virtualClusterConfigurationModel{
+		AclsEnabled: types.BoolValue(cfg.AclsEnabled),
+	}
+
+	// Set configuration state
+	diags = resp.State.SetAttribute(ctx, path.Root("configuration"), cfgState)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
