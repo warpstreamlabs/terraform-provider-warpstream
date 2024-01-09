@@ -17,3 +17,7 @@ type VirtualClusterCredentials struct {
 	AgentPoolID   string `json:"agent_pool_id"`
 	AgentPoolName string `json:"agent_pool_name"`
 }
+
+type VirtualClusterConfiguration struct {
+	AclsEnabled bool `json:"are_acls_enabled"`
+}

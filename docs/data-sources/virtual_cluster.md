@@ -42,5 +42,13 @@ output "vc_default_id" {
 
 - `agent_pool_id` (String)
 - `agent_pool_name` (String)
+- `configuration` (Attributes) (see [below for nested schema](#nestedatt--configuration))
 - `created_at` (String)
 - `id` (String) The ID of this resource.
+
+<a id="nestedatt--configuration"></a>
+### Nested Schema for `configuration`
+
+Read-Only:
+
+- `enable_acls` (Boolean)
