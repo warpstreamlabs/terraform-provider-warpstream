@@ -1,8 +1,10 @@
 package provider
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
@@ -12,9 +14,7 @@ func TestAccVirtualClusterResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Read testing
 			{
-				Config: providerConfig + `resource "warpstream_virtual_cluster" "test" {
-					name = "vcn_test_acc"
-				}`,
+				Config: testAccVirtualClusterResourceConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "id"),
 					resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_id"),
@@ -25,4 +25,15 @@ func TestAccVirtualClusterResource(t *testing.T) {
 			},
 		},
 	})
+}
+
+func testAccVirtualClusterResourceConfig() string {
+	// We add a random suffix at the end of the virtual cluster name
+	// in order to prevent name collision when acceptance tests run
+	// in parallel for different terraform version.
+	suffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+	name = "vcn_test_acc_%s"
+}`, suffix)
 }
