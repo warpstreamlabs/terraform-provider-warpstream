@@ -28,16 +28,6 @@ type virtualClusterDataSource struct {
 	client *api.Client
 }
 
-// virtualClusterModel maps virtual cluster schema data.
-type virtualClusterModel struct {
-	ID            types.String `tfsdk:"id"`
-	Name          types.String `tfsdk:"name"`
-	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
-	AgentPoolName types.String `tfsdk:"agent_pool_name"`
-	CreatedAt     types.String `tfsdk:"created_at"`
-	Default       types.Bool   `tfsdk:"default"`
-}
-
 // Metadata returns the data source type name.
 func (d *virtualClusterDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
