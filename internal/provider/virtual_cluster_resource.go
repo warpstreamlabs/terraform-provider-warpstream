@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -65,6 +66,9 @@ This resource allows you to create, update and delete virtual clusters.
 			"id": schema.StringAttribute{
 				Description: "Virtual Cluster ID.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Description: "Virtual Cluster Name.",
@@ -76,17 +80,29 @@ This resource allows you to create, update and delete virtual clusters.
 			"agent_pool_id": schema.StringAttribute{
 				Description: "Agent Pool ID.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"agent_pool_name": schema.StringAttribute{
 				Description: "Agent Pool Name.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Virtual Cluster Creation Timestamp.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"default": schema.BoolAttribute{
 				Computed: true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -123,7 +139,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// Map response body to schema and populate Computed attribute values
-	plan = virtualClusterModel{
+	state := virtualClusterModel{
 		ID:            types.StringValue(cluster.ID),
 		Name:          types.StringValue(cluster.Name),
 		AgentPoolID:   types.StringValue(cluster.AgentPoolID),
@@ -133,7 +149,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// Set state to fully populated data
-	diags = resp.State.Set(ctx, plan)
+	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -159,14 +175,12 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	// Overwrite Virtual Cluster with refreshed state
-	state = virtualClusterModel{
-		ID:            types.StringValue(cluster.ID),
-		Name:          types.StringValue(cluster.Name),
-		AgentPoolID:   types.StringValue(cluster.AgentPoolID),
-		AgentPoolName: types.StringValue(cluster.AgentPoolName),
-		CreatedAt:     types.StringValue(cluster.CreatedAt),
-		Default:       types.BoolValue(cluster.Name == "vcn_default"),
-	}
+	state.ID = types.StringValue(cluster.ID)
+	state.Name = types.StringValue(cluster.Name)
+	state.AgentPoolID = types.StringValue(cluster.AgentPoolID)
+	state.AgentPoolName = types.StringValue(cluster.AgentPoolName)
+	state.CreatedAt = types.StringValue(cluster.CreatedAt)
+	state.Default = types.BoolValue(cluster.Name == "vcn_default")
 
 	// Set state
 	diags = resp.State.Set(ctx, &state)
