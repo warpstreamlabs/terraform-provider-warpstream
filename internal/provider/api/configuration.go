@@ -44,10 +44,7 @@ func (c *Client) GetConfiguration(vc VirtualCluster) (*VirtualClusterConfigurati
 		return nil, err
 	}
 
-	cfg := VirtualClusterConfiguration{
-		AclsEnabled: res.Configuration.AclsEnabled,
-	}
-	return &cfg, nil
+	return &res.Configuration, nil
 }
 
 // UpdateConfiguration - Update virtual cluster configuration.
