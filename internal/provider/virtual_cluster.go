@@ -25,3 +25,9 @@ func (m virtualClusterConfigurationModel) AttributeTypes() map[string]attr.Type 
 		"enable_acls": types.BoolType,
 	}
 }
+
+func (m virtualClusterConfigurationModel) DefaultObject() map[string]attr.Value {
+	return map[string]attr.Value{
+		"enable_acls": types.BoolValue(false),
+	}
+}

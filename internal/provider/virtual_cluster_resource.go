@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -119,6 +120,11 @@ This resource allows you to create, update and delete virtual clusters.
 				Description: "Virtual Cluster Configuration.",
 				Optional:    true,
 				Computed:    true,
+				Default: objectdefault.StaticValue(
+					types.ObjectValueMust(
+						virtualClusterConfigurationModel{}.AttributeTypes(),
+						virtualClusterConfigurationModel{}.DefaultObject(),
+					)),
 				PlanModifiers: []planmodifier.Object{
 					objectplanmodifier.UseStateForUnknown(),
 				},
