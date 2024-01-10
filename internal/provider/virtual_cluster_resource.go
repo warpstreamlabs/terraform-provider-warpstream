@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -117,6 +118,10 @@ This resource allows you to create, update and delete virtual clusters.
 				},
 				Description: "Virtual Cluster Configuration.",
 				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -170,16 +175,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	// Skip configuration if not specified
-	if plan.Configuration.IsNull() {
-		tflog.Info(ctx, "No virtual cluster configuration provided")
-		return
-	}
-
 	r.applyConfiguration(ctx, state, &resp.State, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -215,30 +211,7 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
-	// Skip configuration if null
-	if state.Configuration.IsNull() {
-		return
-	}
-
-	// Get virtual cluster configuration
-	cfg, err := r.client.GetConfiguration(*cluster)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Unable to Read configuration of Virtual Cluster with ID="+cluster.ID,
-			err.Error(),
-		)
-	}
-
-	cfgState := virtualClusterConfigurationModel{
-		AclsEnabled: types.BoolValue(cfg.AclsEnabled),
-	}
-
-	// Set configuration state
-	diags = resp.State.SetAttribute(ctx, path.Root("configuration"), cfgState)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	r.readConfiguration(ctx, *cluster, &resp.State, &resp.Diagnostics)
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
@@ -253,9 +226,6 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 
 	// Update virtual cluster configuration
 	r.applyConfiguration(ctx, plan, &resp.State, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
@@ -292,24 +262,7 @@ func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.I
 	}
 
 	// Fetch virtual cluster configuration
-	cfg, err := r.client.GetConfiguration(data.cluster())
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Unable to Read configuration of Virtual Cluster",
-			err.Error(),
-		)
-	}
-
-	cfgState := virtualClusterConfigurationModel{
-		AclsEnabled: types.BoolValue(cfg.AclsEnabled),
-	}
-
-	// Set configuration state
-	diags = resp.State.SetAttribute(ctx, path.Root("configuration"), cfgState)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	r.readConfiguration(ctx, data.cluster(), &resp.State, &resp.Diagnostics)
 }
 
 func (m virtualClusterModel) cluster() api.VirtualCluster {
@@ -322,7 +275,35 @@ func (m virtualClusterModel) cluster() api.VirtualCluster {
 	}
 }
 
+func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {
+	// Get virtual cluster configuration
+	cfg, err := r.client.GetConfiguration(cluster)
+	if err != nil {
+		respDiags.AddError(
+			"Unable to Read configuration of Virtual Cluster with ID="+cluster.ID,
+			err.Error(),
+		)
+	}
+
+	cfgState := virtualClusterConfigurationModel{
+		AclsEnabled: types.BoolValue(cfg.AclsEnabled),
+	}
+
+	// Set configuration state
+	diags := state.SetAttribute(ctx, path.Root("configuration"), cfgState)
+	respDiags.Append(diags...)
+}
+
 func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan virtualClusterModel, state *tfsdk.State, respDiags *diag.Diagnostics) {
+	cluster := plan.cluster()
+
+	// If configuration plan is empty, just retrieve it from API
+	if plan.Configuration.IsNull() {
+		tflog.Info(ctx, "No virtual cluster configuration provided")
+		r.readConfiguration(ctx, cluster, state, respDiags)
+		return
+	}
+
 	// Retrieve configuration values from plan
 	var cfgPlan virtualClusterConfigurationModel
 	diags := plan.Configuration.As(ctx, &cfgPlan, basetypes.ObjectAsOptions{})
@@ -332,9 +313,6 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan vi
 	}
 
 	// Update virtual cluster configuration
-	cluster := api.VirtualCluster{
-		ID: plan.ID.ValueString(),
-	}
 	cfg := &api.VirtualClusterConfiguration{
 		AclsEnabled: cfgPlan.AclsEnabled.ValueBool(),
 	}
@@ -348,23 +326,5 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan vi
 	}
 
 	// Retrieve updated virtual cluster configuration
-	cfg, err = r.client.GetConfiguration(cluster)
-	if err != nil {
-		respDiags.AddError(
-			"Unable to Read configuration of Virtual Cluster with ID="+cluster.ID,
-			err.Error(),
-		)
-		return
-	}
-
-	cfgState := virtualClusterConfigurationModel{
-		AclsEnabled: types.BoolValue(cfg.AclsEnabled),
-	}
-
-	// Set configuration state
-	diags = state.SetAttribute(ctx, path.Root("configuration"), cfgState)
-	respDiags.Append(diags...)
-	if respDiags.HasError() {
-		return
-	}
+	r.readConfiguration(ctx, cluster, state, respDiags)
 }
