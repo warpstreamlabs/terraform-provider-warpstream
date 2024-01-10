@@ -113,7 +113,7 @@ This resource allows you to create, update and delete virtual clusters.
 			"configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"enable_acls": schema.BoolAttribute{
-						Description: "Enable ACLs. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)",
+						Description: "Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)",
 						Optional:    true,
 					},
 				},

@@ -49,7 +49,7 @@ resource "warpstream_virtual_cluster" "test_with_acls" {
 
 Optional:
 
-- `enable_acls` (Boolean) Enable ACLs. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)
+- `enable_acls` (Boolean) Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)
 
 ## Import
 
