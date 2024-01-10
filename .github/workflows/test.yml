@@ -77,6 +77,7 @@ jobs:
           terraform_wrapper: false
       - run: go mod download
       - env:
+          TF_LOG: "INFO"
           TF_ACC: "1"
           WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_API_KEY }}
         run: go test -v -cover ./internal/provider/
