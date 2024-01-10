@@ -290,7 +290,7 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 			err.Error(),
 		)
 	}
-	tflog.Info(ctx, fmt.Sprintf("Configuration: %+v", *cfg))
+	tflog.Debug(ctx, fmt.Sprintf("Configuration: %+v", *cfg))
 
 	cfgState := virtualClusterConfigurationModel{
 		AclsEnabled: types.BoolValue(cfg.AclsEnabled),
