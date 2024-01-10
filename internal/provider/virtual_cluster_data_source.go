@@ -28,16 +28,6 @@ type virtualClusterDataSource struct {
 	client *api.Client
 }
 
-// virtualClusterModel maps virtual cluster schema data.
-type virtualClusterModel struct {
-	ID            types.String `tfsdk:"id"`
-	Name          types.String `tfsdk:"name"`
-	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
-	AgentPoolName types.String `tfsdk:"agent_pool_name"`
-	CreatedAt     types.String `tfsdk:"created_at"`
-	Default       types.Bool   `tfsdk:"default"`
-}
-
 // Metadata returns the data source type name.
 func (d *virtualClusterDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
@@ -66,6 +56,14 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 			},
 			"default": schema.BoolAttribute{
 				Optional: true,
+			},
+			"configuration": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"enable_acls": schema.BoolAttribute{
+						Computed: true,
+					},
+				},
+				Computed: true,
 			},
 		},
 	}
@@ -120,6 +118,26 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 
 	// Set state
 	diags = resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Read virtual cluster configuration
+	cfg, err := d.client.GetConfiguration(*vc)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read configuration of Virtual Cluster with ID="+vc.ID,
+			err.Error(),
+		)
+	}
+
+	cfgState := virtualClusterConfigurationModel{
+		AclsEnabled: types.BoolValue(cfg.AclsEnabled),
+	}
+
+	// Set configuration state
+	diags = resp.State.SetAttribute(ctx, path.Root("configuration"), cfgState)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
