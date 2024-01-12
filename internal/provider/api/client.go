@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -61,6 +62,10 @@ func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error)
 
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status: %d, body: %s", res.StatusCode, body)
+	}
+
+	if strings.Contains(string(body), "internal server error") {
+		return nil, fmt.Errorf("status: 500, body: internal server error")
 	}
 
 	return body, err
