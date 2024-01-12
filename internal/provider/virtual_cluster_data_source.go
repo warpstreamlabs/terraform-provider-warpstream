@@ -133,6 +133,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 			"Unable to Read configuration of Virtual Cluster with ID="+vc.ID,
 			err.Error(),
 		)
+		return
 	}
 
 	cfgState := virtualClusterConfigurationModel{
@@ -159,7 +160,6 @@ func (d *virtualClusterDataSource) Configure(_ context.Context, req datasource.C
 			"Unexpected Data Source Configure Type",
 			fmt.Sprintf("Expected *api.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
-
 		return
 	}
 
