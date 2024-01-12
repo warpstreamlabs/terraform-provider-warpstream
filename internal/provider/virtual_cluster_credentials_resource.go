@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -40,6 +41,7 @@ type virtualClusterCredentialsModel struct {
 	CreatedAt        types.String `tfsdk:"created_at"`
 	AgentPoolID      types.String `tfsdk:"agent_pool"`
 	VirtualClusterID types.String `tfsdk:"virtual_cluster"`
+	ClusterSuperuser types.Bool   `tfsdk:"cluster_superuser"`
 }
 
 // Configure adds the provider configured client to the data source.
@@ -118,6 +120,12 @@ This resource allows you to create and delete virtual cluster credentials.
 				Computed:    true,
 				Sensitive:   true,
 			},
+			"cluster_superuser": schema.BoolAttribute{
+				Description: "Whether the user is cluster superuser.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
+			},
 		},
 	}
 }
@@ -144,7 +152,7 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 	}
 
 	// Create new virtual cluster credentials
-	c, err := r.client.CreateCredentials(plan.Name.ValueString(), *cluster)
+	c, err := r.client.CreateCredentials(plan.Name.ValueString(), plan.ClusterSuperuser.ValueBool(), *cluster)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Virtual Cluster Credentials",
@@ -162,6 +170,7 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 		CreatedAt:        types.StringValue(c.CreatedAt),
 		UserName:         types.StringValue(c.UserName),
 		Password:         types.StringValue(c.Password),
+		ClusterSuperuser: types.BoolValue(c.ClusterSuperuser),
 	}
 
 	// Set state to fully populated data
@@ -219,6 +228,7 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 		AgentPoolID:      types.StringValue(c.AgentPoolID),
 		CreatedAt:        types.StringValue(c.CreatedAt),
 		VirtualClusterID: types.StringValue(cluster.ID),
+		ClusterSuperuser: types.BoolValue(c.ClusterSuperuser),
 	}
 
 	// Set state
