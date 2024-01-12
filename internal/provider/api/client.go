@@ -3,7 +3,9 @@ package api
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/http/httputil"
 	"strings"
 	"time"
 )
@@ -40,6 +42,12 @@ func NewClient(host string, token *string) (*Client, error) {
 }
 
 func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error) {
+	d, err := httputil.DumpRequest(req, true)
+	if err != nil {
+		return nil, fmt.Errorf("internal client error: %s", err)
+	}
+	log.Printf("%q\n", d)
+
 	token := c.Token
 
 	if authToken != nil {
@@ -59,6 +67,7 @@ func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("%q\n", body)
 
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status: %d, body: %s", res.StatusCode, body)
