@@ -78,7 +78,6 @@ func (d *accountDataSource) Configure(_ context.Context, req datasource.Configur
 			"Unexpected Data Source Configure Type",
 			fmt.Sprintf("Expected *api.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
-
 		return
 	}
 

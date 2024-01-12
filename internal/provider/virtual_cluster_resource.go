@@ -298,6 +298,7 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 			"Unable to Read configuration of Virtual Cluster with ID="+cluster.ID,
 			err.Error(),
 		)
+		return
 	}
 	tflog.Debug(ctx, fmt.Sprintf("Configuration: %+v", *cfg))
 
