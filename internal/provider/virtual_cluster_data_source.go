@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
 
@@ -106,6 +107,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		)
 		return
 	}
+	tflog.Debug(ctx, fmt.Sprintf("Virtual Cluster: %+v", *vc))
 
 	// Map response body to model
 	state := virtualClusterModel{
@@ -114,6 +116,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		AgentPoolID:   types.StringValue(vc.AgentPoolID),
 		AgentPoolName: types.StringValue(vc.AgentPoolName),
 		CreatedAt:     types.StringValue(vc.CreatedAt),
+		Configuration: data.Configuration,
 	}
 
 	// Set state
