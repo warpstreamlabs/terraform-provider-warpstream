@@ -86,8 +86,8 @@ github.com/hashicorp/terraform-json v0.18.0 h1:pCjgJEqqDESv4y0Tzdqfxr/edOIGkjs8k
 github.com/hashicorp/terraform-json v0.18.0/go.mod h1:qdeBs11ovMzo5puhrRibdD6d2Dq6TyE/28JiU4tIQxk=
 github.com/hashicorp/terraform-plugin-docs v0.16.0 h1:UmxFr3AScl6Wged84jndJIfFccGyBZn52KtMNsS12dI=
 github.com/hashicorp/terraform-plugin-docs v0.16.0/go.mod h1:M3ZrlKBJAbPMtNOPwHicGi1c+hZUh7/g0ifT/z7TVfA=
-github.com/hashicorp/terraform-plugin-framework v1.4.2 h1:P7a7VP1GZbjc4rv921Xy5OckzhoiO3ig6SGxwelD2sI=
-github.com/hashicorp/terraform-plugin-framework v1.4.2/go.mod h1:GWl3InPFZi2wVQmdVnINPKys09s9mLmTZr95/ngLnbY=
+github.com/hashicorp/terraform-plugin-framework v1.5.0 h1:8kcvqJs/x6QyOFSdeAyEgsenVOUeC/IyKpi2ul4fjTg=
+github.com/hashicorp/terraform-plugin-framework v1.5.0/go.mod h1:6waavirukIlFpVpthbGd2PUNYaFedB0RwW3MDzJ/rtc=
 github.com/hashicorp/terraform-plugin-framework-validators v0.12.0 h1:HOjBuMbOEzl7snOdOoUfE2Jgeto6JOjLVQ39Ls2nksc=
 github.com/hashicorp/terraform-plugin-framework-validators v0.12.0/go.mod h1:jfHGE/gzjxYz6XoUwi/aYiiKrJDeutQNUtGQXkaHklg=
 github.com/hashicorp/terraform-plugin-go v0.20.0 h1:oqvoUlL+2EUbKNsJbIt3zqqZ7wi6lzn4ufkn/UA51xQ=
@@ -230,6 +230,7 @@ golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuX
 golang.org/x/term v0.2.0/go.mod h1:TVmDHMZPmdnySmBfhjOoOdhjzdE1h4u1VwSiw2l1Nuc=
 golang.org/x/term v0.5.0/go.mod h1:jMB1sMXY+tzblOD4FWmEbocvup2/aLOaQEp7JmGp78k=
 golang.org/x/term v0.6.0/go.mod h1:m6U89DPEgQRMq3DNkDClhWw02AUbt2daBVO4cn4Hv9U=
+golang.org/x/term v0.15.0 h1:y/Oo/a/q3IXu26lQgl04j/gjuBDOBlx7X6Om1j2CPW4=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/text v0.3.2/go.mod h1:bEr9sfX3Q8Zfm5fL9x+3itogRgK3+ptLWKqgva+5dAk=
 golang.org/x/text v0.3.3/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
