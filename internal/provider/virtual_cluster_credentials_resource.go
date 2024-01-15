@@ -171,7 +171,7 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 		Name:             types.StringValue(c.Name),
 		AgentPoolID:      types.StringValue(c.AgentPoolID),
 		VirtualClusterID: types.StringValue(cluster.ID),
-		CreatedAt:        types.StringValue(c.CreatedAt),
+		CreatedAt:        types.StringValue(c.CreatedAt), // null
 		UserName:         types.StringValue(c.UserName),
 		Password:         types.StringValue(c.Password),
 		ClusterSuperuser: types.BoolValue(c.ClusterSuperuser),

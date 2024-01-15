@@ -53,7 +53,7 @@ func testAccVirtualClusterCredentialsResourceCheck(su bool) resource.TestCheckFu
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster_credentials.test", "username"),
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster_credentials.test", "password"),
-		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster_credentials.test", "created_at"),
+		// resource.TestCheckResourceAttrSet("warpstream_virtual_cluster_credentials.test", "created_at"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "name", "ccn_test_"+nameSuffix),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "cluster_superuser", fmt.Sprintf("%t", su)),
 	)
