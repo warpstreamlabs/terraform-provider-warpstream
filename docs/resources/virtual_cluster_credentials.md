@@ -45,7 +45,7 @@ output "vcc_test_password" {
 
 ### Optional
 
-- `cluster_superuser` (Boolean) Whether the user is cluster superuser.
+- `cluster_superuser` (Boolean) Whether the user is cluster superuser. If `true`, the credentials will be created with superuser privileges which enables ACL management via the Kafka Admin APIs. If `false`, and cluster ACLs are enabled, and no `ALLOW` ACLs are set, then these credentials will not be able to access the cluster.
 
 ### Read-Only
 

@@ -122,7 +122,7 @@ This resource allows you to create and delete virtual cluster credentials.
 				Sensitive:   true,
 			},
 			"cluster_superuser": schema.BoolAttribute{
-				Description: "Whether the user is cluster superuser.",
+				Description: "Whether the user is cluster superuser. If `true`, the credentials will be created with superuser privileges which enables ACL management via the Kafka Admin APIs. If `false`, and cluster ACLs are enabled, and no `ALLOW` ACLs are set, then these credentials will not be able to access the cluster.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
