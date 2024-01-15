@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 )
 
 const (
@@ -20,6 +21,13 @@ provider "warpstream" {
   # token    = "${$WARPSTREAM_API_KEY}"
 }
 `
+)
+
+var (
+	// nameSuffix is a random string that we append to resource names
+	// in order to prevent name collisions when acceptance tests run
+	// in parallel for different terraform versions.
+	nameSuffix = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 )
 
 // testAccProtoV6ProviderFactories are used to instantiate a provider during
