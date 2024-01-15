@@ -3,11 +3,16 @@ package provider
 import (
 	"context"
 	"fmt"
+	"regexp"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
@@ -37,6 +42,7 @@ type virtualClusterCredentialsModel struct {
 	CreatedAt        types.String `tfsdk:"created_at"`
 	AgentPoolID      types.String `tfsdk:"agent_pool"`
 	VirtualClusterID types.String `tfsdk:"virtual_cluster"`
+	ClusterSuperuser types.Bool   `tfsdk:"cluster_superuser"`
 }
 
 // Configure adds the provider configured client to the data source.
@@ -81,6 +87,12 @@ This resource allows you to create and delete virtual cluster credentials.
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						regexp.MustCompile(`^ccn_`),
+						"must start with 'ccn_' prefix",
+					),
+				},
 			},
 			"agent_pool": schema.StringAttribute{
 				Description: "Agent Pool ID.",
@@ -109,6 +121,15 @@ This resource allows you to create and delete virtual cluster credentials.
 				Computed:    true,
 				Sensitive:   true,
 			},
+			"cluster_superuser": schema.BoolAttribute{
+				Description: "Whether the user is cluster superuser. If `true`, the credentials will be created with superuser privileges which enables ACL management via the Kafka Admin APIs. If `false`, and cluster ACLs are enabled, and no `ALLOW` ACLs are set, then these credentials will not be able to access the cluster.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.RequiresReplace(),
+				},
+			},
 		},
 	}
 }
@@ -135,7 +156,7 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 	}
 
 	// Create new virtual cluster credentials
-	c, err := r.client.CreateCredentials(plan.Name.ValueString(), *cluster)
+	c, err := r.client.CreateCredentials(plan.Name.ValueString(), plan.ClusterSuperuser.ValueBool(), *cluster)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Virtual Cluster Credentials",
@@ -150,9 +171,10 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 		Name:             types.StringValue(c.Name),
 		AgentPoolID:      types.StringValue(c.AgentPoolID),
 		VirtualClusterID: types.StringValue(cluster.ID),
-		CreatedAt:        types.StringValue(c.CreatedAt),
+		CreatedAt:        types.StringValue(c.CreatedAt), // null
 		UserName:         types.StringValue(c.UserName),
 		Password:         types.StringValue(c.Password),
+		ClusterSuperuser: types.BoolValue(c.ClusterSuperuser),
 	}
 
 	// Set state to fully populated data
@@ -210,6 +232,7 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 		AgentPoolID:      types.StringValue(c.AgentPoolID),
 		CreatedAt:        types.StringValue(c.CreatedAt),
 		VirtualClusterID: types.StringValue(cluster.ID),
+		ClusterSuperuser: types.BoolValue(c.ClusterSuperuser),
 	}
 
 	// Set state
