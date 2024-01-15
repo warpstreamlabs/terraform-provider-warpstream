@@ -43,6 +43,10 @@ output "vcc_test_password" {
 - `name` (String) Virtual Cluster Credentials Name.
 - `virtual_cluster` (String) Virtual Cluster ID.
 
+### Optional
+
+- `cluster_superuser` (Boolean) Whether the user is cluster superuser.
+
 ### Read-Only
 
 - `created_at` (String) Virtual Cluster Credentials Creation Timestamp.
