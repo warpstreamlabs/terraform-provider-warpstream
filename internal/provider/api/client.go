@@ -8,6 +8,8 @@ import (
 	"net/http/httputil"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 // HostURL - Default Warpstream URL.
@@ -16,14 +18,17 @@ const HostURL string = "https://api.prod.us-east-1.warpstream.com/api/v1"
 // Client.
 type Client struct {
 	HostURL    string
-	HTTPClient *http.Client
+	HTTPClient *retryablehttp.Client
 	Token      string
 }
 
 // NewClient.
 func NewClient(host string, token *string) (*Client, error) {
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = 2
+	retryClient.StandardClient().Timeout = 10 * time.Second
 	c := Client{
-		HTTPClient: &http.Client{Timeout: 10 * time.Second},
+		HTTPClient: retryClient,
 		// Default Warpstream URL
 		HostURL: HostURL,
 	}
@@ -57,7 +62,12 @@ func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error)
 	req.Header.Set("warpstream-api-key", token)
 	req.Header.Set("Content-Type", "application/json")
 
-	res, err := c.HTTPClient.Do(req)
+	retryReq, err := retryablehttp.FromRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := c.HTTPClient.Do(retryReq)
 	if err != nil {
 		return nil, err
 	}
