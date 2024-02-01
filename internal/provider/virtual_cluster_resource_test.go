@@ -54,7 +54,8 @@ func testAccVirtualClusterResourceCheck(acls bool) resource.TestCheckFunc {
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "id"),
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_id"),
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "created_at"),
-		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "agent_pool_name", "apn_test_acc_"+nameSuffix),
+		// Note: agent_pool_name is now equal to "apn_test_acc_"+nameSuffix + randomSuffix
+		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_name"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "default", "false"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acls", fmt.Sprintf("%t", acls)),
 	)
