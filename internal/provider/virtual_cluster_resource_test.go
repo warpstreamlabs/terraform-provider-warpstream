@@ -13,8 +13,8 @@ func TestAccVirtualClusterResource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVirtualClusterResource_withConfiguration(false),
-				Check:  testAccVirtualClusterResourceCheck(false),
+				Config: testAccVirtualClusterResource_withPartialConfiguration(false),
+				Check:  testAccVirtualClusterResourceCheck(false, true, 1),
 			},
 			{
 				Config: testAccVirtualClusterResource(),
@@ -25,8 +25,8 @@ func TestAccVirtualClusterResource(t *testing.T) {
 				},
 			},
 			{
-				Config: testAccVirtualClusterResource_withConfiguration(true),
-				Check:  testAccVirtualClusterResourceCheck(true),
+				Config: testAccVirtualClusterResource_withConfiguration(true, false, 2),
+				Check:  testAccVirtualClusterResourceCheck(true, false, 2),
 			},
 		},
 	})
@@ -35,21 +35,33 @@ func TestAccVirtualClusterResource(t *testing.T) {
 func testAccVirtualClusterResource() string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
-	name = "vcn_test_acc_%s"
+  name = "vcn_test_acc_%s"
 }`, nameSuffix)
 }
 
-func testAccVirtualClusterResource_withConfiguration(acls bool) string {
+func testAccVirtualClusterResource_withPartialConfiguration(acls bool) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
-	name = "vcn_test_acc_%s"
-	configuration = {
-		enable_acls = %t
-	}
+  name = "vcn_test_acc_%s"
+  configuration = {
+    enable_acls = %t
+  }
 }`, nameSuffix, acls)
 }
 
-func testAccVirtualClusterResourceCheck(acls bool) resource.TestCheckFunc {
+func testAccVirtualClusterResource_withConfiguration(acls bool, autoTopic bool, numParts int64) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  configuration = {
+    enable_acls = %t
+    default_num_partitions = %d
+    auto_create_topic = %t
+  }
+}`, nameSuffix, acls, numParts, autoTopic)
+}
+
+func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int64) resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "id"),
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_id"),
@@ -58,5 +70,7 @@ func testAccVirtualClusterResourceCheck(acls bool) resource.TestCheckFunc {
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_name"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "default", "false"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acls", fmt.Sprintf("%t", acls)),
+		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.auto_create_topic", fmt.Sprintf("%t", autoTopic)),
+		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_num_partitions", fmt.Sprintf("%d", numParts)),
 	)
 }
