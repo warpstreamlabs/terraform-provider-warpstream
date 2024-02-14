@@ -51,4 +51,6 @@ output "vc_default_id" {
 
 Read-Only:
 
+- `auto_create_topic` (Boolean)
+- `default_num_partitions` (Number)
 - `enable_acls` (Boolean)

@@ -10,7 +10,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -121,9 +123,23 @@ This resource allows you to create, update and delete virtual clusters.
 			},
 			"configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
+					"auto_create_topic": schema.BoolAttribute{
+						Description: "Enable topic autocreation feature, defaults to `true`.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(true),
+					},
+					"default_num_partitions": schema.Int64Attribute{
+						Description: "Number of partitions created by default.",
+						Optional:    true,
+						Computed:    true,
+						Default:     int64default.StaticInt64(1),
+					},
 					"enable_acls": schema.BoolAttribute{
 						Description: "Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)",
 						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
 					},
 				},
 				Description: "Virtual Cluster Configuration.",
@@ -303,7 +319,9 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	tflog.Debug(ctx, fmt.Sprintf("Configuration: %+v", *cfg))
 
 	cfgState := virtualClusterConfigurationModel{
-		AclsEnabled: types.BoolValue(cfg.AclsEnabled),
+		AclsEnabled:          types.BoolValue(cfg.AclsEnabled),
+		AutoCreateTopic:      types.BoolValue(cfg.AutoCreateTopic),
+		DefaultNumPartitions: types.Int64Value(cfg.DefaultNumPartitions),
 	}
 
 	// Set configuration state
@@ -331,7 +349,9 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan vi
 
 	// Update virtual cluster configuration
 	cfg := &api.VirtualClusterConfiguration{
-		AclsEnabled: cfgPlan.AclsEnabled.ValueBool(),
+		AclsEnabled:          cfgPlan.AclsEnabled.ValueBool(),
+		AutoCreateTopic:      cfgPlan.AutoCreateTopic.ValueBool(),
+		DefaultNumPartitions: cfgPlan.DefaultNumPartitions.ValueInt64(),
 	}
 	err := r.client.UpdateConfiguration(*cfg, cluster)
 	if err != nil {

@@ -17,17 +17,23 @@ type virtualClusterModel struct {
 }
 
 type virtualClusterConfigurationModel struct {
-	AclsEnabled types.Bool `tfsdk:"enable_acls"`
+	AclsEnabled          types.Bool  `tfsdk:"enable_acls"`
+	AutoCreateTopic      types.Bool  `tfsdk:"auto_create_topic"`
+	DefaultNumPartitions types.Int64 `tfsdk:"default_num_partitions"`
 }
 
 func (m virtualClusterConfigurationModel) AttributeTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"enable_acls": types.BoolType,
+		"auto_create_topic":      types.BoolType,
+		"default_num_partitions": types.Int64Type,
+		"enable_acls":            types.BoolType,
 	}
 }
 
 func (m virtualClusterConfigurationModel) DefaultObject() map[string]attr.Value {
 	return map[string]attr.Value{
-		"enable_acls": types.BoolValue(false),
+		"auto_create_topic":      types.BoolValue(true),
+		"default_num_partitions": types.Int64Value(1),
+		"enable_acls":            types.BoolValue(false),
 	}
 }

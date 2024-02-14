@@ -60,6 +60,12 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 			},
 			"configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
+					"auto_create_topic": schema.BoolAttribute{
+						Computed: true,
+					},
+					"default_num_partitions": schema.Int64Attribute{
+						Computed: true,
+					},
 					"enable_acls": schema.BoolAttribute{
 						Computed: true,
 					},
