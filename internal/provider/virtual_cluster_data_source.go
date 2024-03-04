@@ -46,6 +46,9 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 				Computed: true,
 				Optional: true,
 			},
+			"type": schema.StringAttribute{
+				Computed: true,
+			},
 			"agent_pool_id": schema.StringAttribute{
 				Computed: true,
 			},
@@ -119,6 +122,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	state := virtualClusterModel{
 		ID:            types.StringValue(vc.ID),
 		Name:          types.StringValue(vc.Name),
+		Type:          types.StringValue(vc.Type),
 		AgentPoolID:   types.StringValue(vc.AgentPoolID),
 		AgentPoolName: types.StringValue(vc.AgentPoolName),
 		CreatedAt:     types.StringValue(vc.CreatedAt),

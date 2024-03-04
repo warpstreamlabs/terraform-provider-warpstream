@@ -29,6 +29,7 @@ type VirtualClusterDescribeRequest struct {
 
 type VirtualClusterCreateRequest struct {
 	Name string `json:"virtual_cluster_name"`
+	Type string `json:"virtual_cluster_type,omitempty"`
 }
 
 type VirtualClusterDeleteRequest struct {
@@ -63,8 +64,11 @@ func (c *Client) GetVirtualCluster(id string) (*VirtualCluster, error) {
 }
 
 // CreateVirtualCluster - Create new virtual cluster.
-func (c *Client) CreateVirtualCluster(name string) (*VirtualCluster, error) {
-	payload, err := json.Marshal(VirtualClusterCreateRequest{Name: strings.TrimPrefix(name, "vcn_")})
+func (c *Client) CreateVirtualCluster(name string, type_ string) (*VirtualCluster, error) {
+	payload, err := json.Marshal(VirtualClusterCreateRequest{
+		Name: strings.TrimPrefix(name, "vcn_"),
+		Type: type_,
+	})
 	if err != nil {
 		return nil, err
 	}
