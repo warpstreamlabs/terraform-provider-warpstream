@@ -45,6 +45,7 @@ output "vc_default_id" {
 - `configuration` (Attributes) (see [below for nested schema](#nestedatt--configuration))
 - `created_at` (String)
 - `id` (String) The ID of this resource.
+- `type` (String)
 
 <a id="nestedatt--configuration"></a>
 ### Nested Schema for `configuration`

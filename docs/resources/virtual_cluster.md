@@ -44,6 +44,7 @@ resource "warpstream_virtual_cluster" "test_configuration" {
 ### Optional
 
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
+- `type` (String) Virtual Cluster Type. Valid virtual cluster types are `byoc` and `serverless`. See [Serverless Clusters](https://docs.warpstream.com/warpstream/reference/serverless-clusters).
 
 ### Read-Only
 
