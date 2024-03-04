@@ -35,6 +35,7 @@ type virtualClustersDataSourceModel struct {
 type virtualClustersModel struct {
 	ID            types.String `tfsdk:"id"`
 	Name          types.String `tfsdk:"name"`
+	Type          types.String `tfsdk:"type"`
 	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
 	AgentPoolName types.String `tfsdk:"agent_pool_name"`
 	CreatedAt     types.String `tfsdk:"created_at"`
@@ -57,6 +58,9 @@ func (d *virtualClustersDataSource) Schema(_ context.Context, _ datasource.Schem
 							Computed: true,
 						},
 						"name": schema.StringAttribute{
+							Computed: true,
+						},
+						"type": schema.StringAttribute{
 							Computed: true,
 						},
 						"agent_pool_id": schema.StringAttribute{
@@ -93,6 +97,7 @@ func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.Rea
 		vcnState := virtualClustersModel{
 			ID:            types.StringValue(vcn.ID),
 			Name:          types.StringValue(vcn.Name),
+			Type:          types.StringValue(vcn.Type),
 			AgentPoolID:   types.StringValue(vcn.AgentPoolID),
 			AgentPoolName: types.StringValue(vcn.AgentPoolName),
 			CreatedAt:     types.StringValue(vcn.CreatedAt),
