@@ -99,7 +99,7 @@ This resource allows you to create, update and delete virtual clusters.
 				Description: "Virtual Cluster Type. Valid virtual cluster types are `byoc` and `serverless`. See [Serverless Clusters](https://docs.warpstream.com/warpstream/reference/serverless-clusters).",
 				Computed:    true,
 				Optional:    true,
-				Default:     stringdefault.StaticString("serverless"),
+				Default:     stringdefault.StaticString("byoc"),
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
