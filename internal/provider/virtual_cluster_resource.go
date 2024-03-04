@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -94,6 +95,18 @@ This resource allows you to create, update and delete virtual clusters.
 					),
 				},
 			},
+			"type": schema.StringAttribute{
+				Description: "Virtual Cluster Type. Valid virtual cluster types are `byoc` and `serverless`. See [Serverless Clusters](https://docs.warpstream.com/warpstream/reference/serverless-clusters).",
+				Computed:    true,
+				Optional:    true,
+				Default:     stringdefault.StaticString("serverless"),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf([]string{"byoc", "serverless"}...),
+				},
+			},
 			"agent_pool_id": schema.StringAttribute{
 				Description: "Agent Pool ID.",
 				Computed:    true,
@@ -169,7 +182,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// Create new virtual cluster
-	cluster, err := r.client.CreateVirtualCluster(plan.Name.ValueString())
+	cluster, err := r.client.CreateVirtualCluster(plan.Name.ValueString(), plan.Type.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Virtual Cluster",
@@ -192,6 +205,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	state := virtualClusterModel{
 		ID:            types.StringValue(cluster.ID),
 		Name:          types.StringValue(cluster.Name),
+		Type:          types.StringValue(cluster.Type),
 		AgentPoolID:   types.StringValue(cluster.AgentPoolID),
 		AgentPoolName: types.StringValue(cluster.AgentPoolName),
 		CreatedAt:     types.StringValue(cluster.CreatedAt),
@@ -230,6 +244,7 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 	// Overwrite Virtual Cluster with refreshed state
 	state.ID = types.StringValue(cluster.ID)
 	state.Name = types.StringValue(cluster.Name)
+	state.Type = types.StringValue(cluster.Type)
 	state.AgentPoolID = types.StringValue(cluster.AgentPoolID)
 	state.AgentPoolName = types.StringValue(cluster.AgentPoolName)
 	state.CreatedAt = types.StringValue(cluster.CreatedAt)
@@ -300,6 +315,7 @@ func (m virtualClusterModel) cluster() api.VirtualCluster {
 	return api.VirtualCluster{
 		ID:            m.ID.ValueString(),
 		Name:          m.Name.ValueString(),
+		Type:          m.Type.ValueString(),
 		AgentPoolID:   m.AgentPoolID.ValueString(),
 		AgentPoolName: m.AgentPoolName.ValueString(),
 		CreatedAt:     m.CreatedAt.ValueString(),

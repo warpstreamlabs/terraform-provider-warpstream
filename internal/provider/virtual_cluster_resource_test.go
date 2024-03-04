@@ -39,6 +39,14 @@ resource "warpstream_virtual_cluster" "test" {
 }`, nameSuffix)
 }
 
+func testAccVirtualClusterResource_withType(t string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  type = "%s"
+}`, nameSuffix, t)
+}
+
 func testAccVirtualClusterResource_withPartialConfiguration(acls bool) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
@@ -69,6 +77,7 @@ func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int6
 		// Note: agent_pool_name is now equal to "apn_test_acc_"+nameSuffix + randomSuffix
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_name"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "default", "false"),
+		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "type", "serverless"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acls", fmt.Sprintf("%t", acls)),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.auto_create_topic", fmt.Sprintf("%t", autoTopic)),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_num_partitions", fmt.Sprintf("%d", numParts)),
