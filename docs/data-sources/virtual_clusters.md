@@ -29,3 +29,4 @@ Read-Only:
 - `created_at` (String)
 - `id` (String)
 - `name` (String)
+- `type` (String)
