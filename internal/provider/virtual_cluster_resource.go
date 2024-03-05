@@ -96,7 +96,7 @@ This resource allows you to create, update and delete virtual clusters.
 				},
 			},
 			"type": schema.StringAttribute{
-				Description: "Virtual Cluster Type. Valid virtual cluster types are `byoc` and `serverless`. See [Serverless Clusters](https://docs.warpstream.com/warpstream/reference/serverless-clusters).",
+				Description: "Virtual Cluster Type. Valid virtual cluster types are `byoc` (default) and `serverless`. See [Serverless Clusters](https://docs.warpstream.com/warpstream/reference/serverless-clusters).",
 				Computed:    true,
 				Optional:    true,
 				Default:     stringdefault.StaticString("byoc"),

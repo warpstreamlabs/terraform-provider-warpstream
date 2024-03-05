@@ -17,6 +17,11 @@ resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test"
 }
 
+resource "warpstream_virtual_cluster" "test_serverless" {
+  name = "vcn_test_serverless"
+  type = "serverless"
+}
+
 resource "warpstream_virtual_cluster" "test_with_acls" {
   name = "vcn_test_acls"
   configuration = {
@@ -44,7 +49,7 @@ resource "warpstream_virtual_cluster" "test_configuration" {
 ### Optional
 
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
-- `type` (String) Virtual Cluster Type. Valid virtual cluster types are `byoc` and `serverless`. See [Serverless Clusters](https://docs.warpstream.com/warpstream/reference/serverless-clusters).
+- `type` (String) Virtual Cluster Type. Valid virtual cluster types are `byoc` (default) and `serverless`. See [Serverless Clusters](https://docs.warpstream.com/warpstream/reference/serverless-clusters).
 
 ### Read-Only
 
