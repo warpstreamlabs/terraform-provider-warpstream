@@ -69,6 +69,9 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 					"default_num_partitions": schema.Int64Attribute{
 						Computed: true,
 					},
+					"default_retention_millis": schema.Int64Attribute{
+						Computed: true,
+					},
 					"enable_acls": schema.BoolAttribute{
 						Computed: true,
 					},
@@ -147,7 +150,10 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	}
 
 	cfgState := virtualClusterConfigurationModel{
-		AclsEnabled: types.BoolValue(cfg.AclsEnabled),
+		AclsEnabled:          types.BoolValue(cfg.AclsEnabled),
+		AutoCreateTopic:      types.BoolValue(cfg.AutoCreateTopic),
+		DefaultNumPartitions: types.Int64Value(cfg.DefaultNumPartitions),
+		DefaultRetention:     types.Int64Value(cfg.DefaultRetentionMillis),
 	}
 
 	// Set configuration state

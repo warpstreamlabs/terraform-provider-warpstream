@@ -148,6 +148,12 @@ This resource allows you to create, update and delete virtual clusters.
 						Computed:    true,
 						Default:     int64default.StaticInt64(1),
 					},
+					"default_retention_millis": schema.Int64Attribute{
+						Description: "Default retention for topics that are created automatically using Kafka's topic auto-creation feature.",
+						Optional:    true,
+						Computed:    true,
+						Default:     int64default.StaticInt64(86400000),
+					},
 					"enable_acls": schema.BoolAttribute{
 						Description: "Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)",
 						Optional:    true,
@@ -338,6 +344,7 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 		AclsEnabled:          types.BoolValue(cfg.AclsEnabled),
 		AutoCreateTopic:      types.BoolValue(cfg.AutoCreateTopic),
 		DefaultNumPartitions: types.Int64Value(cfg.DefaultNumPartitions),
+		DefaultRetention:     types.Int64Value(cfg.DefaultRetentionMillis),
 	}
 
 	// Set configuration state
@@ -365,9 +372,10 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan vi
 
 	// Update virtual cluster configuration
 	cfg := &api.VirtualClusterConfiguration{
-		AclsEnabled:          cfgPlan.AclsEnabled.ValueBool(),
-		AutoCreateTopic:      cfgPlan.AutoCreateTopic.ValueBool(),
-		DefaultNumPartitions: cfgPlan.DefaultNumPartitions.ValueInt64(),
+		AclsEnabled:            cfgPlan.AclsEnabled.ValueBool(),
+		AutoCreateTopic:        cfgPlan.AutoCreateTopic.ValueBool(),
+		DefaultNumPartitions:   cfgPlan.DefaultNumPartitions.ValueInt64(),
+		DefaultRetentionMillis: cfgPlan.DefaultRetention.ValueInt64(),
 	}
 	err := r.client.UpdateConfiguration(*cfg, cluster)
 	if err != nil {
