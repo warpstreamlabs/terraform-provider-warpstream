@@ -54,4 +54,5 @@ Read-Only:
 
 - `auto_create_topic` (Boolean)
 - `default_num_partitions` (Number)
+- `default_retention_millis` (Number)
 - `enable_acls` (Boolean)

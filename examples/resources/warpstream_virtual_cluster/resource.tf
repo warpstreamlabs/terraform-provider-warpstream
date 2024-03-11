@@ -17,8 +17,9 @@ resource "warpstream_virtual_cluster" "test_with_acls" {
 resource "warpstream_virtual_cluster" "test_configuration" {
   name = "vcn_test_configuration"
   configuration = {
-    default_num_partitions = 1
-    auto_create_topic      = true
-    enable_acls            = true
+    auto_create_topic        = true
+    default_num_partitions   = 1
+    default_retention_millis = 86400000
+    enable_acls              = true
   }
 }
