@@ -25,7 +25,7 @@ type Client struct {
 // NewClient.
 func NewClient(host string, token *string) (*Client, error) {
 	retryClient := retryablehttp.NewClient()
-	retryClient.RetryMax = 2
+	retryClient.RetryMax = 5
 	retryClient.StandardClient().Timeout = 10 * time.Second
 	c := Client{
 		HTTPClient: retryClient,
