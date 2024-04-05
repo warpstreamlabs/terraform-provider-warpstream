@@ -32,5 +32,7 @@ func testAccVirtualClusterDataSourceCheck(name string) resource.TestCheckFunc {
 		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "created_at"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "agent_pool_name", "apn_"+name),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "type", "byoc"),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.provider", "aws"),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.region", "us-east-1"),
 	)
 }
