@@ -15,6 +15,7 @@ type virtualClusterModel struct {
 	CreatedAt     types.String `tfsdk:"created_at"`
 	Default       types.Bool   `tfsdk:"default"`
 	Configuration types.Object `tfsdk:"configuration"`
+	Cloud         types.Object `tfsdk:"cloud"`
 }
 
 type virtualClusterConfigurationModel struct {
@@ -39,5 +40,24 @@ func (m virtualClusterConfigurationModel) DefaultObject() map[string]attr.Value 
 		"default_num_partitions":   types.Int64Value(1),
 		"default_retention_millis": types.Int64Value(86400000),
 		"enable_acls":              types.BoolValue(false),
+	}
+}
+
+type virtualClusterCloudModel struct {
+	Provider types.String `tfsdk:"provider"`
+	Region   types.String `tfsdk:"region"`
+}
+
+func (m virtualClusterCloudModel) AttributeTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"provider": types.StringType,
+		"region":   types.StringType,
+	}
+}
+
+func (m virtualClusterCloudModel) DefaultObject() map[string]attr.Value {
+	return map[string]attr.Value{
+		"provider": types.StringValue("aws"),
+		"region":   types.StringValue("us-east-1"),
 	}
 }

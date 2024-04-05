@@ -173,6 +173,36 @@ This resource allows you to create, update and delete virtual clusters.
 					objectplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"cloud": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"provider": schema.StringAttribute{
+						Description: "Cloud Provider. Only `aws` is currently supported.",
+						Computed:    true,
+						Optional:    true,
+						Default:     stringdefault.StaticString("aws"),
+						Validators: []validator.String{
+							stringvalidator.OneOf([]string{"aws"}...),
+						},
+					},
+					"region": schema.StringAttribute{
+						Description: "Cloud Region. Defaults to `us-east-1`",
+						Computed:    true,
+						Optional:    true,
+						Default:     stringdefault.StaticString("us-east-1"),
+					},
+				},
+				Description: "Virtual Cluster Cloud Location.",
+				Optional:    true,
+				Computed:    true,
+				Default: objectdefault.StaticValue(
+					types.ObjectValueMust(
+						virtualClusterCloudModel{}.AttributeTypes(),
+						virtualClusterCloudModel{}.DefaultObject(),
+					)),
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.RequiresReplace(),
+				},
+			},
 		},
 	}
 }
@@ -187,8 +217,21 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	var cloudPlan virtualClusterCloudModel
+	diags = plan.Cloud.As(ctx, &cloudPlan, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// Create new virtual cluster
-	cluster, err := r.client.CreateVirtualCluster(plan.Name.ValueString(), plan.Type.ValueString())
+	cluster, err := r.client.CreateVirtualCluster(
+		plan.Name.ValueString(),
+		api.ClusterParameters{
+			Type:   plan.Type.ValueString(),
+			Region: cloudPlan.Region.ValueString(),
+			Cloud:  cloudPlan.Provider.ValueString(),
+		})
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Virtual Cluster",
@@ -217,6 +260,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		CreatedAt:     types.StringValue(cluster.CreatedAt),
 		Default:       types.BoolValue(cluster.Name == "vcn_default"),
 		Configuration: plan.Configuration,
+		Cloud:         plan.Cloud,
 	}
 
 	// Set state to fully populated data
