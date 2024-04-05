@@ -13,8 +13,8 @@ type VirtualCluster struct {
 	AgentPoolID   string `json:"agent_pool_id"`
 	AgentPoolName string `json:"agent_pool_name"`
 	CreatedAt     string `json:"created_at"`
-	Region        string `json:"virtual_cluster_region"`
-	CloudProvider string `json:"virtual_cluster_cloud_provider"`
+	Region        string `json:"region"`
+	CloudProvider string `json:"cloud_provider"`
 }
 
 type VirtualClusterCredentials struct {
