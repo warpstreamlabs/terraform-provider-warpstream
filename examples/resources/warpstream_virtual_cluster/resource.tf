@@ -23,3 +23,11 @@ resource "warpstream_virtual_cluster" "test_configuration" {
     enable_acls              = true
   }
 }
+
+resource "warpstream_virtual_cluster" "test_cloud_region" {
+  name = "vcn_test_cloud_region"
+  cloud = {
+    provider = "aws"
+    region   = "ap-southeast-1"
+  }
+}
