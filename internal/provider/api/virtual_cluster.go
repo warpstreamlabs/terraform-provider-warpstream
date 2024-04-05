@@ -28,8 +28,10 @@ type VirtualClusterDescribeRequest struct {
 }
 
 type VirtualClusterCreateRequest struct {
-	Name string `json:"virtual_cluster_name"`
-	Type string `json:"virtual_cluster_type,omitempty"`
+	Name          string `json:"virtual_cluster_name"`
+	Type          string `json:"virtual_cluster_type,omitempty"`
+	Region        string `json:"virtual_cluster_region,omitempty"`
+	CloudProvider string `json:"virtual_cluster_cloud_provider,omitempty"`
 }
 
 type VirtualClusterDeleteRequest struct {
@@ -64,10 +66,12 @@ func (c *Client) GetVirtualCluster(id string) (*VirtualCluster, error) {
 }
 
 // CreateVirtualCluster - Create new virtual cluster.
-func (c *Client) CreateVirtualCluster(name string, type_ string) (*VirtualCluster, error) {
+func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*VirtualCluster, error) {
 	payload, err := json.Marshal(VirtualClusterCreateRequest{
-		Name: strings.TrimPrefix(name, "vcn_"),
-		Type: type_,
+		Name:          strings.TrimPrefix(name, "vcn_"),
+		Type:          opts.Type,
+		Region:        opts.Region,
+		CloudProvider: opts.Cloud,
 	})
 	if err != nil {
 		return nil, err
