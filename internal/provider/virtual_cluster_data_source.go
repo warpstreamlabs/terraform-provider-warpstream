@@ -78,6 +78,17 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 				},
 				Computed: true,
 			},
+			"cloud": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"region": schema.StringAttribute{
+						Computed: true,
+					},
+					"provider": schema.StringAttribute{
+						Computed: true,
+					},
+				},
+				Computed: true,
+			},
 		},
 	}
 }
@@ -130,10 +141,22 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		AgentPoolName: types.StringValue(vc.AgentPoolName),
 		CreatedAt:     types.StringValue(vc.CreatedAt),
 		Configuration: data.Configuration,
+		Cloud:         data.Cloud,
 	}
 
 	// Set state
 	diags = resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	cldState := virtualClusterCloudModel{
+		Provider: types.StringValue(vc.CloudProvider),
+		Region:   types.StringValue(vc.Region),
+	}
+
+	diags = resp.State.SetAttribute(ctx, path.Root("cloud"), cldState)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
