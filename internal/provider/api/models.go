@@ -1,5 +1,11 @@
 package api
 
+type ClusterParameters struct {
+	Type   string
+	Region string
+	Cloud  string
+}
+
 type VirtualCluster struct {
 	ID            string `json:"id"`
 	Name          string `json:"name"`
@@ -7,6 +13,8 @@ type VirtualCluster struct {
 	AgentPoolID   string `json:"agent_pool_id"`
 	AgentPoolName string `json:"agent_pool_name"`
 	CreatedAt     string `json:"created_at"`
+	Region        string `json:"virtual_cluster_region"`
+	CloudProvider string `json:"virtual_cluster_cloud_provider"`
 }
 
 type VirtualClusterCredentials struct {
