@@ -49,6 +49,7 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 			"type": schema.StringAttribute{
 				Computed: true,
 			},
+			// todo simon: agent_keys
 			"agent_pool_id": schema.StringAttribute{
 				Computed: true,
 			},
@@ -139,6 +140,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		Type:          types.StringValue(vc.Type),
 		AgentPoolID:   types.StringValue(vc.AgentPoolID),
 		AgentPoolName: types.StringValue(vc.AgentPoolName),
+		// todo simon: agent_keys
 		CreatedAt:     types.StringValue(vc.CreatedAt),
 		Configuration: data.Configuration,
 		Cloud:         data.Cloud,
