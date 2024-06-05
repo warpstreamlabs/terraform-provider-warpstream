@@ -1,0 +1,10 @@
+Absolutely! Here's a .gitignore file suitable for a Terraform provider repository:
+
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+**/.terraform.lock.hcl
