@@ -70,6 +70,7 @@ func (r *pipelineResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 	resp.Schema = schema.Schema{
 		Description: `
 This resource allows you to create pipelines.
+For more details, take a look at: https://docs.warpstream.com/warpstream/configuration/benthos
 `,
 		Attributes: map[string]schema.Attribute{
 			"virtual_cluster_id": schema.StringAttribute{
