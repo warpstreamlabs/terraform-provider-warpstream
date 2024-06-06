@@ -107,10 +107,6 @@ This resource allows you to create, update and delete virtual clusters.
 					stringvalidator.OneOf([]string{"byoc", "serverless"}...),
 				},
 			},
-			"agent_keys": schema.StringAttribute{
-				Description: "Secret keys to authenticate an agent with the virtual cluster.",
-				Computed:    true,
-			},
 			"agent_pool_id": schema.StringAttribute{
 				Description: "Agent Pool ID.",
 				Computed:    true,
@@ -214,7 +210,7 @@ This resource allows you to create, update and delete virtual clusters.
 // Create a new resource.
 func (r *virtualClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
-	var plan virtualClusterModel
+	var plan virtualClusterResourceModel
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -255,7 +251,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// Map response body to schema and populate Computed attribute values
-	state := virtualClusterModel{
+	state := virtualClusterResourceModel{
 		ID:            types.StringValue(cluster.ID),
 		Name:          types.StringValue(cluster.Name),
 		Type:          types.StringValue(cluster.Type),
@@ -279,7 +275,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 
 // Read refreshes the Terraform state with the latest data.
 func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state virtualClusterModel
+	var state virtualClusterResourceModel
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -317,7 +313,7 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *virtualClusterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// Retrieve values from plan
-	var plan virtualClusterModel
+	var plan virtualClusterResourceModel
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -331,7 +327,7 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *virtualClusterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Retrieve values from state
-	var state virtualClusterModel
+	var state virtualClusterResourceModel
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -354,7 +350,7 @@ func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.I
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 
 	// Retrieve cluster info from imported state
-	var data virtualClusterModel
+	var data virtualClusterResourceModel
 	diags := resp.State.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -365,7 +361,7 @@ func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.I
 	r.readConfiguration(ctx, data.cluster(), &resp.State, &resp.Diagnostics)
 }
 
-func (m virtualClusterModel) cluster() api.VirtualCluster {
+func (m virtualClusterResourceModel) cluster() api.VirtualCluster {
 	return api.VirtualCluster{
 		ID:            m.ID.ValueString(),
 		Name:          m.Name.ValueString(),
@@ -400,7 +396,7 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	respDiags.Append(diags...)
 }
 
-func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan virtualClusterModel, state *tfsdk.State, respDiags *diag.Diagnostics) {
+func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan virtualClusterResourceModel, state *tfsdk.State, respDiags *diag.Diagnostics) {
 	cluster := plan.cluster()
 
 	// If configuration plan is empty, just retrieve it from API

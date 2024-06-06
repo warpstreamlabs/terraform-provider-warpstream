@@ -49,8 +49,16 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 			"type": schema.StringAttribute{
 				Computed: true,
 			},
-			"agent_keys": schema.StringAttribute{
+			"agent_keys": schema.ListNestedAttribute{
 				Computed: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Description: "Agent Key Name.",
+							Computed:    true,
+						},
+					},
+				},
 			},
 			"agent_pool_id": schema.StringAttribute{
 				Computed: true,
@@ -108,7 +116,7 @@ func (d *virtualClusterDataSource) ConfigValidators(ctx context.Context) []datas
 
 // Read refreshes the Terraform state with the latest data.
 func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var data virtualClusterModel
+	var data virtualClusterDataSourceModel
 	diags := req.Config.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -136,7 +144,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	tflog.Debug(ctx, fmt.Sprintf("Virtual Cluster: %+v", *vc))
 
 	// Map response body to model
-	state := virtualClusterModel{
+	state := virtualClusterDataSourceModel{
 		ID:            types.StringValue(vc.ID),
 		Name:          types.StringValue(vc.Name),
 		Type:          types.StringValue(vc.Type),
