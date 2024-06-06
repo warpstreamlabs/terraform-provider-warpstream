@@ -18,9 +18,6 @@ type YamlType struct {
 }
 
 func (t YamlType) Equal(o attr.Type) (ok bool) {
-	defer func() {
-		fmt.Println("YAMLTYPE - Equal", ok)
-	}()
 	_, ok = o.(YamlType)
 	if ok {
 		return true

@@ -25,48 +25,24 @@ data "warpstream_virtual_cluster" "default" {
 }
 
 resource "warpstream_pipeline" "test_pipeline" {
-	virtual_cluster_id             = data.warpstream_virtual_cluster.default.id
+	virtual_cluster_id             = warpstream_virtual_cluster.tf_example_pipelines.id
 	name                           = "test_pipeline"
 	state                          = "running"
-	deployed_configuration_version = 1
-	configurations = [
-		{
-		version            = 0
-		configuration_yaml = <<EOT
-		input:
-			kafka_franz:
-				seed_brokers: ["localhost:9092"]
-				topics: ["test_topic"]
-				consumer_group: "test_topic_cg"
+	configuration_yaml = <<EOT
+	input:
+		kafka_franz:
+			seed_brokers: ["localhost:9092"]
+			topics: ["test_topic"]
+			consumer_group: "test_topic_cap"
 
-			processors:
-				- mapping: "root = content().capitalize()"
+		processors:
+			- mapping: "root = content().capitalize()"
 
-		output:
-			kafka_franz:
-				seed_brokers: ["localhost:9092"]
-				topic: "test_topic_capitalized"
-		EOT
-		},
-		{
-		version            = 1
-		configuration_yaml = <<EOT
-		input:
-			kafka_franz:
-				seed_brokers: ["localhost:9092"]
-				topics: ["test_topic"]
-				consumer_group: "test_topic_cg"
-
-			processors:
-				- mapping: "root = content().capitalize()"
-
-		output:
-			kafka_franz:
-				seed_brokers: ["localhost:9092"]
-				topic: "test_topic_capitalized"
-		EOT
-		},
-	]
+	output:
+		kafka_franz:
+			seed_brokers: ["localhost:9092"]
+			topic: "test_topic_capitalized"
+	EOT
 }`
 }
 
@@ -74,15 +50,9 @@ func testPipelineCheck() resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet("warpstream_pipeline.test_pipeline", "id"),
 		resource.TestCheckResourceAttrSet("warpstream_pipeline.test_pipeline", "type"),
+		resource.TestCheckResourceAttrSet("warpstream_pipeline.test_pipeline", "configuration_id"),
 
 		resource.TestCheckResourceAttr("warpstream_pipeline.test_pipeline", "name", "test_pipeline"),
 		resource.TestCheckResourceAttr("warpstream_pipeline.test_pipeline", "state", "running"),
-		resource.TestCheckResourceAttr("warpstream_pipeline.test_pipeline", "deployed_configuration_version", "1"),
-
-		// Add this check to validate the number of configurations.
-		resource.TestCheckResourceAttr("warpstream_pipeline.test_pipeline", "configurations.#", "2"),
-		// Check individual configuration details.
-		resource.TestCheckResourceAttr("warpstream_pipeline.test_pipeline", "configurations.0.version", "0"),
-		resource.TestCheckResourceAttr("warpstream_pipeline.test_pipeline", "configurations.1.version", "1"),
 	)
 }
