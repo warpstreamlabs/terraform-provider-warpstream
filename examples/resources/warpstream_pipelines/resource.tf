@@ -17,7 +17,7 @@ resource "warpstream_virtual_cluster" "tf_example_pipelines" {
 resource "warpstream_pipeline" "example_pipeline" {
   virtual_cluster_id             = warpstream_virtual_cluster.tf_example_pipelines.id
   name                           = "example_pipeline"
-  state                          = "paused"
+  state                          = "running"
   configuration_yaml = <<EOT
   input:
     kafka_franz:
