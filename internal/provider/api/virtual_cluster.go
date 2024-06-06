@@ -21,7 +21,6 @@ type VirtualClusterCreateResponse struct {
 	VirtualClusterID string `json:"virtual_cluster_id"`
 	AgentPoolID      string `json:"agent_pool_id"`
 	AgentPoolName    string `json:"agent_pool_name"`
-	// todo simon: agent_keys?
 }
 
 type VirtualClusterDescribeRequest struct {

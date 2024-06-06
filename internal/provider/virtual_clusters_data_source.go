@@ -38,8 +38,7 @@ type virtualClustersModel struct {
 	Type          types.String `tfsdk:"type"`
 	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
 	AgentPoolName types.String `tfsdk:"agent_pool_name"`
-	// todo simon: agent_keys
-	CreatedAt types.String `tfsdk:"created_at"`
+	CreatedAt     types.String `tfsdk:"created_at"`
 }
 
 // Metadata returns the data source type name.
@@ -70,7 +69,6 @@ func (d *virtualClustersDataSource) Schema(_ context.Context, _ datasource.Schem
 						"agent_pool_name": schema.StringAttribute{
 							Computed: true,
 						},
-						// todo simon: agent_keys
 						"created_at": schema.StringAttribute{
 							Computed: true,
 						},
@@ -102,8 +100,7 @@ func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.Rea
 			Type:          types.StringValue(vcn.Type),
 			AgentPoolID:   types.StringValue(vcn.AgentPoolID),
 			AgentPoolName: types.StringValue(vcn.AgentPoolName),
-			// todo simon: agent_keys
-			CreatedAt: types.StringValue(vcn.CreatedAt),
+			CreatedAt:     types.StringValue(vcn.CreatedAt),
 		}
 
 		state.VirtualClusters = append(state.VirtualClusters, vcnState)
