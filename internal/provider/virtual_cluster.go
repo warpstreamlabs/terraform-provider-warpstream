@@ -5,8 +5,17 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type APIKey struct {
-	Name string `tfsdk:"name"`
+type apiKeyModel struct {
+	Name         types.String       `tfsdk:"name"`
+	Key          types.String       `tfsdk:"key"`
+	CreatedAt    types.String       `tfsdk:"created_at"`
+	AccessGrants []accessGrantModel `tfsdk:"access_grants"`
+}
+
+type accessGrantModel struct {
+	PrincipalKind types.String `tfsdk:"principal_kind"`
+	ResourceKind  types.String `tfsdk:"resource_kind"`
+	ResourceID    types.String `tfsdk:"resource_id"`
 }
 
 // virtualClusterModel maps virtual cluster schema data.
@@ -14,7 +23,7 @@ type virtualClusterDataSourceModel struct {
 	ID            types.String `tfsdk:"id"`
 	Name          types.String `tfsdk:"name"`
 	Type          types.String `tfsdk:"type"`
-	AgentKeys     *APIKey      `tfsdk:"agent_keys"`
+	AgentKeys     *apiKeyModel `tfsdk:"agent_keys"`
 	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
 	AgentPoolName types.String `tfsdk:"agent_pool_name"`
 	CreatedAt     types.String `tfsdk:"created_at"`

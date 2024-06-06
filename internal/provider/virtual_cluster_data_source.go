@@ -34,6 +34,37 @@ func (d *virtualClusterDataSource) Metadata(_ context.Context, req datasource.Me
 	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
 }
 
+var apiKeyDataSourceSchema = schema.NestedAttributeObject{
+	Attributes: map[string]schema.Attribute{
+		"name": schema.StringAttribute{
+			Computed: true,
+		},
+		"key": schema.StringAttribute{
+			Computed:  true,
+			Sensitive: true,
+		},
+		"created_at": schema.StringAttribute{
+			Computed: true,
+		},
+		"access_grants": schema.ListNestedAttribute{
+			Computed: true,
+			NestedObject: schema.NestedAttributeObject{
+				Attributes: map[string]schema.Attribute{
+					"principal_kind": schema.StringAttribute{
+						Computed: true,
+					},
+					"resource_kind": schema.StringAttribute{
+						Computed: true,
+					},
+					"resource_id": schema.StringAttribute{
+						Computed: true,
+					},
+				},
+			},
+		},
+	},
+}
+
 // Schema defines the schema for the data source.
 func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
@@ -50,15 +81,8 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 				Computed: true,
 			},
 			"agent_keys": schema.ListNestedAttribute{
-				Computed: true,
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"name": schema.StringAttribute{
-							Description: "Agent Key Name.",
-							Computed:    true,
-						},
-					},
-				},
+				Computed:     true,
+				NestedObject: apiKeyDataSourceSchema,
 			},
 			"agent_pool_id": schema.StringAttribute{
 				Computed: true,
@@ -197,6 +221,39 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	agentKeysState := mapToAPIKeyModels(vc.AgentKeys)
+	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+}
+
+func mapToAPIKeyModels(apiKeys []api.APIKey) []apiKeyModel {
+	keyModels := make([]apiKeyModel, 0, len(apiKeys))
+	for _, key := range apiKeys {
+		accessGrantsState := make([]accessGrantModel, 0, len(key.AccessGrants))
+		for _, grant := range key.AccessGrants {
+			accessGrantsState = append(accessGrantsState, accessGrantModel{
+				PrincipalKind: types.StringValue(grant.PrincipalKind),
+				ResourceKind:  types.StringValue(grant.ResourceKind),
+				ResourceID:    types.StringValue(grant.ResourceID),
+			})
+		}
+
+		keyModel := apiKeyModel{
+			Name:         types.StringValue(key.Name),
+			Key:          types.StringValue(key.Key),
+			CreatedAt:    types.StringValue(key.CreatedAt),
+			AccessGrants: accessGrantsState,
+		}
+
+		keyModels = append(keyModels, keyModel)
+	}
+
+	return keyModels
 }
 
 // Configure adds the provider configured client to the data source.

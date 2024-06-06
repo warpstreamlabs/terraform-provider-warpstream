@@ -6,6 +6,19 @@ type ClusterParameters struct {
 	Cloud  string
 }
 
+type APIKey struct {
+	Name         string        `json:"name"`
+	Key          string        `json:"key"`
+	CreatedAt    string        `json:"created_at"`
+	AccessGrants []AccessGrant `json:"access_grants"`
+}
+
+type AccessGrant struct {
+	PrincipalKind string `json:"principal_kind"`
+	ResourceKind  string `json:"resource_kind"`
+	ResourceID    string `json:"resource_id"`
+}
+
 type VirtualCluster struct {
 	ID            string   `json:"id"`
 	Name          string   `json:"name"`
@@ -16,10 +29,6 @@ type VirtualCluster struct {
 	CreatedAt     string   `json:"created_at"`
 	Region        string   `json:"region"`
 	CloudProvider string   `json:"cloud_provider"`
-}
-
-type APIKey struct {
-	Name string `json:"name"`
 }
 
 type VirtualClusterCredentials struct {
