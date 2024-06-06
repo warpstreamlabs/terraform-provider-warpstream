@@ -221,13 +221,13 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
+	// Set agent keys state
 	agentKeysState := mapToAPIKeyModels(vc.AgentKeys)
 	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
 }
 
 func mapToAPIKeyModels(apiKeys []api.APIKey) []apiKeyModel {
