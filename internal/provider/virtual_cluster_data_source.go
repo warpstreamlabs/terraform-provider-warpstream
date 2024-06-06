@@ -49,7 +49,9 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 			"type": schema.StringAttribute{
 				Computed: true,
 			},
-			// todo simon: agent_keys
+			"agent_keys": schema.StringAttribute{
+				Computed: true,
+			},
 			"agent_pool_id": schema.StringAttribute{
 				Computed: true,
 			},

@@ -107,6 +107,10 @@ This resource allows you to create, update and delete virtual clusters.
 					stringvalidator.OneOf([]string{"byoc", "serverless"}...),
 				},
 			},
+			"agent_keys": schema.StringAttribute{
+				Description: "Secret keys to authenticate an agent with the virtual cluster.",
+				Computed:    true,
+			},
 			"agent_pool_id": schema.StringAttribute{
 				Description: "Agent Pool ID.",
 				Computed:    true,
