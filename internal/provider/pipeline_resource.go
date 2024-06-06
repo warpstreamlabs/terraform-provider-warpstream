@@ -129,9 +129,9 @@ func (r *pipelineResource) Create(ctx context.Context, req resource.CreateReques
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error Creating WarpStream Pipeline Configuration",
-			fmt.Sprintf("Could not create the pipeline configuration. Please check your configuration and try again. Details: %s", err.Error()),
-		)
+            "Pipeline Creation Failed",
+            fmt.Sprintf("Failed to create pipeline '%s' in virtual cluster '%s': %s", plan.Name.ValueString(), plan.VirtualClusterID.ValueString(), err),
+        )
 		return
 	}
 	plan.ID = types.StringValue(c.PipelineID)
@@ -142,6 +142,10 @@ func (r *pipelineResource) Create(ctx context.Context, req resource.CreateReques
 		ConfigurationYAML: plan.ConfigurationYAML.ValueString(),
 	})
 	if err != nil {
+		r.client.DeletePipeline(ctx, api.HTTPDeletePipelineRequest{
+			VirtualClusterID: plan.VirtualClusterID.ValueString(),
+			PipelineID:       plan.ID.ValueString(),
+		})
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Pipeline Configuration",
 			"Could not create WarpStream Pipeline Configuration, unexpected error: "+err.Error(),
@@ -157,6 +161,10 @@ func (r *pipelineResource) Create(ctx context.Context, req resource.CreateReques
 		DeployedConfigurationID: plan.ConfigurationID.ValueStringPointer(),
 	})
 	if err != nil {
+		r.client.DeletePipeline(ctx, api.HTTPDeletePipelineRequest{
+			VirtualClusterID: plan.VirtualClusterID.ValueString(),
+			PipelineID:       plan.ID.ValueString(),
+		})
 		resp.Diagnostics.AddError(
 			"Error setting WarpStream Pipeline state",
 			"Could not set WarpStream Pipeline state, unexpected error: "+err.Error(),
