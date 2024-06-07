@@ -6,15 +6,29 @@ type ClusterParameters struct {
 	Cloud  string
 }
 
+type APIKey struct {
+	Name         string        `json:"name"`
+	Key          string        `json:"key"`
+	CreatedAt    string        `json:"created_at"`
+	AccessGrants []AccessGrant `json:"access_grants"`
+}
+
+type AccessGrant struct {
+	PrincipalKind string `json:"principal_kind"`
+	ResourceKind  string `json:"resource_kind"`
+	ResourceID    string `json:"resource_id"`
+}
+
 type VirtualCluster struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Type          string `json:"type"`
-	AgentPoolID   string `json:"agent_pool_id"`
-	AgentPoolName string `json:"agent_pool_name"`
-	CreatedAt     string `json:"created_at"`
-	Region        string `json:"region"`
-	CloudProvider string `json:"cloud_provider"`
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Type          string   `json:"type"`
+	AgentKeys     []APIKey `json:"agent_keys"`
+	AgentPoolID   string   `json:"agent_pool_id"`
+	AgentPoolName string   `json:"agent_pool_name"`
+	CreatedAt     string   `json:"created_at"`
+	Region        string   `json:"region"`
+	CloudProvider string   `json:"cloud_provider"`
 }
 
 type VirtualClusterCredentials struct {

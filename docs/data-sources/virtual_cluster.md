@@ -40,6 +40,7 @@ output "vc_default_id" {
 
 ### Read-Only
 
+- `agent_keys` (Attributes List) (see [below for nested schema](#nestedatt--agent_keys))
 - `agent_pool_id` (String)
 - `agent_pool_name` (String)
 - `cloud` (Attributes) (see [below for nested schema](#nestedatt--cloud))
@@ -47,6 +48,27 @@ output "vc_default_id" {
 - `created_at` (String)
 - `id` (String) The ID of this resource.
 - `type` (String)
+
+<a id="nestedatt--agent_keys"></a>
+### Nested Schema for `agent_keys`
+
+Read-Only:
+
+- `access_grants` (Attributes List) (see [below for nested schema](#nestedatt--agent_keys--access_grants))
+- `created_at` (String)
+- `key` (String, Sensitive)
+- `name` (String)
+
+<a id="nestedatt--agent_keys--access_grants"></a>
+### Nested Schema for `agent_keys.access_grants`
+
+Read-Only:
+
+- `principal_kind` (String)
+- `resource_id` (String)
+- `resource_kind` (String)
+
+
 
 <a id="nestedatt--cloud"></a>
 ### Nested Schema for `cloud`
