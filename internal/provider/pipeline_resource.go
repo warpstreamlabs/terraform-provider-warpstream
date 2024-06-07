@@ -99,10 +99,10 @@ For more details, take a look at: https://docs.warpstream.com/warpstream/configu
 				},
 			},
 			"configuration_yaml": schema.StringAttribute{
-				Description: "The YAML content defining the input sources, processing steps, and output destinations for the pipeline. "+
-				"This represents the complete configuration for this specific version. To understand how to set your configuration take a look at: https://docs.warpstream.com/warpstream/configuration/benthos#getting-started",
-				Required:    true,
-				CustomType:  utils.YamlType{},
+				Description: "The YAML content defining the input sources, processing steps, and output destinations for the pipeline. " +
+					"This represents the complete configuration for this specific version. To understand how to set your configuration take a look at: https://docs.warpstream.com/warpstream/configuration/benthos#getting-started",
+				Required:   true,
+				CustomType: utils.YamlType{},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -131,9 +131,9 @@ func (r *pipelineResource) Create(ctx context.Context, req resource.CreateReques
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(
-            "Pipeline Creation Failed",
-            fmt.Sprintf("Failed to create pipeline '%s' in virtual cluster '%s': %s", plan.Name.ValueString(), plan.VirtualClusterID.ValueString(), err),
-        )
+			"Pipeline Creation Failed",
+			fmt.Sprintf("Failed to create pipeline '%s' in virtual cluster '%s': %s", plan.Name.ValueString(), plan.VirtualClusterID.ValueString(), err),
+		)
 		return
 	}
 	plan.ID = types.StringValue(c.PipelineID)

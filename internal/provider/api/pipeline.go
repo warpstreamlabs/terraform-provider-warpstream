@@ -177,7 +177,7 @@ func (c *Client) doJSONHTTP(
 	}
 
 	if err := json.Unmarshal(respB, resp); err != nil {
-		return fmt.Errorf("error JSON unmarshaling response: %w\nPath: %s\nResponse: %s", err, c.HostURL + "/" + path, string(respB))
+		return fmt.Errorf("error JSON unmarshaling response: %w\nPath: %s\nResponse: %s", err, c.HostURL+"/"+path, string(respB))
 	}
 
 	return nil
