@@ -25,7 +25,7 @@ data "warpstream_virtual_cluster" "default" {
 }
 
 resource "warpstream_pipeline" "test_pipeline" {
-	virtual_cluster_id             = warpstream_virtual_cluster.test_pipeline.id
+	virtual_cluster_id             = warpstream_virtual_cluster.default.id
 	name                           = "test_pipeline"
 	state                          = "running"
 	configuration_yaml = <<EOT
