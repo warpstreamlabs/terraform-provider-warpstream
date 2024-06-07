@@ -70,7 +70,7 @@ func (r *pipelineResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 	resp.Schema = schema.Schema{
 		Description: `
 This resource allows you to create pipelines.
-For more details, take a look at: https://docs.warpstream.com/warpstream/configuration/benthos
+For more details, take a look at: https://docs.warpstream.com/warpstream/configuration/bento
 `,
 		Attributes: map[string]schema.Attribute{
 			"virtual_cluster_id": schema.StringAttribute{
@@ -100,7 +100,7 @@ For more details, take a look at: https://docs.warpstream.com/warpstream/configu
 			},
 			"configuration_yaml": schema.StringAttribute{
 				Description: "The YAML content defining the input sources, processing steps, and output destinations for the pipeline. " +
-					"This represents the complete configuration for this specific version. To understand how to set your configuration take a look at: https://docs.warpstream.com/warpstream/configuration/benthos#getting-started",
+					"This represents the complete configuration for this specific version. To understand how to set your configuration take a look at: https://docs.warpstream.com/warpstream/configuration/bento#getting-started",
 				Required:   true,
 				CustomType: utils.YamlType{},
 				PlanModifiers: []planmodifier.String{
