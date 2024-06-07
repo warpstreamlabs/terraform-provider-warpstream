@@ -1,5 +1,3 @@
-Absolutely! Here's a .gitignore file suitable for a Terraform provider repository:
-
 # Local .terraform directories
 **/.terraform/*
 
