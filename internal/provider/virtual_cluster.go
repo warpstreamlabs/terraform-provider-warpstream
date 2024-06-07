@@ -23,7 +23,7 @@ type virtualClusterDataSourceModel struct {
 	ID            types.String `tfsdk:"id"`
 	Name          types.String `tfsdk:"name"`
 	Type          types.String `tfsdk:"type"`
-	AgentKeys     *apiKeyModel `tfsdk:"agent_keys"`
+	AgentKeys     *apiKeyModel `tfsdk:"agent_keys"` // Null in serverless VCs.
 	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
 	AgentPoolName types.String `tfsdk:"agent_pool_name"`
 	CreatedAt     types.String `tfsdk:"created_at"`
