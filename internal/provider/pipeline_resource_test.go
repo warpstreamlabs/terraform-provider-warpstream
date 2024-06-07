@@ -29,20 +29,20 @@ resource "warpstream_pipeline" "test_pipeline" {
 	name                           = "test_pipeline"
 	state                          = "running"
 	configuration_yaml = <<EOT
-	input:
-		kafka_franz:
-			seed_brokers: ["localhost:9092"]
-			topics: ["test_topic"]
-			consumer_group: "test_topic_cap"
+input:
+	kafka_franz:
+		seed_brokers: ["localhost:9092"]
+		topics: ["test_topic"]
+		consumer_group: "test_topic_cap"
 
-		processors:
-			- mapping: "root = content().capitalize()"
+	processors:
+		- mapping: "root = content().capitalize()"
 
-	output:
-		kafka_franz:
-			seed_brokers: ["localhost:9092"]
-			topic: "test_topic_capitalized"
-	EOT
+output:
+	kafka_franz:
+		seed_brokers: ["localhost:9092"]
+		topic: "test_topic_capitalized"
+EOT
 }`
 }
 
