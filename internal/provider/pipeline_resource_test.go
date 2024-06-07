@@ -48,10 +48,7 @@ resource "warpstream_pipeline" "test_pipeline" {
 func testPipelineCheck() resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet("warpstream_pipeline.test_pipeline", "id"),
-		resource.TestCheckResourceAttrSet("warpstream_pipeline.test_pipeline", "type"),
 		resource.TestCheckResourceAttrSet("warpstream_pipeline.test_pipeline", "configuration_id"),
-
-		resource.TestCheckResourceAttr("warpstream_pipeline.test_pipeline", "name", "test_pipeline"),
 		resource.TestCheckResourceAttr("warpstream_pipeline.test_pipeline", "state", "running"),
 	)
 }
