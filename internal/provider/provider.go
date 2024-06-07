@@ -164,5 +164,6 @@ func (p *warpstreamProvider) Resources(_ context.Context) []func() resource.Reso
 	return []func() resource.Resource{
 		NewVirtualClusterResource,
 		NewVirtualClusterCredentialsResource,
+		NewPipelineResource,
 	}
 }
