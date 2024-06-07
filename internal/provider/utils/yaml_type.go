@@ -57,7 +57,7 @@ func (t YamlType) ValueType(ctx context.Context) attr.Value {
 	return YamlValue{}
 }
 
-// CustomStringType defined in the schema type section
+// CustomStringType defined in the schema type section.
 func (t YamlType) Validate(ctx context.Context, value tftypes.Value, valuePath path.Path) diag.Diagnostics {
 	if value.IsNull() || !value.IsKnown() {
 		return nil
