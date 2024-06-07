@@ -33,8 +33,8 @@ input:
     seed_brokers: ["localhost:9092"]
     topics: ["test_topic"]
     consumer_group: "test_topic_cap"
-processors:
-  - mapping: "root = content().capitalize()"
+  processors:
+	- mapping: "root = content().capitalize()"
 output:
   kafka_franz:
     seed_brokers: ["localhost:9092"]
