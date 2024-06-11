@@ -11,12 +11,17 @@ type apiKeyModel struct {
 	CreatedAt types.String `tfsdk:"created_at"`
 }
 
+const (
+	virtualClusterTypeBYOC       = "byoc"
+	virtualClusterTypeServerless = "serverless"
+)
+
 // virtualClusterModel maps virtual cluster schema data.
 type virtualClusterDataSourceModel struct {
 	ID            types.String `tfsdk:"id"`
 	Name          types.String `tfsdk:"name"`
 	Type          types.String `tfsdk:"type"`
-	AgentKeys     *apiKeyModel `tfsdk:"agent_keys"` // Null in serverless VCs.
+	AgentKeys     *apiKeyModel `tfsdk:"agent_keys"` // Hack: pointer, not slice, so it can be null for serverless VCs.
 	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
 	AgentPoolName types.String `tfsdk:"agent_pool_name"`
 	CreatedAt     types.String `tfsdk:"created_at"`

@@ -83,7 +83,7 @@ func (d *virtualClustersDataSource) Schema(_ context.Context, _ datasource.Schem
 func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var state virtualClustersDataSourceModel
 
-	virtual_clusters, err := d.client.GetVirtualClusters()
+	virtualClusters, err := d.client.GetVirtualClusters()
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Read WarpStream Virtual Clusters",
@@ -93,7 +93,7 @@ func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.Rea
 	}
 
 	// Map response body to model
-	for _, vcn := range virtual_clusters {
+	for _, vcn := range virtualClusters {
 		vcnState := virtualClustersModel{
 			ID:            types.StringValue(vcn.ID),
 			Name:          types.StringValue(vcn.Name),
