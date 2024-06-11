@@ -46,22 +46,6 @@ var apiKeyDataSourceSchema = schema.NestedAttributeObject{
 		"created_at": schema.StringAttribute{
 			Computed: true,
 		},
-		"access_grants": schema.ListNestedAttribute{
-			Computed: true,
-			NestedObject: schema.NestedAttributeObject{
-				Attributes: map[string]schema.Attribute{
-					"principal_kind": schema.StringAttribute{
-						Computed: true,
-					},
-					"resource_kind": schema.StringAttribute{
-						Computed: true,
-					},
-					"resource_id": schema.StringAttribute{
-						Computed: true,
-					},
-				},
-			},
-		},
 	},
 }
 
@@ -233,20 +217,10 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 func mapToAPIKeyModels(apiKeys []api.APIKey) []apiKeyModel {
 	keyModels := make([]apiKeyModel, 0, len(apiKeys))
 	for _, key := range apiKeys {
-		accessGrantsState := make([]accessGrantModel, 0, len(key.AccessGrants))
-		for _, grant := range key.AccessGrants {
-			accessGrantsState = append(accessGrantsState, accessGrantModel{
-				PrincipalKind: types.StringValue(grant.PrincipalKind),
-				ResourceKind:  types.StringValue(grant.ResourceKind),
-				ResourceID:    types.StringValue(grant.ResourceID),
-			})
-		}
-
 		keyModel := apiKeyModel{
-			Name:         types.StringValue(key.Name),
-			Key:          types.StringValue(key.Key),
-			CreatedAt:    types.StringValue(key.CreatedAt),
-			AccessGrants: accessGrantsState,
+			Name:      types.StringValue(key.Name),
+			Key:       types.StringValue(key.Key),
+			CreatedAt: types.StringValue(key.CreatedAt),
 		}
 
 		keyModels = append(keyModels, keyModel)

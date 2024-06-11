@@ -54,20 +54,9 @@ output "vc_default_id" {
 
 Read-Only:
 
-- `access_grants` (Attributes List) (see [below for nested schema](#nestedatt--agent_keys--access_grants))
 - `created_at` (String)
 - `key` (String, Sensitive)
 - `name` (String)
-
-<a id="nestedatt--agent_keys--access_grants"></a>
-### Nested Schema for `agent_keys.access_grants`
-
-Read-Only:
-
-- `principal_kind` (String)
-- `resource_id` (String)
-- `resource_kind` (String)
-
 
 
 <a id="nestedatt--cloud"></a>
