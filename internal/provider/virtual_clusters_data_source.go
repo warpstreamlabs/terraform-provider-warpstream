@@ -87,8 +87,6 @@ func (d *virtualClustersDataSource) Schema(_ context.Context, _ datasource.Schem
 
 // Read refreshes the Terraform state with the latest data.
 func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	// var state virtualClustersDataSourceModel
-
 	virtualClusters, err := d.client.GetVirtualClusters()
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -99,7 +97,6 @@ func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.Rea
 	}
 
 	// Map response body to model
-	// byocCount := 0
 	for i, vcn := range virtualClusters {
 		vcnState := virtualClustersModel{
 			ID:            types.StringValue(vcn.ID),
@@ -127,19 +124,8 @@ func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.Rea
 			if resp.Diagnostics.HasError() {
 				return
 			}
-			// byocCount++
-			// vcnState.AgentKeys = agentKeysState
 		}
-
-		// state.VirtualClusters = append(state.VirtualClusters, vcnState)
 	}
-
-	// Set state
-	// diags := resp.State.Set(ctx, &state)
-	// resp.Diagnostics.Append(diags...)
-	// if resp.Diagnostics.HasError() {
-	// 	return
-	// }
 }
 
 // Configure adds the provider configured client to the data source.
