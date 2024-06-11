@@ -214,21 +214,6 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	}
 }
 
-func mapToAPIKeyModels(apiKeys []api.APIKey) []apiKeyModel {
-	keyModels := make([]apiKeyModel, 0, len(apiKeys))
-	for _, key := range apiKeys {
-		keyModel := apiKeyModel{
-			Name:      types.StringValue(key.Name),
-			Key:       types.StringValue(key.Key),
-			CreatedAt: types.StringValue(key.CreatedAt),
-		}
-
-		keyModels = append(keyModels, keyModel)
-	}
-
-	return keyModels
-}
-
 // Configure adds the provider configured client to the data source.
 func (d *virtualClusterDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	if req.ProviderData == nil {

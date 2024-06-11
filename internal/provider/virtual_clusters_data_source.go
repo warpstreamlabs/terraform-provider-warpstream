@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
@@ -36,6 +37,7 @@ type virtualClustersModel struct {
 	ID            types.String `tfsdk:"id"`
 	Name          types.String `tfsdk:"name"`
 	Type          types.String `tfsdk:"type"`
+	AgentKeys     *apiKeyModel `tfsdk:"agent_keys"` // Hack: pointer, not slice, so it can be null for serverless VCs.
 	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
 	AgentPoolName types.String `tfsdk:"agent_pool_name"`
 	CreatedAt     types.String `tfsdk:"created_at"`
@@ -63,6 +65,10 @@ func (d *virtualClustersDataSource) Schema(_ context.Context, _ datasource.Schem
 						"type": schema.StringAttribute{
 							Computed: true,
 						},
+						"agent_keys": schema.ListNestedAttribute{
+							Computed:     true,
+							NestedObject: apiKeyDataSourceSchema,
+						},
 						"agent_pool_id": schema.StringAttribute{
 							Computed: true,
 						},
@@ -81,7 +87,7 @@ func (d *virtualClustersDataSource) Schema(_ context.Context, _ datasource.Schem
 
 // Read refreshes the Terraform state with the latest data.
 func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var state virtualClustersDataSourceModel
+	// var state virtualClustersDataSourceModel
 
 	virtualClusters, err := d.client.GetVirtualClusters()
 	if err != nil {
@@ -93,7 +99,8 @@ func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.Rea
 	}
 
 	// Map response body to model
-	for _, vcn := range virtualClusters {
+	// byocCount := 0
+	for i, vcn := range virtualClusters {
 		vcnState := virtualClustersModel{
 			ID:            types.StringValue(vcn.ID),
 			Name:          types.StringValue(vcn.Name),
@@ -103,15 +110,36 @@ func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.Rea
 			CreatedAt:     types.StringValue(vcn.CreatedAt),
 		}
 
-		state.VirtualClusters = append(state.VirtualClusters, vcnState)
+		diags := resp.State.SetAttribute(ctx, path.Root("virtual_clusters").AtListIndex(i), vcnState)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if vcn.Type == virtualClusterTypeBYOC {
+			agentKeysState := mapToAPIKeyModels(vcn.AgentKeys)
+			diags := resp.State.SetAttribute(
+				ctx,
+				path.Root("virtual_clusters").AtListIndex(i).AtName("agent_keys"),
+				agentKeysState,
+			)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			// byocCount++
+			// vcnState.AgentKeys = agentKeysState
+		}
+
+		// state.VirtualClusters = append(state.VirtualClusters, vcnState)
 	}
 
 	// Set state
-	diags := resp.State.Set(ctx, &state)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	// diags := resp.State.Set(ctx, &state)
+	// resp.Diagnostics.Append(diags...)
+	// if resp.Diagnostics.HasError() {
+	// 	return
+	// }
 }
 
 // Configure adds the provider configured client to the data source.

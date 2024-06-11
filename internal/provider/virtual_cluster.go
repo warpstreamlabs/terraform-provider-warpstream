@@ -5,12 +5,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type apiKeyModel struct {
-	Name      types.String `tfsdk:"name"`
-	Key       types.String `tfsdk:"key"`
-	CreatedAt types.String `tfsdk:"created_at"`
-}
-
 const (
 	virtualClusterTypeBYOC       = "byoc"
 	virtualClusterTypeServerless = "serverless"
