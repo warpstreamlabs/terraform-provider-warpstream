@@ -14,7 +14,11 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVirtualClusterDataSource_default(),
-				Check:  testAccVirtualClusterDataSourceCheck("default"),
+				Check:  testAccVCDataSourceCheckBYOC("default"),
+			},
+			{
+				Config: testAccVirtualClusterDataSource_serverless(),
+				Check:  testAccVCDataSourceCheckServerless(),
 			},
 		},
 	})
@@ -27,7 +31,14 @@ data "warpstream_virtual_cluster" "test" {
 }`
 }
 
-func testAccVirtualClusterDataSourceCheck(name string) resource.TestCheckFunc {
+func testAccVirtualClusterDataSource_serverless() string {
+	return providerConfig + `
+data "warpstream_virtual_cluster" "test" {
+  name = "vcn_tivo_serverless"
+}`
+}
+
+func testAccVCDataSourceCheckBYOC(name string) resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "id"),
 		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "agent_pool_id"),
@@ -49,5 +60,15 @@ func testAccVirtualClusterDataSourceCheck(name string) resource.TestCheckFunc {
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_default_7695dba1efaa",
 		),
+	)
+}
+
+func testAccVCDataSourceCheckServerless() resource.TestCheckFunc {
+	return resource.ComposeAggregateTestCheckFunc(
+		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "id"),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "type", "serverless"),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.provider", "aws"),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.region", "us-east-1"),
+		resource.TestCheckNoResourceAttr("data.warpstream_virtual_cluster.test", "agent_keys"),
 	)
 }

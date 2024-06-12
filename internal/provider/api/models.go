@@ -13,15 +13,15 @@ type APIKey struct {
 }
 
 type VirtualCluster struct {
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	Type          string   `json:"type"`
-	AgentKeys     []APIKey `json:"agent_keys"`
-	AgentPoolID   string   `json:"agent_pool_id"`
-	AgentPoolName string   `json:"agent_pool_name"`
-	CreatedAt     string   `json:"created_at"`
-	Region        string   `json:"region"`
-	CloudProvider string   `json:"cloud_provider"`
+	ID            string    `json:"id"`
+	Name          string    `json:"name"`
+	Type          string    `json:"type"`
+	AgentKeys     *[]APIKey `json:"agent_keys"`
+	AgentPoolID   string    `json:"agent_pool_id"`
+	AgentPoolName string    `json:"agent_pool_name"`
+	CreatedAt     string    `json:"created_at"`
+	Region        string    `json:"region"`
+	CloudProvider string    `json:"cloud_provider"`
 }
 
 type VirtualClusterCredentials struct {

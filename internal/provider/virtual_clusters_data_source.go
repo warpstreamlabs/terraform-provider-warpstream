@@ -6,7 +6,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
@@ -34,13 +33,13 @@ type virtualClustersDataSourceModel struct {
 
 // virtualClustersModel maps virtual clusters schema data.
 type virtualClustersModel struct {
-	ID            types.String `tfsdk:"id"`
-	Name          types.String `tfsdk:"name"`
-	Type          types.String `tfsdk:"type"`
-	AgentKeys     *apiKeyModel `tfsdk:"agent_keys"` // Hack: pointer, not slice, so it can be null for serverless VCs.
-	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
-	AgentPoolName types.String `tfsdk:"agent_pool_name"`
-	CreatedAt     types.String `tfsdk:"created_at"`
+	ID            types.String   `tfsdk:"id"`
+	Name          types.String   `tfsdk:"name"`
+	Type          types.String   `tfsdk:"type"`
+	AgentKeys     *[]apiKeyModel `tfsdk:"agent_keys"`
+	AgentPoolID   types.String   `tfsdk:"agent_pool_id"`
+	AgentPoolName types.String   `tfsdk:"agent_pool_name"`
+	CreatedAt     types.String   `tfsdk:"created_at"`
 }
 
 // Metadata returns the data source type name.
@@ -87,6 +86,7 @@ func (d *virtualClustersDataSource) Schema(_ context.Context, _ datasource.Schem
 
 // Read refreshes the Terraform state with the latest data.
 func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var state virtualClustersDataSourceModel
 	virtualClusters, err := d.client.GetVirtualClusters()
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -97,33 +97,23 @@ func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.Rea
 	}
 
 	// Map response body to model
-	for i, vcn := range virtualClusters {
+	for _, vcn := range virtualClusters {
 		vcnState := virtualClustersModel{
 			ID:            types.StringValue(vcn.ID),
 			Name:          types.StringValue(vcn.Name),
 			Type:          types.StringValue(vcn.Type),
+			AgentKeys:     mapToAPIKeyModels(vcn.AgentKeys, vcn.Type),
 			AgentPoolID:   types.StringValue(vcn.AgentPoolID),
 			AgentPoolName: types.StringValue(vcn.AgentPoolName),
 			CreatedAt:     types.StringValue(vcn.CreatedAt),
 		}
 
-		diags := resp.State.SetAttribute(ctx, path.Root("virtual_clusters").AtListIndex(i), vcnState)
+		state.VirtualClusters = append(state.VirtualClusters, vcnState)
+
+		diags := resp.State.Set(ctx, &state)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
-		}
-
-		if vcn.Type == virtualClusterTypeBYOC {
-			agentKeysState := mapToAPIKeyModels(vcn.AgentKeys)
-			diags := resp.State.SetAttribute(
-				ctx,
-				path.Root("virtual_clusters").AtListIndex(i).AtName("agent_keys"),
-				agentKeysState,
-			)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
 		}
 	}
 }

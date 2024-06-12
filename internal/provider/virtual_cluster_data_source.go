@@ -65,6 +65,7 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 				Computed: true,
 			},
 			"agent_keys": schema.ListNestedAttribute{
+				Description:  "List of keys to authenticate an agent with this cluster. Null for Serverless clusters.",
 				Computed:     true,
 				NestedObject: apiKeyDataSourceSchema,
 			},
@@ -156,6 +157,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		ID:            types.StringValue(vc.ID),
 		Name:          types.StringValue(vc.Name),
 		Type:          types.StringValue(vc.Type),
+		AgentKeys:     mapToAPIKeyModels(vc.AgentKeys, vc.Type),
 		AgentPoolID:   types.StringValue(vc.AgentPoolID),
 		AgentPoolName: types.StringValue(vc.AgentPoolName),
 		CreatedAt:     types.StringValue(vc.CreatedAt),
@@ -200,14 +202,6 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 
 	// Set configuration state
 	diags = resp.State.SetAttribute(ctx, path.Root("configuration"), cfgState)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Set agent keys state
-	agentKeysState := mapToAPIKeyModels(vc.AgentKeys)
-	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
