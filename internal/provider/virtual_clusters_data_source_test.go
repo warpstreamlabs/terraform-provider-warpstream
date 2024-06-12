@@ -32,7 +32,7 @@ data "warpstream_virtual_clusters" "test" {
 
 func testAccVCsDataSourceCheckServerless(serverlessVCName string) resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
-		// resource.TestCheckResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.#", "5"),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.#", "5"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.0.name", "vcn_"+serverlessVCName),
 		resource.TestCheckResourceAttrWith(
 			"data.warpstream_virtual_clusters.test",
@@ -52,7 +52,7 @@ func testAccVCsDataSourceCheckServerless(serverlessVCName string) resource.TestC
 
 func testAccVCsDataSourceCheckBYOC(byocVCName string) resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
-		// resource.TestCheckResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.#", "5"),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.#", "5"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.4.name", "vcn_"+byocVCName),
 		resource.TestCheckResourceAttrWith(
 			"data.warpstream_virtual_clusters.test",
