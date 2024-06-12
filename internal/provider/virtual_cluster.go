@@ -6,16 +6,9 @@ import (
 )
 
 type apiKeyModel struct {
-	Name         types.String       `tfsdk:"name"`
-	Key          types.String       `tfsdk:"key"`
-	CreatedAt    types.String       `tfsdk:"created_at"`
-	AccessGrants []accessGrantModel `tfsdk:"access_grants"`
-}
-
-type accessGrantModel struct {
-	PrincipalKind types.String `tfsdk:"principal_kind"`
-	ResourceKind  types.String `tfsdk:"resource_kind"`
-	ResourceID    types.String `tfsdk:"resource_id"`
+	Name      types.String `tfsdk:"name"`
+	Key       types.String `tfsdk:"key"`
+	CreatedAt types.String `tfsdk:"created_at"`
 }
 
 // virtualClusterModel maps virtual cluster schema data.
