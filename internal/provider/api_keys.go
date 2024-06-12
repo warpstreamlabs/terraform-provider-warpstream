@@ -11,10 +11,9 @@ type apiKeyModel struct {
 	CreatedAt types.String `tfsdk:"created_at"`
 }
 
-func mapToAPIKeyModels(apiKeysPtr *[]api.APIKey, vcType string) *[]apiKeyModel {
-	// TODO: Standardize our API so the agent keys field is always null for serverless VCs.
-	// Then remove the second condition.
-	if apiKeysPtr == nil || vcType == virtualClusterTypeServerless {
+func mapToAPIKeyModels(apiKeysPtr *[]api.APIKey) *[]apiKeyModel {
+	if apiKeysPtr == nil {
+		// Null for Serverless clusters.
 		return nil
 	}
 

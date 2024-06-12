@@ -157,7 +157,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		ID:            types.StringValue(vc.ID),
 		Name:          types.StringValue(vc.Name),
 		Type:          types.StringValue(vc.Type),
-		AgentKeys:     mapToAPIKeyModels(vc.AgentKeys, vc.Type),
+		AgentKeys:     mapToAPIKeyModels(vc.AgentKeys),
 		AgentPoolID:   types.StringValue(vc.AgentPoolID),
 		AgentPoolName: types.StringValue(vc.AgentPoolName),
 		CreatedAt:     types.StringValue(vc.CreatedAt),
