@@ -83,7 +83,7 @@ This resource allows you to create, update and delete agent keys.
 				Validators: []validator.String{
 					stringvalidator.RegexMatches(
 						regexp.MustCompile(`^akn_[a-zA-Z0-9_]+$`),
-						"must start with 'akn_' and must only contain underscores and alphanumeric characters",
+						"must start with 'akn_' and must contain underscores and alphanumeric characters only",
 					),
 				},
 			},
