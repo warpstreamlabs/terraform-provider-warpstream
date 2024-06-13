@@ -40,7 +40,7 @@ output "vc_default_id" {
 
 ### Read-Only
 
-- `agent_keys` (Attributes List) (see [below for nested schema](#nestedatt--agent_keys))
+- `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. Null for Serverless clusters. (see [below for nested schema](#nestedatt--agent_keys))
 - `agent_pool_id` (String)
 - `agent_pool_name` (String)
 - `cloud` (Attributes) (see [below for nested schema](#nestedatt--cloud))

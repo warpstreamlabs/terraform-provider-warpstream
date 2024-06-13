@@ -71,6 +71,7 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 				Computed: true,
 			},
 			"agent_keys": schema.ListNestedAttribute{
+				Description:  "List of keys to authenticate an agent with this cluster. Null for Serverless clusters.",
 				Computed:     true,
 				NestedObject: agentKeyDataSourceSchema,
 			},
