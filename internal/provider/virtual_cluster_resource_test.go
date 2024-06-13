@@ -84,7 +84,7 @@ func testAccVirtualClusterResourceCheck_BYOC(acls bool, autoTopic bool, numParts
 			func(value string) error {
 				if !strings.HasPrefix(value, "akn_virtual_cluster_test_acc_") {
 					return fmt.Errorf(
-						"expected agent_pool_name to start with 'akn_virtual_cluster_test_acc_', got: %s", value,
+						"expected agent_keys.0.name to start with 'akn_virtual_cluster_test_acc_', got: %s", value,
 					)
 				}
 				return nil
