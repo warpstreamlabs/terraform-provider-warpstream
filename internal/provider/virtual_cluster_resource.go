@@ -68,6 +68,27 @@ func (r *virtualClusterResource) Metadata(_ context.Context, req resource.Metada
 	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
 }
 
+var agentKeyResourceSchema = schema.NestedAttributeObject{
+	Attributes: map[string]schema.Attribute{
+		"id": schema.StringAttribute{
+			Computed: true,
+		},
+		"name": schema.StringAttribute{
+			Computed: true,
+		},
+		"key": schema.StringAttribute{
+			Computed:  true,
+			Sensitive: true,
+		},
+		"virtual_cluster_id": schema.StringAttribute{
+			Computed: true,
+		},
+		"created_at": schema.StringAttribute{
+			Computed: true,
+		},
+	},
+}
+
 // Schema defines the schema for the resource.
 func (r *virtualClusterResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
@@ -106,6 +127,11 @@ This resource allows you to create, update and delete virtual clusters.
 				Validators: []validator.String{
 					stringvalidator.OneOf([]string{virtualClusterTypeBYOC, virtualClusterTypeServerless}...),
 				},
+			},
+			"agent_keys": schema.ListNestedAttribute{
+				Description:  "List of keys to authenticate an agent with this cluster. Null for Serverless clusters.",
+				Computed:     true,
+				NestedObject: agentKeyResourceSchema,
 			},
 			"agent_pool_id": schema.StringAttribute{
 				Description: "Agent Pool ID.",
@@ -255,6 +281,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		ID:            types.StringValue(cluster.ID),
 		Name:          types.StringValue(cluster.Name),
 		Type:          types.StringValue(cluster.Type),
+		AgentKeys:     plan.AgentKeys,
 		AgentPoolID:   types.StringValue(cluster.AgentPoolID),
 		AgentPoolName: types.StringValue(cluster.AgentPoolName),
 		CreatedAt:     types.StringValue(cluster.CreatedAt),
@@ -265,6 +292,17 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	agentKeysState, ok := mapToAgentKeyModels(cluster.AgentKeys, &resp.Diagnostics)
+	if !ok { // Diagnostics handled by helper.
+		return
+	}
+
+	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
