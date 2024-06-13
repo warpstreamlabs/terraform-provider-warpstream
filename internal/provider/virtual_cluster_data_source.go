@@ -65,6 +65,7 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 				Computed: true,
 			},
 			"agent_keys": schema.ListNestedAttribute{
+				Description:  "List of keys to authenticate an agent with this cluster. Null for Serverless clusters.",
 				Computed:     true,
 				NestedObject: apiKeyDataSourceSchema,
 			},
@@ -156,6 +157,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		ID:            types.StringValue(vc.ID),
 		Name:          types.StringValue(vc.Name),
 		Type:          types.StringValue(vc.Type),
+		AgentKeys:     mapToAPIKeyModels(vc.AgentKeys),
 		AgentPoolID:   types.StringValue(vc.AgentPoolID),
 		AgentPoolName: types.StringValue(vc.AgentPoolName),
 		CreatedAt:     types.StringValue(vc.CreatedAt),
@@ -204,29 +206,6 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// Set agent keys state
-	agentKeysState := mapToAPIKeyModels(vc.AgentKeys)
-	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-}
-
-func mapToAPIKeyModels(apiKeys []api.APIKey) []apiKeyModel {
-	keyModels := make([]apiKeyModel, 0, len(apiKeys))
-	for _, key := range apiKeys {
-		keyModel := apiKeyModel{
-			Name:      types.StringValue(key.Name),
-			Key:       types.StringValue(key.Key),
-			CreatedAt: types.StringValue(key.CreatedAt),
-		}
-
-		keyModels = append(keyModels, keyModel)
-	}
-
-	return keyModels
 }
 
 // Configure adds the provider configured client to the data source.

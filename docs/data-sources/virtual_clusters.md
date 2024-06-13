@@ -24,9 +24,19 @@ description: |-
 
 Read-Only:
 
+- `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. Null for Serverless clusters. (see [below for nested schema](#nestedatt--virtual_clusters--agent_keys))
 - `agent_pool_id` (String)
 - `agent_pool_name` (String)
 - `created_at` (String)
 - `id` (String)
 - `name` (String)
 - `type` (String)
+
+<a id="nestedatt--virtual_clusters--agent_keys"></a>
+### Nested Schema for `virtual_clusters.agent_keys`
+
+Read-Only:
+
+- `created_at` (String)
+- `key` (String, Sensitive)
+- `name` (String)

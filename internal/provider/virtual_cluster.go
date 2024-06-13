@@ -5,24 +5,23 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type apiKeyModel struct {
-	Name      types.String `tfsdk:"name"`
-	Key       types.String `tfsdk:"key"`
-	CreatedAt types.String `tfsdk:"created_at"`
-}
+const (
+	virtualClusterTypeBYOC       = "byoc"
+	virtualClusterTypeServerless = "serverless"
+)
 
 // virtualClusterModel maps virtual cluster schema data.
 type virtualClusterDataSourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	Name          types.String `tfsdk:"name"`
-	Type          types.String `tfsdk:"type"`
-	AgentKeys     *apiKeyModel `tfsdk:"agent_keys"` // Null in serverless VCs.
-	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
-	AgentPoolName types.String `tfsdk:"agent_pool_name"`
-	CreatedAt     types.String `tfsdk:"created_at"`
-	Default       types.Bool   `tfsdk:"default"`
-	Configuration types.Object `tfsdk:"configuration"`
-	Cloud         types.Object `tfsdk:"cloud"`
+	ID            types.String   `tfsdk:"id"`
+	Name          types.String   `tfsdk:"name"`
+	Type          types.String   `tfsdk:"type"`
+	AgentKeys     *[]apiKeyModel `tfsdk:"agent_keys"`
+	AgentPoolID   types.String   `tfsdk:"agent_pool_id"`
+	AgentPoolName types.String   `tfsdk:"agent_pool_name"`
+	CreatedAt     types.String   `tfsdk:"created_at"`
+	Default       types.Bool     `tfsdk:"default"`
+	Configuration types.Object   `tfsdk:"configuration"`
+	Cloud         types.Object   `tfsdk:"cloud"`
 }
 
 type virtualClusterResourceModel struct {
