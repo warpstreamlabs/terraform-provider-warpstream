@@ -5,6 +5,14 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
 
+type agentKeyModel struct {
+	ID               types.String `tfsdk:"id"`
+	Name             types.String `tfsdk:"name"`
+	Key              types.String `tfsdk:"key"`
+	VirtualClusterID types.String `tfsdk:"virtual_cluster_id"`
+	CreatedAt        types.String `tfsdk:"created_at"`
+}
+
 type apiKeyModel struct {
 	Name      types.String `tfsdk:"name"`
 	Key       types.String `tfsdk:"key"`
