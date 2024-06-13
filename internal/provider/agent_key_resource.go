@@ -150,6 +150,7 @@ func (r *agentKeyResource) Create(ctx context.Context, req resource.CreateReques
 
 	// Map response body to schema and populate Computed attribute values
 	state := agentKeyModel{
+		ID:               types.StringValue(apiKey.ID),
 		Name:             types.StringValue(apiKey.Name),
 		VirtualClusterID: types.StringValue(virtualClusterID),
 		Key:              types.StringValue(apiKey.Key),
