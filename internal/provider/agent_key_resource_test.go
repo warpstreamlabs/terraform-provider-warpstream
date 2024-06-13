@@ -8,7 +8,7 @@ import (
 )
 
 func TestAccAgentKeyResource(t *testing.T) {
-	name := "akn_test_agent_key"
+	name := "akn_test_agent_key" + nameSuffix
 	vcID := "vci_test_virtual_cluster_id"
 
 	resource.Test(t, resource.TestCase{
