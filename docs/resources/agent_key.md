@@ -13,7 +13,6 @@ This resource allows you to create, update and delete agent keys.
 ## Example Usage
 
 ```terraform
-// TODO simon: rewrite this for agent keys
 terraform {
   required_providers {
     warpstream = {
@@ -26,29 +25,13 @@ provider "warpstream" {
   token = "aks_xxx"
 }
 
-resource "warpstream_virtual_cluster" "tf_example_pipelines" {
-  name = "vcn_tf_example_pipelines"
+resource "warpstream_virtual_cluster" "tf_example_agent_keys" {
+  name = "vcn_tf_example_agent_keys"
 }
 
-resource "warpstream_pipeline" "example_pipeline" {
-  virtual_cluster_id = warpstream_virtual_cluster.tf_example_pipelines.id
+resource "warpstream_agent_key" "example_agent_key" {
+  virtual_cluster_id = warpstream_virtual_cluster.tf_example_agent_keys.id
   name               = "example_pipeline"
-  state              = "running"
-  configuration_yaml = <<EOT
-  input:
-    kafka_franz:
-        seed_brokers: ["localhost:9092"]
-        topics: ["test_topic"]
-        consumer_group: "test_topic_cap"
-
-    processors:
-        - mapping: "root = content().capitalize()"
-
-  output:
-      kafka_franz:
-          seed_brokers: ["localhost:9092"]
-          topic: "test_topic_capitalized"
-  EOT
 }
 ```
 
@@ -57,7 +40,8 @@ resource "warpstream_pipeline" "example_pipeline" {
 
 ### Required
 
-- `name` (String) Agent Key Name. Must be unique across account and may only contain underscores and alphanumeric characters.
+- `name` (String) Agent Key Name. Must be unique across WarpStream account. Must start with 'akn_' and contain underscores and alphanumeric characters only. Cannot be changed after creation.
+- `virtual_cluster_id` (String) Virtual Cluster ID associated with the Agent Key.
 
 ### Read-Only
 
