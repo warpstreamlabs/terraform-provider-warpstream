@@ -156,6 +156,7 @@ func (p *warpstreamProvider) DataSources(_ context.Context) []func() datasource.
 		NewVirtualClusterDataSource,
 		NewVirtualClustersDataSource,
 		NewAccountDataSource,
+		NewAgentKeysDataSource,
 	}
 }
 

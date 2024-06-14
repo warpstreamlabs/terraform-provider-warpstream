@@ -1,11 +1,10 @@
 package provider
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 /*
@@ -45,16 +44,7 @@ func testAccVCsDataSourceCheckServerless(serverlessVCName string) resource.TestC
 		// TODO: See TestAccVirtualClustersDataSource comment.
 		// resource.TestCheckResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.#", "5"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.0.name", "vcn_"+serverlessVCName),
-		resource.TestCheckResourceAttrWith(
-			"data.warpstream_virtual_clusters.test",
-			"virtual_clusters.0.agent_pool_name",
-			func(value string) error {
-				if !strings.HasPrefix(value, "apn_"+serverlessVCName) {
-					return fmt.Errorf("expected agent_pool_name to start with 'apn_%s', got: %s", serverlessVCName, value)
-				}
-				return nil
-			},
-		),
+		utils.TestCheckResourceAttrStartsWith("data.warpstream_virtual_clusters.test", "virtual_clusters.0.agent_pool_name", "apn_"+serverlessVCName),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.0.type", "serverless"),
 		// No agent keys in serverless clusters.
 		resource.TestCheckNoResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.0.agent_keys"),
@@ -66,16 +56,7 @@ func testAccVCsDataSourceCheckBYOC(byocVCName string) resource.TestCheckFunc {
 		// TODO: See TestAccVirtualClustersDataSource comment.
 		// resource.TestCheckResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.#", "5"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.2.name", "vcn_"+byocVCName),
-		resource.TestCheckResourceAttrWith(
-			"data.warpstream_virtual_clusters.test",
-			"virtual_clusters.2.agent_pool_name",
-			func(value string) error {
-				if !strings.HasPrefix(value, "apn_"+byocVCName) {
-					return fmt.Errorf("expected agent_pool_name to start with 'apn_%s', got: %s", byocVCName, value)
-				}
-				return nil
-			},
-		),
+		utils.TestCheckResourceAttrStartsWith("data.warpstream_virtual_clusters.test", "virtual_clusters.2.agent_pool_name", "apn_"+byocVCName),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_clusters.test", "virtual_clusters.2.type", "byoc"),
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_clusters.test", "virtual_clusters.2.agent_keys.0.name", "akn_virtual_cluster_wtf_af207e45b4e8",

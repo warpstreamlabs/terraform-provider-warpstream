@@ -2,11 +2,11 @@ package provider
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 func TestAccVirtualClusterResource(t *testing.T) {
@@ -78,18 +78,7 @@ func testAccVirtualClusterResourceCheck_BYOC(acls bool, autoTopic bool, numParts
 	return resource.ComposeAggregateTestCheckFunc(
 		testAccVirtualClusterResourceCheck(acls, autoTopic, numParts, "byoc"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "agent_keys.#", "1"),
-		resource.TestCheckResourceAttrWith(
-			"warpstream_virtual_cluster.test",
-			"agent_keys.0.name",
-			func(value string) error {
-				if !strings.HasPrefix(value, "akn_virtual_cluster_test_acc_") {
-					return fmt.Errorf(
-						"expected agent_keys.0.name to start with 'akn_virtual_cluster_test_acc_', got: %s", value,
-					)
-				}
-				return nil
-			},
-		),
+		utils.TestCheckResourceAttrStartsWith("warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_test_acc_"),
 	)
 }
 

@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+const PrincipalKindAgent = "agent"
+const ResourceKindVirtualCluster = "virtual_cluster"
+
 type APIKeyListResponse struct {
 	APIKeys []APIKey `json:"api_keys"`
 }
@@ -25,8 +28,8 @@ type APIKeyDeleteRequest struct {
 // CreateAgentKey - Create new Agent Key. Supports creating keys with just one access grant for now.
 func (c *Client) CreateAgentKey(name, virtualClusterID string) (*APIKey, error) {
 	accessGrant := map[string]string{
-		"principal_kind": "agent",
-		"resource_kind":  "virtual_cluster",
+		"principal_kind": PrincipalKindAgent,
+		"resource_kind":  ResourceKindVirtualCluster,
 		"resource_id":    virtualClusterID,
 	}
 
