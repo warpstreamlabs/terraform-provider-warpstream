@@ -6,7 +6,6 @@ import (
 	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -163,18 +162,6 @@ func (r *agentKeyResource) Create(ctx context.Context, req resource.CreateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-}
-
-func getVirtualClusterID(apiKey api.APIKey, diags *diag.Diagnostics) (string, bool) {
-	if len(apiKey.AccessGrants) == 0 {
-		diags.AddError(
-			"Error Reading WarpStream Agent Key",
-			"API returned invalid Agent Key with ID "+apiKey.ID+": no access grants found",
-		)
-		return "", false
-	}
-
-	return apiKey.AccessGrants[0].ResourceID, true
 }
 
 // Read refreshes the Terraform state with the latest data.

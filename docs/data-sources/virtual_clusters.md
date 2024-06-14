@@ -38,5 +38,7 @@ Read-Only:
 Read-Only:
 
 - `created_at` (String)
+- `id` (String)
 - `key` (String, Sensitive)
 - `name` (String)
+- `virtual_cluster_id` (String)

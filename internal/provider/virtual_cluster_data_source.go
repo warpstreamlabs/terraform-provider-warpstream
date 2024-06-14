@@ -34,14 +34,20 @@ func (d *virtualClusterDataSource) Metadata(_ context.Context, req datasource.Me
 	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
 }
 
-var apiKeyDataSourceSchema = schema.NestedAttributeObject{
+var agentKeyDataSourceSchema = schema.NestedAttributeObject{
 	Attributes: map[string]schema.Attribute{
+		"id": schema.StringAttribute{
+			Computed: true,
+		},
 		"name": schema.StringAttribute{
 			Computed: true,
 		},
 		"key": schema.StringAttribute{
 			Computed:  true,
 			Sensitive: true,
+		},
+		"virtual_cluster_id": schema.StringAttribute{
+			Computed: true,
 		},
 		"created_at": schema.StringAttribute{
 			Computed: true,
@@ -67,7 +73,7 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster. Null for Serverless clusters.",
 				Computed:     true,
-				NestedObject: apiKeyDataSourceSchema,
+				NestedObject: agentKeyDataSourceSchema,
 			},
 			"agent_pool_id": schema.StringAttribute{
 				Computed: true,
@@ -152,12 +158,17 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	}
 	tflog.Debug(ctx, fmt.Sprintf("Virtual Cluster: %+v", *vc))
 
+	agentKeys, ok := mapToAgentKeyModels(vc.AgentKeys, &diags)
+	if !ok {
+		return // Diagnostics handled inside helper.
+	}
+
 	// Map response body to model
 	state := virtualClusterDataSourceModel{
 		ID:            types.StringValue(vc.ID),
 		Name:          types.StringValue(vc.Name),
 		Type:          types.StringValue(vc.Type),
-		AgentKeys:     mapToAPIKeyModels(vc.AgentKeys),
+		AgentKeys:     agentKeys,
 		AgentPoolID:   types.StringValue(vc.AgentPoolID),
 		AgentPoolName: types.StringValue(vc.AgentPoolName),
 		CreatedAt:     types.StringValue(vc.CreatedAt),
