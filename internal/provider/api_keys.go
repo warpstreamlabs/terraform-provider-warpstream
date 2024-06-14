@@ -1,34 +1,55 @@
 package provider
 
 import (
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
 
-type apiKeyModel struct {
-	Name      types.String `tfsdk:"name"`
-	Key       types.String `tfsdk:"key"`
-	CreatedAt types.String `tfsdk:"created_at"`
+type agentKeyModel struct {
+	ID               types.String `tfsdk:"id"`
+	Name             types.String `tfsdk:"name"`
+	Key              types.String `tfsdk:"key"`
+	VirtualClusterID types.String `tfsdk:"virtual_cluster_id"`
+	CreatedAt        types.String `tfsdk:"created_at"`
 }
 
-func mapToAPIKeyModels(apiKeysPtr *[]api.APIKey) *[]apiKeyModel {
+func mapToAgentKeyModels(apiKeysPtr *[]api.APIKey, diags *diag.Diagnostics) (*[]agentKeyModel, bool) {
 	if apiKeysPtr == nil {
 		// Null for Serverless clusters.
-		return nil
+		return nil, true
 	}
 
 	apiKeys := *apiKeysPtr
 
-	keyModels := make([]apiKeyModel, 0, len(apiKeys))
+	keyModels := make([]agentKeyModel, 0, len(apiKeys))
 	for _, key := range apiKeys {
-		keyModel := apiKeyModel{
-			Name:      types.StringValue(key.Name),
-			Key:       types.StringValue(key.Key),
-			CreatedAt: types.StringValue(key.CreatedAt),
+		vcID, ok := getVirtualClusterID(key, diags)
+		if !ok {
+			return nil, false // Diagnostics handled by helper.
+		}
+		keyModel := agentKeyModel{
+			ID:               types.StringValue(key.ID),
+			Name:             types.StringValue(key.Name),
+			Key:              types.StringValue(key.Key),
+			VirtualClusterID: types.StringValue(vcID),
+			CreatedAt:        types.StringValue(key.CreatedAt),
 		}
 
 		keyModels = append(keyModels, keyModel)
 	}
 
-	return &keyModels
+	return &keyModels, true
+}
+
+func getVirtualClusterID(apiKey api.APIKey, diags *diag.Diagnostics) (string, bool) {
+	if len(apiKey.AccessGrants) == 0 {
+		diags.AddError(
+			"Error Reading WarpStream Agent Key",
+			"API returned invalid Agent Key with ID "+apiKey.ID+": no access grants found",
+		)
+		return "", false
+	}
+
+	return apiKey.AccessGrants[0].ResourceID, true
 }

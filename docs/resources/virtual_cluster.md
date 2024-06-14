@@ -63,6 +63,7 @@ resource "warpstream_virtual_cluster" "test_cloud_region" {
 
 ### Read-Only
 
+- `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. Null for Serverless clusters. (see [below for nested schema](#nestedatt--agent_keys))
 - `agent_pool_id` (String) Agent Pool ID.
 - `agent_pool_name` (String) Agent Pool Name.
 - `created_at` (String) Virtual Cluster Creation Timestamp.
@@ -87,6 +88,18 @@ Optional:
 - `default_num_partitions` (Number) Number of partitions created by default.
 - `default_retention_millis` (Number) Default retention for topics that are created automatically using Kafka's topic auto-creation feature.
 - `enable_acls` (Boolean) Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)
+
+
+<a id="nestedatt--agent_keys"></a>
+### Nested Schema for `agent_keys`
+
+Read-Only:
+
+- `created_at` (String)
+- `id` (String)
+- `key` (String, Sensitive)
+- `name` (String)
+- `virtual_cluster_id` (String)
 
 ## Import
 

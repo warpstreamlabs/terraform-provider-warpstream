@@ -33,13 +33,13 @@ type virtualClustersDataSourceModel struct {
 
 // virtualClustersModel maps virtual clusters schema data.
 type virtualClustersModel struct {
-	ID            types.String   `tfsdk:"id"`
-	Name          types.String   `tfsdk:"name"`
-	Type          types.String   `tfsdk:"type"`
-	AgentKeys     *[]apiKeyModel `tfsdk:"agent_keys"`
-	AgentPoolID   types.String   `tfsdk:"agent_pool_id"`
-	AgentPoolName types.String   `tfsdk:"agent_pool_name"`
-	CreatedAt     types.String   `tfsdk:"created_at"`
+	ID            types.String     `tfsdk:"id"`
+	Name          types.String     `tfsdk:"name"`
+	Type          types.String     `tfsdk:"type"`
+	AgentKeys     *[]agentKeyModel `tfsdk:"agent_keys"`
+	AgentPoolID   types.String     `tfsdk:"agent_pool_id"`
+	AgentPoolName types.String     `tfsdk:"agent_pool_name"`
+	CreatedAt     types.String     `tfsdk:"created_at"`
 }
 
 // Metadata returns the data source type name.
@@ -67,7 +67,7 @@ func (d *virtualClustersDataSource) Schema(_ context.Context, _ datasource.Schem
 						"agent_keys": schema.ListNestedAttribute{
 							Description:  "List of keys to authenticate an agent with this cluster. Null for Serverless clusters.",
 							Computed:     true,
-							NestedObject: apiKeyDataSourceSchema,
+							NestedObject: agentKeyDataSourceSchema,
 						},
 						"agent_pool_id": schema.StringAttribute{
 							Computed: true,
@@ -99,11 +99,15 @@ func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.Rea
 
 	// Map response body to model
 	for _, vcn := range virtualClusters {
+		agentKeys, ok := mapToAgentKeyModels(vcn.AgentKeys, &resp.Diagnostics)
+		if !ok {
+			return // Diagnostics handled by helper.
+		}
 		vcnState := virtualClustersModel{
 			ID:            types.StringValue(vcn.ID),
 			Name:          types.StringValue(vcn.Name),
 			Type:          types.StringValue(vcn.Type),
-			AgentKeys:     mapToAPIKeyModels(vcn.AgentKeys),
+			AgentKeys:     agentKeys,
 			AgentPoolID:   types.StringValue(vcn.AgentPoolID),
 			AgentPoolName: types.StringValue(vcn.AgentPoolName),
 			CreatedAt:     types.StringValue(vcn.CreatedAt),
