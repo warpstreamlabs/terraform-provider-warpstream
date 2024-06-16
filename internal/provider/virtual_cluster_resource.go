@@ -342,8 +342,8 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 	cloudValue, diagnostics := types.ObjectValue(
 		virtualClusterCloudModel{}.AttributeTypes(),
 		map[string]attr.Value{
-			"provider": types.StringValue("aws"),
-			"region":   types.StringValue("us-east-1"),
+			"provider": types.StringValue(cluster.CloudProvider),
+			"region":   types.StringValue(cluster.Region),
 		},
 	)
 	if diagnostics != nil {
