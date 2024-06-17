@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,11 +14,11 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVirtualClusterDataSource_default(),
-				Check:  testAccVCDataSourceCheckBYOC("default"),
+				Check:  testAccVCDataSourceCheck_byoc("default"),
 			},
 			{
-				Config: testAccVirtualClusterDataSource_serverless(),
-				Check:  testAccVCDataSourceCheckServerless(),
+				Config: testAccVirtualClusterDataSource_serverless("vcn_tivo_serverless"),
+				Check:  testAccVCDataSourceCheck_serverless("tivo_serverless"),
 			},
 		},
 	})
@@ -30,35 +31,39 @@ data "warpstream_virtual_cluster" "test" {
 }`
 }
 
-func testAccVirtualClusterDataSource_serverless() string {
-	return providerConfig + `
+func testAccVirtualClusterDataSource_serverless(name string) string {
+	return providerConfig + fmt.Sprintf(`
 data "warpstream_virtual_cluster" "test" {
-  name = "vcn_tivo_serverless"
-}`
+  name = "%s"
+}`, name)
 }
 
-func testAccVCDataSourceCheckBYOC(name string) resource.TestCheckFunc {
+func testAccVCDataSourceCheck_byoc(name string) resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
-		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "id"),
-		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "agent_pool_id"),
-		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "created_at"),
-		utils.TestCheckResourceAttrStartsWith("data.warpstream_virtual_cluster.test", "agent_pool_name", "apn_"+name),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "type", "byoc"),
-		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.provider", "aws"),
-		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.region", "us-east-1"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "agent_keys.#", "1"),
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_default_7695dba1efaa",
 		),
+		testAccVCDataSourceCheck(name),
 	)
 }
 
-func testAccVCDataSourceCheckServerless() resource.TestCheckFunc {
+func testAccVCDataSourceCheck_serverless(name string) resource.TestCheckFunc {
+	return resource.ComposeAggregateTestCheckFunc(
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "type", "serverless"),
+		resource.TestCheckNoResourceAttr("data.warpstream_virtual_cluster.test", "agent_keys"),
+		testAccVCDataSourceCheck(name),
+	)
+}
+
+func testAccVCDataSourceCheck(name string) resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "id"),
-		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "type", "serverless"),
+		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "agent_pool_id"),
+		utils.TestCheckResourceAttrStartsWith("data.warpstream_virtual_cluster.test", "agent_pool_name", "apn_"+name),
+		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "created_at"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.provider", "aws"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.region", "us-east-1"),
-		resource.TestCheckNoResourceAttr("data.warpstream_virtual_cluster.test", "agent_keys"),
 	)
 }
