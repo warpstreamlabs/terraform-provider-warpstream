@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -337,6 +338,19 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 	state.AgentPoolName = types.StringValue(cluster.AgentPoolName)
 	state.CreatedAt = types.StringValue(cluster.CreatedAt)
 	state.Default = types.BoolValue(cluster.Name == "vcn_default")
+
+	cloudValue, diagnostics := types.ObjectValue(
+		virtualClusterCloudModel{}.AttributeTypes(),
+		map[string]attr.Value{
+			"provider": types.StringValue(cluster.CloudProvider),
+			"region":   types.StringValue(cluster.Region),
+		},
+	)
+	if diagnostics != nil {
+		resp.Diagnostics.Append(diagnostics...)
+		return
+	}
+	state.Cloud = cloudValue
 
 	// Set state
 	diags = resp.State.Set(ctx, &state)
