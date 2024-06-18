@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -34,14 +37,15 @@ type virtualClusterCredentialsResource struct {
 
 // virtualClusterCredentialsModel maps credentials schema data.
 type virtualClusterCredentialsModel struct {
-	ID               types.String `tfsdk:"id"`
-	Name             types.String `tfsdk:"name"`
-	UserName         types.String `tfsdk:"username"`
-	Password         types.String `tfsdk:"password"`
-	CreatedAt        types.String `tfsdk:"created_at"`
-	AgentPoolID      types.String `tfsdk:"agent_pool"`
-	VirtualClusterID types.String `tfsdk:"virtual_cluster"`
-	ClusterSuperuser types.Bool   `tfsdk:"cluster_superuser"`
+	ID                  types.String `tfsdk:"id"`
+	Name                types.String `tfsdk:"name"`
+	UserName            types.String `tfsdk:"username"`
+	Password            types.String `tfsdk:"password"`
+	CreatedAt           types.String `tfsdk:"created_at"`
+	AgentPoolID         types.String `tfsdk:"agent_pool"`
+	VirtualClusterID    types.String `tfsdk:"virtual_cluster_id"`
+	VirtualClusterIDOld types.String `tfsdk:"virtual_cluster"`
+	ClusterSuperuser    types.Bool   `tfsdk:"cluster_superuser"`
 }
 
 // Configure adds the provider configured client to the data source.
@@ -96,10 +100,26 @@ This resource allows you to create and delete virtual cluster credentials.
 				},
 			},
 			"virtual_cluster": schema.StringAttribute{
-				Description: "Virtual Cluster ID.",
-				Required:    true,
+				Description:        "Virtual Cluster ID. Deprecated in favor of `virtual_cluster_id`.",
+				DeprecationMessage: "Use `virtual_cluster_id` instead.",
+				Optional:           true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"virtual_cluster_id": schema.StringAttribute{
+				Description: "Virtual Cluster ID. Required unless `virtual_cluster` is set.",
+				Optional:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.ExactlyOneOf(path.Expressions{
+						// ExactlyOneOf docstring suggest that the current attribute is implicitly added to the
+						// array of expressions. In practice we see that the error message only reports the
+						// expressions that are passed here explicitly.
+						path.MatchRoot("virtual_cluster"), path.MatchRoot("virtual_cluster_id"),
+					}...),
 				},
 			},
 			"created_at": schema.StringAttribute{
@@ -138,8 +158,14 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 		return
 	}
 
+	vci, found := getVirtualClusterIDWithDeprecation(
+		plan.VirtualClusterID, plan.VirtualClusterIDOld, &resp.Diagnostics,
+	)
+	if !found {
+		return // Diagnostics handled by helper.
+	}
+
 	// Obtain virtual cluster info
-	vci := plan.VirtualClusterID.ValueString()
 	cluster, err := r.client.GetVirtualCluster(vci)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -179,6 +205,24 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 	}
 }
 
+func getVirtualClusterIDWithDeprecation(new, old types.String, diags *diag.Diagnostics) (string, bool) {
+	if new.IsNull() && old.IsNull() {
+		diags.AddError(
+			"Error Reading WarpStream Virtual Cluster",
+			"Either `virtual_cluster` or `virtual_cluster_id` must be set",
+		)
+		return "", false
+	}
+
+	var vci string
+	if !new.IsNull() {
+		vci = new.ValueString()
+	} else {
+		vci = old.ValueString()
+	}
+	return vci, true
+}
+
 // Read refreshes the Terraform state with the latest data.
 func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var state virtualClusterCredentialsModel
@@ -189,7 +233,13 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 	}
 
 	// Obtain virtual cluster info
-	vci := state.VirtualClusterID.ValueString()
+	vci, found := getVirtualClusterIDWithDeprecation(
+		state.VirtualClusterID, state.VirtualClusterIDOld, &resp.Diagnostics,
+	)
+	if !found {
+		return // Diagnostics handled by helper.
+	}
+
 	cluster, err := r.client.GetVirtualCluster(vci)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -252,7 +302,13 @@ func (r *virtualClusterCredentialsResource) Delete(ctx context.Context, req reso
 	}
 
 	// Obtain virtual cluster info
-	vci := state.VirtualClusterID.ValueString()
+	vci, found := getVirtualClusterIDWithDeprecation(
+		state.VirtualClusterID, state.VirtualClusterIDOld, &resp.Diagnostics,
+	)
+	if !found {
+		return // Diagnostics handled by helper.
+	}
+
 	cluster, err := r.client.GetVirtualCluster(vci)
 	if err != nil {
 		resp.Diagnostics.AddError(

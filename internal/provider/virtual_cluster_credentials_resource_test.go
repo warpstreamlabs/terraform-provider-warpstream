@@ -43,7 +43,7 @@ data "warpstream_virtual_cluster" "default" {
 resource "warpstream_virtual_cluster_credentials" "test" {
 	name            = "ccn_test_%s"
 	agent_pool      = data.warpstream_virtual_cluster.default.agent_pool_id
-	virtual_cluster = data.warpstream_virtual_cluster.default.id
+	virtual_cluster_id = data.warpstream_virtual_cluster.default.id
 	cluster_superuser = %t
   }
 `, nameSuffix, su)
