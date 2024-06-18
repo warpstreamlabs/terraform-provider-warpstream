@@ -165,6 +165,9 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 		return // Diagnostics handled by helper.
 	}
 
+	plan.VirtualClusterID = types.StringValue(vci)
+	plan.VirtualClusterIDOld = types.StringValue(vci)
+
 	// Obtain virtual cluster info
 	cluster, err := r.client.GetVirtualCluster(vci)
 	if err != nil {
@@ -203,6 +206,8 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	plan.VirtualClusterIDOld = plan.VirtualClusterID // Maintain backwards compatibility
 }
 
 func getVirtualClusterIDWithDeprecation(new, old types.String, diags *diag.Diagnostics) (string, bool) {
@@ -239,6 +244,9 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 	if !found {
 		return // Diagnostics handled by helper.
 	}
+
+	state.VirtualClusterID = types.StringValue(vci)
+	state.VirtualClusterIDOld = types.StringValue(vci)
 
 	cluster, err := r.client.GetVirtualCluster(vci)
 	if err != nil {
