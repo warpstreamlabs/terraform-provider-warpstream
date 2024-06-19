@@ -65,6 +65,18 @@ make testacc
 
 Creating a new provider release is as simple as pushing a corresponding git tag.
 The tag name must follow the Semantic Versioning standard.
+
+Tagging a commit can be done from the git CLI or the GitHub UI. One benefit of
+using the GitHub UI is that GitHub supports release notes.
+
+To publish via GitHub, Go to this repository's [Releases Page][] to view our
+release history, then click "Draft a new release".  Publishing a release will
+automatically kick off a Goreleaser workflow in GitHub actions that will
+publish to the Hashicorp registry. Once that workflow has completed, visit [our
+listing][] in the registry to confirm that the new version is availalbe.
+
+To publish via git
+
 ```shell
 git tag v<MAJOR>.<MINOR>.<PATCH>
 git push origin v<MAJOR>.<MINOR>.<PATCH>
@@ -72,4 +84,7 @@ git push origin v<MAJOR>.<MINOR>.<PATCH>
 
 See [Publishing Providers][] for details.
 
+[Releases Page]: https://github.com/warpstreamlabs/terraform-provider-warpstream/releases/
+[our listing]: https://registry.terraform.io/providers/warpstreamlabs/warpstream/latest
 [Publishing Providers]: https://developer.hashicorp.com/terraform/registry/providers/publishing
+
