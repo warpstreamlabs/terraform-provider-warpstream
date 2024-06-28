@@ -3,9 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"regexp"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -15,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -87,12 +86,7 @@ This resource allows you to create and delete virtual cluster credentials.
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-				Validators: []validator.String{
-					stringvalidator.RegexMatches(
-						regexp.MustCompile(`^ccn_`),
-						"must start with 'ccn_' prefix",
-					),
-				},
+				Validators: []validator.String{utils.StartsWith("ccn_")},
 			},
 			"agent_pool": schema.StringAttribute{
 				Description: "Agent Pool ID.",
