@@ -41,10 +41,9 @@ func TestAccVirtualClusterCredentialsResource(t *testing.T) {
 			},
 			{
 				Config:      testAccVirtualClusterCredentialsResource_vcFieldMissing(),
-				PlanOnly:    true,
 				ExpectError: regexp.MustCompile("Invalid Attribute Combination"),
 			},
-			// Workaround: re-run the first check, which passes, so that the TF test framework can do its cleanup.
+			// Workaround: re-run the first check so the TF framework cleans up the one with the error above.
 			{
 				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true),
 				Check:  testAccVirtualClusterCredentialsResourceCheck(true),
