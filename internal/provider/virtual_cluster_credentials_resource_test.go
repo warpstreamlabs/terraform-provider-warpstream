@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -30,6 +31,23 @@ func TestAccVirtualClusterCredentialsResource(t *testing.T) {
 				Config: testAccVirtualClusterCredentialsResource_withSuperuser(false),
 				Check:  testAccVirtualClusterCredentialsResourceCheck(false),
 			},
+			{
+				Config: testAccVirtualClusterCredentialsResource_vcField("virtual_cluster_id"),
+				Check:  testAccVirtualClusterCredentialsResourceCheck(false),
+			},
+			{
+				Config: testAccVirtualClusterCredentialsResource_vcField("virtual_cluster"),
+				Check:  testAccVirtualClusterCredentialsResourceCheck(false),
+			},
+			{
+				Config:      testAccVirtualClusterCredentialsResource_vcFieldMissing(),
+				ExpectError: regexp.MustCompile("Invalid Attribute Combination"),
+			},
+			// Workaround: re-run the first check so the TF framework cleans up the one with the error above.
+			{
+				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true),
+				Check:  testAccVirtualClusterCredentialsResourceCheck(true),
+			},
 		},
 	})
 }
@@ -43,10 +61,39 @@ data "warpstream_virtual_cluster" "default" {
 resource "warpstream_virtual_cluster_credentials" "test" {
 	name            = "ccn_test_%s"
 	agent_pool      = data.warpstream_virtual_cluster.default.agent_pool_id
-	virtual_cluster = data.warpstream_virtual_cluster.default.id
+	virtual_cluster_id = data.warpstream_virtual_cluster.default.id
 	cluster_superuser = %t
   }
 `, nameSuffix, su)
+}
+
+func testAccVirtualClusterCredentialsResource_vcField(vcFieldName string) string {
+	return providerConfig + fmt.Sprintf(`
+data "warpstream_virtual_cluster" "default" {
+	default = true
+}
+
+resource "warpstream_virtual_cluster_credentials" "test" {
+	name            = "ccn_test_%s"
+	agent_pool      = data.warpstream_virtual_cluster.default.agent_pool_id
+	%s = data.warpstream_virtual_cluster.default.id
+	cluster_superuser = false
+  }
+`, nameSuffix, vcFieldName)
+}
+
+func testAccVirtualClusterCredentialsResource_vcFieldMissing() string {
+	return providerConfig + fmt.Sprintf(`
+data "warpstream_virtual_cluster" "default" {
+	default = true
+}
+
+resource "warpstream_virtual_cluster_credentials" "test" {
+	name            = "ccn_test_%s"
+	agent_pool      = data.warpstream_virtual_cluster.default.agent_pool_id
+	cluster_superuser = false
+  }
+`, nameSuffix)
 }
 
 func testAccVirtualClusterCredentialsResourceCheck(su bool) resource.TestCheckFunc {

@@ -18,9 +18,9 @@ resource "warpstream_virtual_cluster" "xxx" {
 }
 
 resource "warpstream_virtual_cluster_credentials" "test" {
-  name            = "ccn_test"
-  agent_pool      = warpstream_virtual_cluster.xxx.agent_pool_id
-  virtual_cluster = warpstream_virtual_cluster.xxx.id
+  name               = "ccn_test"
+  agent_pool         = warpstream_virtual_cluster.xxx.agent_pool_id
+  virtual_cluster_id = warpstream_virtual_cluster.xxx.id
 }
 
 output "vcc_test_username" {
@@ -41,11 +41,12 @@ output "vcc_test_password" {
 
 - `agent_pool` (String) Agent Pool ID.
 - `name` (String) Virtual Cluster Credentials Name.
-- `virtual_cluster` (String) Virtual Cluster ID.
 
 ### Optional
 
 - `cluster_superuser` (Boolean) Whether the user is cluster superuser. If `true`, the credentials will be created with superuser privileges which enables ACL management via the Kafka Admin APIs. If `false`, and cluster ACLs are enabled, and no `ALLOW` ACLs are set, then these credentials will not be able to access the cluster.
+- `virtual_cluster` (String, Deprecated) Virtual Cluster ID. Deprecated in favor of `virtual_cluster_id`.
+- `virtual_cluster_id` (String) Virtual Cluster ID. Required unless `virtual_cluster` is set.
 
 ### Read-Only
 
