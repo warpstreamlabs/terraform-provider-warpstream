@@ -316,8 +316,8 @@ func (r *virtualClusterCredentialsResource) Delete(ctx context.Context, req reso
 
 // getVirtualClusterIDWithDeprecation is a helper to read virtual cluster ID from the new or old field,
 // whichever was set in the plan or state.
-func getVirtualClusterIDWithDeprecation(new, old types.String, diags *diag.Diagnostics) (string, bool) {
-	if new.IsNull() && old.IsNull() {
+func getVirtualClusterIDWithDeprecation(vcIDnew, vcIDold types.String, diags *diag.Diagnostics) (string, bool) {
+	if vcIDnew.IsNull() && vcIDold.IsNull() {
 		diags.AddError(
 			"Error Reading WarpStream Virtual Cluster",
 			"Either `virtual_cluster` or `virtual_cluster_id` must be set",
@@ -326,10 +326,10 @@ func getVirtualClusterIDWithDeprecation(new, old types.String, diags *diag.Diagn
 	}
 
 	var vci string
-	if !new.IsNull() {
-		vci = new.ValueString()
+	if !vcIDnew.IsNull() {
+		vci = vcIDnew.ValueString()
 	} else {
-		vci = old.ValueString()
+		vci = vcIDold.ValueString()
 	}
 	return vci, true
 }
