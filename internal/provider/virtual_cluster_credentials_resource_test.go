@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -39,8 +40,14 @@ func TestAccVirtualClusterCredentialsResource(t *testing.T) {
 				Check:  testAccVirtualClusterCredentialsResourceCheck(false),
 			},
 			{
-				Config: testAccVirtualClusterCredentialsResource_vcFieldMissing(),
-				Check:  testAccVirtualClusterCredentialsResourceCheck(false),
+				Config:      testAccVirtualClusterCredentialsResource_vcFieldMissing(),
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile("Invalid Attribute Combination"),
+			},
+			// Workaround: re-run the first check, which passes, so that the TF test framework can do its cleanup.
+			{
+				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true),
+				Check:  testAccVirtualClusterCredentialsResourceCheck(true),
 			},
 		},
 	})

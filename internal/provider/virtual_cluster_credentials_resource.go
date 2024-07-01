@@ -115,9 +115,9 @@ This resource allows you to create and delete virtual cluster credentials.
 				},
 				Validators: []validator.String{
 					stringvalidator.ExactlyOneOf(path.Expressions{
-						// ExactlyOneOf docstring suggest that the current attribute is implicitly added to the
-						// array of expressions. In practice we see that the error message only reports the
-						// expressions that are passed here explicitly.
+						// The ExactlyOneOf docstring suggest that "virtual_cluster_id" is implicitly included in
+						// this array of expressions. In practice we see that the resulting error message reports
+						// just the expressions that are passed to this array explicitly. So we include both.
 						path.MatchRoot("virtual_cluster"), path.MatchRoot("virtual_cluster_id"),
 					}...),
 				},
@@ -165,9 +165,6 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 		return // Diagnostics handled by helper.
 	}
 
-	plan.VirtualClusterID = types.StringValue(vci)
-	plan.VirtualClusterIDOld = types.StringValue(vci)
-
 	// Obtain virtual cluster info
 	cluster, err := r.client.GetVirtualCluster(vci)
 	if err != nil {
@@ -189,43 +186,24 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 	}
 
 	// Map response body to schema and populate Computed attribute values
-	plan = virtualClusterCredentialsModel{
+	newPlan := virtualClusterCredentialsModel{
 		ID:               types.StringValue(c.ID),
 		Name:             types.StringValue(c.Name),
 		AgentPoolID:      types.StringValue(c.AgentPoolID),
-		VirtualClusterID: types.StringValue(cluster.ID),
 		CreatedAt:        types.StringValue(c.CreatedAt), // null
 		UserName:         types.StringValue(c.UserName),
 		Password:         types.StringValue(c.Password),
 		ClusterSuperuser: types.BoolValue(c.ClusterSuperuser),
 	}
 
+	setVirtualClusterIDWithDeprecation(plan, &newPlan)
+
 	// Set state to fully populated data
-	diags = resp.State.Set(ctx, plan)
+	diags = resp.State.Set(ctx, newPlan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	plan.VirtualClusterIDOld = plan.VirtualClusterID // Maintain backwards compatibility
-}
-
-func getVirtualClusterIDWithDeprecation(new, old types.String, diags *diag.Diagnostics) (string, bool) {
-	if new.IsNull() && old.IsNull() {
-		diags.AddError(
-			"Error Reading WarpStream Virtual Cluster",
-			"Either `virtual_cluster` or `virtual_cluster_id` must be set",
-		)
-		return "", false
-	}
-
-	var vci string
-	if !new.IsNull() {
-		vci = new.ValueString()
-	} else {
-		vci = old.ValueString()
-	}
-	return vci, true
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -241,12 +219,10 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 	vci, found := getVirtualClusterIDWithDeprecation(
 		state.VirtualClusterID, state.VirtualClusterIDOld, &resp.Diagnostics,
 	)
+
 	if !found {
 		return // Diagnostics handled by helper.
 	}
-
-	state.VirtualClusterID = types.StringValue(vci)
-	state.VirtualClusterIDOld = types.StringValue(vci)
 
 	cluster, err := r.client.GetVirtualCluster(vci)
 	if err != nil {
@@ -276,19 +252,20 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 	}
 
 	// Overwrite Virtual Cluster Credentials with refreshed state
-	state = virtualClusterCredentialsModel{
+	newState := virtualClusterCredentialsModel{
 		ID:               types.StringValue(c.ID),
 		Name:             types.StringValue(c.Name),
 		UserName:         types.StringValue(c.UserName),
 		Password:         state.Password,
 		AgentPoolID:      types.StringValue(c.AgentPoolID),
 		CreatedAt:        types.StringValue(c.CreatedAt),
-		VirtualClusterID: types.StringValue(cluster.ID),
 		ClusterSuperuser: types.BoolValue(c.ClusterSuperuser),
 	}
 
-	// Set state
-	diags = resp.State.Set(ctx, &state)
+	setVirtualClusterIDWithDeprecation(state, &newState)
+
+	// Set new state
+	diags = resp.State.Set(ctx, &newState)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -334,5 +311,39 @@ func (r *virtualClusterCredentialsResource) Delete(ctx context.Context, req reso
 			"Could not delete WarpStream Virtual Cluster Credentials, unexpected error: "+err.Error(),
 		)
 		return
+	}
+}
+
+// getVirtualClusterIDWithDeprecation is a helper to read virtual cluster ID from the new or old field,
+// whichever was set in the plan or state.
+func getVirtualClusterIDWithDeprecation(new, old types.String, diags *diag.Diagnostics) (string, bool) {
+	if new.IsNull() && old.IsNull() {
+		diags.AddError(
+			"Error Reading WarpStream Virtual Cluster",
+			"Either `virtual_cluster` or `virtual_cluster_id` must be set",
+		)
+		return "", false
+	}
+
+	var vci string
+	if !new.IsNull() {
+		vci = new.ValueString()
+	} else {
+		vci = old.ValueString()
+	}
+	return vci, true
+}
+
+// getVirtualClusterIDWithDeprecation is a helper to set virtual cluster ID on the new or old field,
+// whichever was set in the plan or state.
+func setVirtualClusterIDWithDeprecation(
+	state virtualClusterCredentialsModel,
+	newState *virtualClusterCredentialsModel,
+) {
+	if !state.VirtualClusterID.IsNull() {
+		newState.VirtualClusterID = state.VirtualClusterID
+	}
+	if !state.VirtualClusterIDOld.IsNull() {
+		newState.VirtualClusterIDOld = state.VirtualClusterIDOld
 	}
 }
