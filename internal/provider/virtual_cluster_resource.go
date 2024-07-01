@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -25,6 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -110,12 +110,7 @@ This resource allows you to create, update and delete virtual clusters.
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-				Validators: []validator.String{
-					stringvalidator.RegexMatches(
-						regexp.MustCompile(`^vcn_`),
-						"must start with 'vcn_' prefix",
-					),
-				},
+				Validators: []validator.String{utils.StartsWith("vcn_")},
 			},
 			"type": schema.StringAttribute{
 				Description: "Virtual Cluster Type. Valid virtual cluster types are `byoc` (default) and `serverless`. See [Serverless Clusters](https://docs.warpstream.com/warpstream/reference/serverless-clusters).",

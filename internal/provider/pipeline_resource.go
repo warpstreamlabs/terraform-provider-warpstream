@@ -79,6 +79,7 @@ For more details, take a look at: https://docs.warpstream.com/warpstream/configu
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+				Validators: []validator.String{utils.StartsWith("vci_")},
 			},
 			"name": schema.StringAttribute{
 				Description: "The unique human-readable name of the pipeline within the virtual cluster. This cannot be changed after creation.",

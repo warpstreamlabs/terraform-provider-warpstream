@@ -3,9 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"regexp"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -13,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -79,12 +78,7 @@ This resource allows you to create, update and delete agent keys.
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-				Validators: []validator.String{
-					stringvalidator.RegexMatches(
-						regexp.MustCompile(`^akn_[a-zA-Z0-9_]+$`),
-						"must start with 'akn_' and must contain underscores and alphanumeric characters only",
-					),
-				},
+				Validators: []validator.String{utils.StartsWith("akn_")},
 			},
 			"key": schema.StringAttribute{
 				Description: "Agent Key Secret Value.",
@@ -97,6 +91,7 @@ This resource allows you to create, update and delete agent keys.
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+				Validators: []validator.String{utils.StartsWith("vci_")},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Agent Key Creation Timestamp.",
