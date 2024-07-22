@@ -76,7 +76,7 @@ func (d *virtualClustersDataSource) Schema(_ context.Context, _ datasource.Schem
 						"agent_pool_name": schema.StringAttribute{
 							Computed: true,
 						},
-						"bootpstrap_url": schema.StringAttribute{
+						"bootstrap_url": schema.StringAttribute{
 							Description: "Bootstrap URL to connect to the Virtual Cluster. Null for Serverless clusters.",
 							Computed:    true,
 						},

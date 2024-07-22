@@ -115,7 +115,7 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 				},
 				Computed: true,
 			},
-			"bootpstrap_url": schema.StringAttribute{
+			"bootstrap_url": schema.StringAttribute{
 				Description: "Bootstrap URL to connect to the Virtual Cluster. Null for Serverless clusters.",
 				Computed:    true,
 			},

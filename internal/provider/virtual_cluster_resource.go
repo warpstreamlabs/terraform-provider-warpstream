@@ -225,7 +225,7 @@ This resource allows you to create, update and delete virtual clusters.
 					objectplanmodifier.RequiresReplace(),
 				},
 			},
-			"bootpstrap_url": schema.StringAttribute{
+			"bootstrap_url": schema.StringAttribute{
 				Description: "Bootstrap URL to connect to the Virtual Cluster. Null for Serverless clusters.",
 				Computed:    true,
 			},
