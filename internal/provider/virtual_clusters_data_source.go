@@ -40,6 +40,7 @@ type virtualClustersModel struct {
 	AgentPoolID   types.String     `tfsdk:"agent_pool_id"`
 	AgentPoolName types.String     `tfsdk:"agent_pool_name"`
 	CreatedAt     types.String     `tfsdk:"created_at"`
+	BootstrapURL  types.String     `tfsdk:"bootstrap_url"`
 }
 
 // Metadata returns the data source type name.
@@ -74,6 +75,10 @@ func (d *virtualClustersDataSource) Schema(_ context.Context, _ datasource.Schem
 						},
 						"agent_pool_name": schema.StringAttribute{
 							Computed: true,
+						},
+						"bootpstrap_url": schema.StringAttribute{
+							Description: "Bootstrap URL to connect to the Virtual Cluster. Null for Serverless clusters.",
+							Computed:    true,
 						},
 						"created_at": schema.StringAttribute{
 							Computed: true,
@@ -111,6 +116,10 @@ func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.Rea
 			AgentPoolID:   types.StringValue(vcn.AgentPoolID),
 			AgentPoolName: types.StringValue(vcn.AgentPoolName),
 			CreatedAt:     types.StringValue(vcn.CreatedAt),
+		}
+
+		if vcn.BootstrapURL != nil {
+			vcnState.BootstrapURL = types.StringValue(*vcn.BootstrapURL)
 		}
 
 		state.VirtualClusters = append(state.VirtualClusters, vcnState)

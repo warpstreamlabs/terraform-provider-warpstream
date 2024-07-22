@@ -30,6 +30,7 @@ type VirtualCluster struct {
 	CreatedAt     string    `json:"created_at"`
 	Region        string    `json:"region"`
 	CloudProvider string    `json:"cloud_provider"`
+	BootstrapURL  *string   `json:"bootstrap_url"`
 }
 
 type VirtualClusterCredentials struct {

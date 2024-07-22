@@ -225,6 +225,10 @@ This resource allows you to create, update and delete virtual clusters.
 					objectplanmodifier.RequiresReplace(),
 				},
 			},
+			"bootpstrap_url": schema.StringAttribute{
+				Description: "Bootstrap URL to connect to the Virtual Cluster. Null for Serverless clusters.",
+				Computed:    true,
+			},
 		},
 	}
 }
@@ -286,6 +290,10 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		Cloud:         plan.Cloud,
 	}
 
+	if cluster.BootstrapURL != nil {
+		state.BootstrapURL = types.StringValue(*cluster.BootstrapURL)
+	}
+
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -333,6 +341,10 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 	state.AgentPoolName = types.StringValue(cluster.AgentPoolName)
 	state.CreatedAt = types.StringValue(cluster.CreatedAt)
 	state.Default = types.BoolValue(cluster.Name == "vcn_default")
+
+	if cluster.BootstrapURL != nil {
+		state.BootstrapURL = types.StringValue(*cluster.BootstrapURL)
+	}
 
 	cloudValue, diagnostics := types.ObjectValue(
 		virtualClusterCloudModel{}.AttributeTypes(),
@@ -409,6 +421,12 @@ func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.I
 }
 
 func (m virtualClusterResourceModel) cluster() api.VirtualCluster {
+	var burl *string
+	if m.BootstrapURL.ValueString() != "" {
+		burlStr := m.BootstrapURL.ValueString()
+		burl = &burlStr
+	}
+
 	return api.VirtualCluster{
 		ID:            m.ID.ValueString(),
 		Name:          m.Name.ValueString(),
@@ -416,6 +434,7 @@ func (m virtualClusterResourceModel) cluster() api.VirtualCluster {
 		AgentPoolID:   m.AgentPoolID.ValueString(),
 		AgentPoolName: m.AgentPoolName.ValueString(),
 		CreatedAt:     m.CreatedAt.ValueString(),
+		BootstrapURL:  burl,
 	}
 }
 

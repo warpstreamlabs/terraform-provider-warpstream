@@ -115,6 +115,10 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 				},
 				Computed: true,
 			},
+			"bootpstrap_url": schema.StringAttribute{
+				Description: "Bootstrap URL to connect to the Virtual Cluster. Null for Serverless clusters.",
+				Computed:    true,
+			},
 		},
 	}
 }
@@ -174,6 +178,10 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		CreatedAt:     types.StringValue(vc.CreatedAt),
 		Configuration: data.Configuration,
 		Cloud:         data.Cloud,
+	}
+
+	if vc.BootstrapURL != nil {
+		state.BootstrapURL = types.StringValue(*vc.BootstrapURL)
 	}
 
 	// Set state
