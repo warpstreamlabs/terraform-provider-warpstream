@@ -66,6 +66,7 @@ resource "warpstream_virtual_cluster" "test_cloud_region" {
 - `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. Null for Serverless clusters. (see [below for nested schema](#nestedatt--agent_keys))
 - `agent_pool_id` (String) Agent Pool ID.
 - `agent_pool_name` (String) Agent Pool Name.
+- `bootpstrap_url` (String) Bootstrap URL to connect to the Virtual Cluster. Null for Serverless clusters.
 - `created_at` (String) Virtual Cluster Creation Timestamp.
 - `default` (Boolean)
 - `id` (String) Virtual Cluster ID.

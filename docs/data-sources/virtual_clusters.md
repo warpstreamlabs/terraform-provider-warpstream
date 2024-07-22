@@ -27,6 +27,7 @@ Read-Only:
 - `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. Null for Serverless clusters. (see [below for nested schema](#nestedatt--virtual_clusters--agent_keys))
 - `agent_pool_id` (String)
 - `agent_pool_name` (String)
+- `bootpstrap_url` (String) Bootstrap URL to connect to the Virtual Cluster. Null for Serverless clusters.
 - `created_at` (String)
 - `id` (String)
 - `name` (String)
