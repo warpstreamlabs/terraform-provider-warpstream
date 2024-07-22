@@ -79,6 +79,8 @@ func testAccVirtualClusterResourceCheck_BYOC(acls bool, autoTopic bool, numParts
 		testAccVirtualClusterResourceCheck(acls, autoTopic, numParts, "byoc"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "agent_keys.#", "1"),
 		utils.TestCheckResourceAttrStartsWith("warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_test_acc_"),
+		// todo simon: move back to prod url
+		utils.TestCheckResourceAttrEndsWith("warpstream_virtual_cluster.test", "bootstrap_url", ".kafka.discoveryv2.staging-a.us-east-1.warpstream.com:9092"),
 	)
 }
 
@@ -86,6 +88,7 @@ func testAccVirtualClusterResourceCheck_Serverless(acls bool, autoTopic bool, nu
 	return resource.ComposeAggregateTestCheckFunc(
 		testAccVirtualClusterResourceCheck(acls, autoTopic, numParts, "serverless"),
 		resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "agent_keys"),
+		resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "bootstrap_url"),
 	)
 }
 
@@ -93,13 +96,11 @@ func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int6
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "id"),
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_id"),
-		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_id"),
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "created_at"),
 		// Note: agent_pool_name is now equal to "apn_test_acc_"+nameSuffix + randomSuffix
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_name"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "default", "false"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "type", vcType),
-		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "bootstrap_url", "foo"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acls", fmt.Sprintf("%t", acls)),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.auto_create_topic", fmt.Sprintf("%t", autoTopic)),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_num_partitions", fmt.Sprintf("%d", numParts)),
