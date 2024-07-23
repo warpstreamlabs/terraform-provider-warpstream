@@ -22,6 +22,7 @@ type virtualClusterDataSourceModel struct {
 	Default       types.Bool       `tfsdk:"default"`
 	Configuration types.Object     `tfsdk:"configuration"`
 	Cloud         types.Object     `tfsdk:"cloud"`
+	BootstrapURL  types.String     `tfsdk:"bootstrap_url"`
 }
 
 type virtualClusterResourceModel struct {
@@ -35,6 +36,7 @@ type virtualClusterResourceModel struct {
 	Default       types.Bool   `tfsdk:"default"`
 	Configuration types.Object `tfsdk:"configuration"`
 	Cloud         types.Object `tfsdk:"cloud"`
+	BootstrapURL  types.String `tfsdk:"bootstrap_url"`
 }
 
 type virtualClusterConfigurationModel struct {

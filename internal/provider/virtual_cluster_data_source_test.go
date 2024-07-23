@@ -45,6 +45,11 @@ func testAccVCDataSourceCheck_byoc(name string) resource.TestCheckFunc {
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_default_7695dba1efaa",
 		),
+		utils.TestCheckResourceAttrEndsWith(
+			"data.warpstream_virtual_cluster.test",
+			"bootstrap_url",
+			".kafka.discoveryv2.prod-z.us-east-1.warpstream.com:9092",
+		),
 		testAccVCDataSourceCheck(name),
 	)
 }
