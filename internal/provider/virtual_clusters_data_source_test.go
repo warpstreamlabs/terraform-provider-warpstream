@@ -101,6 +101,22 @@ func assertBYOCVC(vcs []map[string]string, name string) error {
 		return fmt.Errorf("Expected agent key virtual cluster ID to be 'vci_daf191a9_47fa_4215_aa49_2e74c5ba78d9', got %s", agentKeysVCIDAttr)
 	}
 
+	burl, ok := vc["bootstrap_url"]
+
+	if !ok {
+		return fmt.Errorf("Expected byoc virtual cluster JSON to have a bootstrap URL field")
+	}
+
+	expectedBurl := "api-18b7339a-6bc0-4397-a066-d3bddb4f8392.kafka.discoveryv2.prod-z.us-east-1.warpstream.com:9092"
+
+	if burl != expectedBurl {
+		return fmt.Errorf(
+			"Expected vcn_wtf byoc cluster bootstrap URL to be %s, got %s",
+			expectedBurl,
+			vc["bootstrap_url"],
+		)
+	}
+
 	return nil
 }
 
@@ -124,6 +140,10 @@ func assertServerlessVC(vcs []map[string]string, name string) error {
 			name,
 			vc["agent_pool_name"],
 		)
+	}
+
+	if _, ok := vc["bootstrap_url"]; ok {
+		return fmt.Errorf("Serverless virtual cluster should not have a bootstrap URL field")
 	}
 
 	return nil

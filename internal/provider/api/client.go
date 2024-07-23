@@ -13,7 +13,7 @@ import (
 )
 
 // HostURL - Default Warpstream URL.
-const HostURL string = "https://staging-a.us-east-1.warpstream.com/api/v1" // todo simon: temp
+const HostURL string = "https://api.prod.us-east-1.warpstream.com/api/v1"
 
 // Client.
 type Client struct {

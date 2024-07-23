@@ -79,8 +79,7 @@ func testAccVirtualClusterResourceCheck_BYOC(acls bool, autoTopic bool, numParts
 		testAccVirtualClusterResourceCheck(acls, autoTopic, numParts, "byoc"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "agent_keys.#", "1"),
 		utils.TestCheckResourceAttrStartsWith("warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_test_acc_"),
-		// todo simon: move back to prod url
-		utils.TestCheckResourceAttrEndsWith("warpstream_virtual_cluster.test", "bootstrap_url", ".kafka.discoveryv2.staging-a.us-east-1.warpstream.com:9092"),
+		utils.TestCheckResourceAttrEndsWith("warpstream_virtual_cluster.test", "bootstrap_url", ".kafka.discoveryv2.prod-z.us-east-1.warpstream.com:9092"),
 	)
 }
 
