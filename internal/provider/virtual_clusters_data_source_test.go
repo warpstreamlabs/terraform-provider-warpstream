@@ -72,7 +72,7 @@ func assertBYOCVC(vcs []map[string]string, name string) error {
 	}
 
 	if vc["type"] != "byoc" {
-		return fmt.Errorf("Expected BYOC virtual cluster, got %s", vc["type"])
+		return fmt.Errorf("Expected BYOC virtual clusters, got %s", vc["type"])
 	}
 
 	if !strings.HasPrefix(vc["agent_pool_name"], "apn_"+name) {
