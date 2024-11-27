@@ -12,6 +12,7 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
+
 			{
 				Config: testAccVirtualClusterDataSource_default(),
 				Check:  testAccVCDataSourceCheck_byoc("default"),
