@@ -17,6 +17,7 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 				Config: testAccVirtualClusterDataSource_default(),
 				Check:  testAccVCDataSourceCheck_byoc("default"),
 			},
+
 			{
 				Config: testAccVirtualClusterDataSource_serverless("vcn_tivo_serverless"),
 				Check:  testAccVCDataSourceCheck_serverless("tivo_serverless"),
