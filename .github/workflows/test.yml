@@ -23,6 +23,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Set Slack message
+        run: |
+        if [[ "${{ needs.test.result }}" == 'success' && "${{ needs.generate.result }}" == 'success' ]]; then
+          echo "slack-message=\"SUCCESS LETS GO\"" >> $GITHUB_ENV
+        else
+          echo "slack-message=\"FAILED...\"" >> $GITHUB_ENV
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
         with:
