@@ -91,9 +91,9 @@ jobs:
       - name: Set Slack message
         run: |
           if [[ "${{ needs.test.result }}" == 'success' && "${{ needs.generate.result }}" == 'success' ]]; then
-            echo "slack_message=\"WarpStream terraform provider test :white_check_mark:\"" >> $GITHUB_ENV
+            echo "slack_message=\":night_with_stars: WarpStream terraform provider test :white_check_mark: <${{https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}}}|latest run> \"" >> $GITHUB_ENV
           else
-            echo "slack_message=\"WarpStream terraform provider test :x::siren_animated:\"" >> $GITHUB_ENV
+            echo "slack_message=\":night_with_stars: WarpStream terraform provider test :x::siren_animated: <${{https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}}}|latest run>\"" >> $GITHUB_ENV
           fi
       - name: Print slack message
         run: echo "${{ env.slack-message }} ${{ github.event_name }}"
