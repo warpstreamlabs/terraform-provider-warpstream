@@ -79,3 +79,27 @@ jobs:
           WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_API_KEY }}
         run: go test -v -cover ./internal/provider/
         timeout-minutes: 10
+
+  finally:
+    name: Finally
+    needs: [test, generate]
+    if: always()
+    
+    steps:
+      - name: Set Slack message
+        run: |
+          if [[ "${{ job.status }}" == 'success' && "${{ needs.earlierjob1.result }}" == 'success' && "${{ needs.earlierjob2.result }}" == 'success' ]]; then
+            echo "slack-message="SUCCESS LETS GO"" >> $GITHUB_ENV
+          else
+            echo "slack-message="FAILED..."" >> $GITHUB_ENV
+      - name: Print slack message
+        run: echo "${{ env.slack-message }}"
+      # - name: Post to a Slack channel
+      #   uses: slackapi/slack-github-action@v2.0.0
+      #   if: always() # TODO: if: ${{ github.event_name == 'schedule' }}
+      #   with:
+      #     method: chat.postMessage
+      #     token: ${{ secrets.SLACK_BOT_TOKEN }}
+      #     payload: |
+      #       channel: ${{ secrets.SLACK_CHANNEL_ID }}
+      #       text: ${{ env.slack-message }}
