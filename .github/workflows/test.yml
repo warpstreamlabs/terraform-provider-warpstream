@@ -99,7 +99,7 @@ jobs:
         run: echo "${{ env.slack-message }} ${{ github.event_name }}"
       - name: Post to a Slack channel
         uses: slackapi/slack-github-action@v2.0.0
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name == 'schedule' }}
         with:
           method: chat.postMessage
           token: ${{ secrets.SLACK_BOT_TOKEN }}
