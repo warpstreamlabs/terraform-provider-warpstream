@@ -83,6 +83,7 @@ jobs:
   finally:
     name: Finally
     needs: [test, generate]
+    runs-on: ubuntu-latest
     if: always()
     
     steps:
