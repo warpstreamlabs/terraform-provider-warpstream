@@ -90,9 +90,9 @@ jobs:
       - name: Set Slack message
         run: |
           if [[ "${{ needs.test.result }}" == 'success' && "${{ needs.generate.result }}" == 'success' ]]; then
-            echo "slack-message="SUCCESS LETS GO"" >> $GITHUB_ENV
+            echo "slack-message=\"SUCCESS LETS GO\"" >> $GITHUB_ENV
           else
-            echo "slack-message="FAILED..."" >> $GITHUB_ENV
+            echo "slack-message=\"FAILED...\"" >> $GITHUB_ENV
       - name: Print slack message
         run: echo "${{ env.slack-message }}"
       # - name: Post to a Slack channel
