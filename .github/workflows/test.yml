@@ -91,15 +91,15 @@ jobs:
       - name: Set Slack message
         run: |
           if [[ "${{ needs.test.result }}" == 'success' && "${{ needs.generate.result }}" == 'success' ]]; then
-            echo "slack_message=\":night_with_stars: WarpStream terraform provider test :white_check_mark: <https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}|latest run> \"" >> $GITHUB_ENV
+            echo "slack_message=\":goodnewseveryone::night_with_stars: WarpStream terraform provider test :white_check_mark: <https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}|latest run> \"" >> $GITHUB_ENV
           else
-            echo "slack_message=\":night_with_stars: WarpStream terraform provider test :x::siren_animated: <https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}|latest run>\"" >> $GITHUB_ENV
+            echo "slack_message=\":goodnewseveryone::night_with_stars: WarpStream terraform provider test :x::siren_animated: <https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}|latest run>\"" >> $GITHUB_ENV
           fi
       - name: Print slack message
         run: echo "${{ env.slack-message }} ${{ github.event_name }}"
       - name: Post to a Slack channel
         uses: slackapi/slack-github-action@v2.0.0
-        if: always() # TODO: if: ${{ github.event_name == 'schedule' }}
+        if: ${{ github.event_name == 'push' }}
         with:
           method: chat.postMessage
           token: ${{ secrets.SLACK_BOT_TOKEN }}
