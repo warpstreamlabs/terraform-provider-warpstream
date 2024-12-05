@@ -42,7 +42,7 @@ resource "warpstream_agent_key" "terraform_cluster_key" {
 
 provider "kafka" {
   # WarpStream's serverless endpoint can be used to administer metadata
-  # for BYOC clusters *and* Serverless clusters.
+  # for BYOC clusters.
   bootstrap_servers = ["serverless.warpstream.com:9092"]
   tls_enabled       = true
   sasl_mechanism    = "plain"

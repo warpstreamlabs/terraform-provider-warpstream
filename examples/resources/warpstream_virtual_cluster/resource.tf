@@ -2,11 +2,6 @@ resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test"
 }
 
-resource "warpstream_virtual_cluster" "test_serverless" {
-  name = "vcn_test_serverless"
-  type = "serverless"
-}
-
 resource "warpstream_virtual_cluster" "test_with_acls" {
   name = "vcn_test_acls"
   configuration = {

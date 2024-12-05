@@ -56,11 +56,6 @@ func testCheckVirtualClustersState() resource.TestCheckFunc {
 			return err
 		}
 
-		err = assertServerlessVC(vcs, "tivo_serverless")
-		if err != nil {
-			return err
-		}
-
 		return nil
 	}
 }
@@ -115,35 +110,6 @@ func assertBYOCVC(vcs []map[string]string, name string) error {
 			expectedBurl,
 			vc["bootstrap_url"],
 		)
-	}
-
-	return nil
-}
-
-func assertServerlessVC(vcs []map[string]string, name string) error {
-	vc, err := getVCWithName(vcs, "vcn_"+name)
-	if err != nil {
-		return err
-	}
-
-	if vc["type"] != "serverless" {
-		return fmt.Errorf("Expected serverless virtual cluster, got %s", vc["type"])
-	}
-
-	if _, ok := vc["agent_keys"]; ok {
-		return fmt.Errorf("Serverless virtual cluster should not have agent keys")
-	}
-
-	if !strings.HasPrefix(vc["agent_pool_name"], "apn_"+name) {
-		return fmt.Errorf(
-			"Expected agent pool name to start with 'apn_%s', got %s",
-			name,
-			vc["agent_pool_name"],
-		)
-	}
-
-	if _, ok := vc["bootstrap_url"]; ok {
-		return fmt.Errorf("Serverless virtual cluster should not have a bootstrap URL field")
 	}
 
 	return nil

@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -16,10 +15,6 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 				Config: testAccVirtualClusterDataSource_default(),
 				Check:  testAccVCDataSourceCheck_byoc("default"),
 			},
-			{
-				Config: testAccVirtualClusterDataSource_serverless("vcn_tivo_serverless"),
-				Check:  testAccVCDataSourceCheck_serverless("tivo_serverless"),
-			},
 		},
 	})
 }
@@ -29,13 +24,6 @@ func testAccVirtualClusterDataSource_default() string {
 data "warpstream_virtual_cluster" "test" {
   default = true
 }`
-}
-
-func testAccVirtualClusterDataSource_serverless(name string) string {
-	return providerConfig + fmt.Sprintf(`
-data "warpstream_virtual_cluster" "test" {
-  name = "%s"
-}`, name)
 }
 
 func testAccVCDataSourceCheck_byoc(name string) resource.TestCheckFunc {
@@ -50,14 +38,6 @@ func testAccVCDataSourceCheck_byoc(name string) resource.TestCheckFunc {
 			"bootstrap_url",
 			".kafka.discoveryv2.prod-z.us-east-1.warpstream.com:9092",
 		),
-		testAccVCDataSourceCheck(name),
-	)
-}
-
-func testAccVCDataSourceCheck_serverless(name string) resource.TestCheckFunc {
-	return resource.ComposeAggregateTestCheckFunc(
-		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "type", "serverless"),
-		resource.TestCheckNoResourceAttr("data.warpstream_virtual_cluster.test", "agent_keys"),
 		testAccVCDataSourceCheck(name),
 	)
 }
