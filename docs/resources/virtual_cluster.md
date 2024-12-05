@@ -17,11 +17,6 @@ resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test"
 }
 
-resource "warpstream_virtual_cluster" "test_serverless" {
-  name = "vcn_test_serverless"
-  type = "serverless"
-}
-
 resource "warpstream_virtual_cluster" "test_with_acls" {
   name = "vcn_test_acls"
   configuration = {
@@ -59,14 +54,14 @@ resource "warpstream_virtual_cluster" "test_cloud_region" {
 
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
-- `type` (String) Virtual Cluster Type. Valid virtual cluster types are `byoc` (default) and `serverless`. See [Serverless Clusters](https://docs.warpstream.com/warpstream/reference/serverless-clusters).
+- `type` (String) Virtual Cluster Type. Currently, the only valid virtual cluster types is `byoc` (default).
 
 ### Read-Only
 
-- `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. Null for Serverless clusters. (see [below for nested schema](#nestedatt--agent_keys))
+- `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster.. (see [below for nested schema](#nestedatt--agent_keys))
 - `agent_pool_id` (String) Agent Pool ID.
 - `agent_pool_name` (String) Agent Pool Name.
-- `bootstrap_url` (String) Bootstrap URL to connect to the Virtual Cluster. Null for Serverless clusters.
+- `bootstrap_url` (String) Bootstrap URL to connect to the Virtual Cluster.
 - `created_at` (String) Virtual Cluster Creation Timestamp.
 - `default` (Boolean)
 - `id` (String) Virtual Cluster ID.
