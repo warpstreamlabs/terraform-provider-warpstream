@@ -4,19 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -29,23 +22,26 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource                = &virtualClusterResource{}
-	_ resource.ResourceWithConfigure   = &virtualClusterResource{}
-	_ resource.ResourceWithImportState = &virtualClusterResource{}
+	_ resource.Resource                = &schemaRegistryResource{}
+	_ resource.ResourceWithConfigure   = &schemaRegistryResource{}
+	_ resource.ResourceWithImportState = &schemaRegistryResource{}
 )
 
-// NewVirtualClusterResource is a helper function to simplify the provider implementation.
-func NewVirtualClusterResource() resource.Resource {
-	return &virtualClusterResource{}
-}
-
-// virtualClusterResource is the resource implementation.
-type virtualClusterResource struct {
+type schemaRegistryResource struct {
 	client *api.Client
 }
 
+func NewSchemaRegistryResource() resource.Resource {
+	return &schemaRegistryResource{}
+}
+
+// Metadata returns the resource type name.
+func (r *schemaRegistryResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
+}
+
 // Configure adds the provider configured client to the data source.
-func (r *virtualClusterResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *schemaRegistryResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}
@@ -64,101 +60,27 @@ func (r *virtualClusterResource) Configure(_ context.Context, req resource.Confi
 	r.client = client
 }
 
-// Metadata returns the resource type name.
-func (r *virtualClusterResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
-}
-
-var (
-	agentKeyResourceSchema = schema.NestedAttributeObject{
-		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Computed: true,
-			},
-			"name": schema.StringAttribute{
-				Computed: true,
-			},
-			"key": schema.StringAttribute{
-				Computed:  true,
-				Sensitive: true,
-			},
-			"virtual_cluster_id": schema.StringAttribute{
-				Computed: true,
-			},
-			"created_at": schema.StringAttribute{
-				Computed: true,
-			},
-		},
-	}
-	cloudSchema = schema.SingleNestedAttribute{
-		Attributes: map[string]schema.Attribute{
-			"provider": schema.StringAttribute{
-				Description: "Cloud Provider. Only `aws` is currently supported.",
-				Computed:    true,
-				Optional:    true,
-				Default:     stringdefault.StaticString("aws"),
-				Validators: []validator.String{
-					stringvalidator.OneOf([]string{"aws"}...),
-				},
-			},
-			"region": schema.StringAttribute{
-				Description: "Cloud Region. Defaults to `us-east-1`",
-				Computed:    true,
-				Optional:    true,
-				Default:     stringdefault.StaticString("us-east-1"),
-			},
-		},
-		Description: "Virtual Cluster Cloud Location.",
-		Optional:    true,
-		Computed:    true,
-		Default: objectdefault.StaticValue(
-			types.ObjectValueMust(
-				virtualClusterCloudModel{}.AttributeTypes(),
-				virtualClusterCloudModel{}.DefaultObject(),
-			)),
-		PlanModifiers: []planmodifier.Object{
-			objectplanmodifier.RequiresReplace(),
-		},
-	}
-	bootstrapSchema = schema.StringAttribute{
-		Description: "Bootstrap URL to connect to the Virtual Cluster.",
-		Computed:    true,
-	}
-)
-
 // Schema defines the schema for the resource.
-func (r *virtualClusterResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *schemaRegistryResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: `
 This resource allows you to create, update and delete virtual clusters.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "Virtual Cluster ID.",
+				Description: "Schema Registry ID.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				Description: "Virtual Cluster Name.",
+				Description: "Schema Registry Name.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{utils.StartsWith("vcn_")},
-			},
-			"type": schema.StringAttribute{
-				Description: "Virtual Cluster Type. Currently, the only valid virtual cluster types is `byoc` (default).",
-				Computed:    true,
-				Optional:    true,
-				Default:     stringdefault.StaticString(virtualClusterTypeBYOC),
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-				Validators: []validator.String{
-					stringvalidator.OneOf([]string{virtualClusterTypeBYOC}...),
-				},
 			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster..",
@@ -186,54 +108,9 @@ This resource allows you to create, update and delete virtual clusters.
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"default": schema.BoolAttribute{
-				Computed: true,
-				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"configuration": schema.SingleNestedAttribute{
-				Attributes: map[string]schema.Attribute{
-					"auto_create_topic": schema.BoolAttribute{
-						Description: "Enable topic autocreation feature, defaults to `true`.",
-						Optional:    true,
-						Computed:    true,
-						Default:     booldefault.StaticBool(true),
-					},
-					"default_num_partitions": schema.Int64Attribute{
-						Description: "Number of partitions created by default.",
-						Optional:    true,
-						Computed:    true,
-						Default:     int64default.StaticInt64(1),
-					},
-					"default_retention_millis": schema.Int64Attribute{
-						Description: "Default retention for topics that are created automatically using Kafka's topic auto-creation feature.",
-						Optional:    true,
-						Computed:    true,
-						Default:     int64default.StaticInt64(86400000),
-					},
-					"enable_acls": schema.BoolAttribute{
-						Description: "Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)",
-						Optional:    true,
-						Computed:    true,
-						Default:     booldefault.StaticBool(false),
-					},
-				},
-				Description: "Virtual Cluster Configuration.",
-				Optional:    true,
-				Computed:    true,
-				Default: objectdefault.StaticValue(
-					types.ObjectValueMust(
-						virtualClusterConfigurationModel{}.AttributeTypes(),
-						virtualClusterConfigurationModel{}.DefaultObject(),
-					)),
-				PlanModifiers: []planmodifier.Object{
-					objectplanmodifier.UseStateForUnknown(),
-				},
-			},
 			"cloud": cloudSchema,
 			"bootstrap_url": schema.StringAttribute{
-				Description: "Bootstrap URL to connect to the Virtual Cluster.",
+				Description: "Bootstrap URL to connect to the Schema Registry.",
 				Computed:    true,
 			},
 		},
@@ -241,7 +118,7 @@ This resource allows you to create, update and delete virtual clusters.
 }
 
 // Create a new resource.
-func (r *virtualClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *schemaRegistryResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
 	var plan virtualClusterResourceModel
 	diags := req.Plan.Get(ctx, &plan)
@@ -323,7 +200,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 }
 
 // Read refreshes the Terraform state with the latest data.
-func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var state virtualClusterResourceModel
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -377,7 +254,7 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
-func (r *virtualClusterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *schemaRegistryResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// Retrieve values from plan
 	var plan virtualClusterResourceModel
 	diags := req.Plan.Get(ctx, &plan)
@@ -391,7 +268,7 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
-func (r *virtualClusterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *schemaRegistryResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Retrieve values from state
 	var state virtualClusterResourceModel
 	diags := req.State.Get(ctx, &state)
@@ -411,7 +288,7 @@ func (r *virtualClusterResource) Delete(ctx context.Context, req resource.Delete
 	}
 }
 
-func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *schemaRegistryResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Retrieve import ID and save to id attribute
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 
@@ -427,7 +304,7 @@ func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.I
 	r.readConfiguration(ctx, data.cluster(), &resp.State, &resp.Diagnostics)
 }
 
-func (m virtualClusterResourceModel) cluster() api.VirtualCluster {
+func (m schemaRegistryResource) cluster() api.VirtualCluster {
 	var burl *string
 	if m.BootstrapURL.ValueString() != "" {
 		burlStr := m.BootstrapURL.ValueString()
@@ -445,7 +322,7 @@ func (m virtualClusterResourceModel) cluster() api.VirtualCluster {
 	}
 }
 
-func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {
+func (r *schemaRegistryResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {
 	// Get virtual cluster configuration
 	cfg, err := r.client.GetConfiguration(cluster)
 	if err != nil {
@@ -469,7 +346,7 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	respDiags.Append(diags...)
 }
 
-func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan virtualClusterResourceModel, state *tfsdk.State, respDiags *diag.Diagnostics) {
+func (r *schemaRegistryResource) applyConfiguration(ctx context.Context, plan virtualClusterResourceModel, state *tfsdk.State, respDiags *diag.Diagnostics) {
 	cluster := plan.cluster()
 
 	// If configuration plan is empty, just retrieve it from API
