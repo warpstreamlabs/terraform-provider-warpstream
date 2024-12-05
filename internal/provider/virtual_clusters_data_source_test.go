@@ -29,7 +29,12 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-	defer client.DeleteVirtualCluster(vc.ID, vc.Name)
+	defer func() {
+		err := client.DeleteVirtualCluster(vc.ID, vc.Name)
+		if err != nil {
+			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		}
+	}()
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -126,6 +131,9 @@ func assertBYOCVC(vcs []map[string]string, expectedVc *api.VirtualCluster) error
 	}
 
 	burl, ok := vc["bootstrap_url"]
+	if !ok {
+		return fmt.Errorf("Expected byoc virtual cluster JSON to have a bootstrap URL field")
+	}
 
 	if burl != *expectedVc.BootstrapURL {
 		return fmt.Errorf(
