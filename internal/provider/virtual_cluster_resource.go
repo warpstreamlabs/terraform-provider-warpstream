@@ -113,7 +113,7 @@ This resource allows you to create, update and delete virtual clusters.
 				Validators: []validator.String{utils.StartsWith("vcn_")},
 			},
 			"type": schema.StringAttribute{
-				Description: "Virtual Cluster Type. Valid virtual cluster types are `byoc` (default) and `serverless`. See [Serverless Clusters](https://docs.warpstream.com/warpstream/reference/serverless-clusters).",
+				Description: "Virtual Cluster Type. Currently, the only valid virtual cluster types is `byoc` (default).",
 				Computed:    true,
 				Optional:    true,
 				Default:     stringdefault.StaticString(virtualClusterTypeBYOC),
@@ -121,11 +121,11 @@ This resource allows you to create, update and delete virtual clusters.
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf([]string{virtualClusterTypeBYOC, virtualClusterTypeServerless}...),
+					stringvalidator.OneOf([]string{virtualClusterTypeBYOC}...),
 				},
 			},
 			"agent_keys": schema.ListNestedAttribute{
-				Description:  "List of keys to authenticate an agent with this cluster. Null for Serverless clusters.",
+				Description:  "List of keys to authenticate an agent with this cluster..",
 				Computed:     true,
 				NestedObject: agentKeyResourceSchema,
 			},
@@ -226,7 +226,7 @@ This resource allows you to create, update and delete virtual clusters.
 				},
 			},
 			"bootstrap_url": schema.StringAttribute{
-				Description: "Bootstrap URL to connect to the Virtual Cluster. Null for Serverless clusters.",
+				Description: "Bootstrap URL to connect to the Virtual Cluster.",
 				Computed:    true,
 			},
 		},
