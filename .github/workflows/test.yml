@@ -95,8 +95,6 @@ jobs:
           else
             echo "slack_message=\":goodnewseveryone::night_with_stars: WarpStream terraform provider test (nightly) :x::siren_animated: <https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}|latest run>\"" >> $GITHUB_ENV
           fi
-      - name: Print slack message
-        run: echo "${{ env.slack-message }} ${{ github.event_name }}"
       - name: Post to a Slack channel
         uses: slackapi/slack-github-action@v2.0.0
         if: ${{ github.event_name == 'schedule' }}
