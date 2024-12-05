@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"os"
 	"strings"
 	"time"
 
@@ -88,4 +89,11 @@ func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error)
 	}
 
 	return body, err
+}
+
+func NewClientDefault() (*Client, error) {
+	token := os.Getenv("WARPSTREAM_API_KEY")
+	host := os.Getenv("WARPSTREAM_API_URL")
+
+	return NewClient(host, &token)
 }

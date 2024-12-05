@@ -18,9 +18,12 @@ type VirtualClusterListResponse struct {
 }
 
 type VirtualClusterCreateResponse struct {
-	VirtualClusterID string `json:"virtual_cluster_id"`
-	AgentPoolID      string `json:"agent_pool_id"`
-	AgentPoolName    string `json:"agent_pool_name"`
+	VirtualClusterID string  `json:"virtual_cluster_id"`
+	AgentPoolID      string  `json:"agent_pool_id"`
+	AgentPoolName    string  `json:"agent_pool_name"`
+	Name             string  `json:"virtual_cluster_name"`
+	BootstrapURL     *string `json:"bootstrap_url"`
+	AgentKey         APIKey  `json:"agent_key"`
 }
 
 type VirtualClusterDescribeRequest struct {
@@ -93,7 +96,14 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 		return nil, err
 	}
 
-	vc := VirtualCluster{ID: res.VirtualClusterID, AgentPoolID: res.AgentPoolID, AgentPoolName: res.AgentPoolName}
+	vc := VirtualCluster{
+		ID:            res.VirtualClusterID,
+		AgentPoolID:   res.AgentPoolID,
+		AgentPoolName: res.AgentPoolName,
+		Name:          res.Name,
+		BootstrapURL:  res.BootstrapURL,
+		AgentKeys:     &[]APIKey{res.AgentKey},
+	}
 	return &vc, nil
 }
 

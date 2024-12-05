@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -9,7 +8,6 @@ import (
 )
 
 func TestAccVirtualClusterDataSource(t *testing.T) {
-	os.Setenv("WARPSTREAM_API_KEY", "aks_51a3819b5f31d4bf9e313da2e2b39c412ab23de7771fec166cdd611d2910f72e")
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -18,7 +16,6 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 				Check:  testAccVCDataSourceCheck_byoc("default"),
 			},
 		},
-		IsUnitTest: true,
 	})
 }
 
