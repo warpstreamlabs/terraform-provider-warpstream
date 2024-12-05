@@ -26,7 +26,7 @@ resource "warpstream_virtual_cluster" "test" {
 }`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
 	return providerConfig + virtualClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {
-  virtual_cluster_id = data.warpstream_virtual_cluster.test.id
+  virtual_cluster_id = warpstream_virtual_cluster.test.id
   name               = "test_pipeline"
   state              = "running"
   configuration_yaml = <<EOT
