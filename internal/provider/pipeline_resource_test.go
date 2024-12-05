@@ -1,8 +1,10 @@
 package provider
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
@@ -18,13 +20,13 @@ func TestPipelineResource(t *testing.T) {
 	})
 }
 func testPipeline() string {
-	return providerConfig + `
-data "warpstream_virtual_cluster" "default" {
-  default = true
-}
-
+	virtualClusterResource := fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+	name = "vcn_test_acc_%s"
+}`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+	return providerConfig + virtualClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {
-  virtual_cluster_id = data.warpstream_virtual_cluster.default.id
+  virtual_cluster_id = data.warpstream_virtual_cluster.test.id
   name               = "test_pipeline"
   state              = "running"
   configuration_yaml = <<EOT
