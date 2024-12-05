@@ -6,19 +6,43 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/stretchr/testify/require"
+
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
 
 // TestAccVirtualClustersDataSource checks for expected attributes on the virtual_clusters data source.
 func TestAccVirtualClustersDataSource(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vc, err := client.CreateVirtualCluster(
+		vcNameSuffix,
+		api.ClusterParameters{
+			Type:   virtualClusterTypeBYOC,
+			Region: "us-east-1",
+			Cloud:  "aws",
+		},
+	)
+	require.NoError(t, err)
+	defer func() {
+		err := client.DeleteVirtualCluster(vc.ID, vc.Name)
+		if err != nil {
+			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		}
+	}()
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVirtualClustersDataSource_default(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testCheckVirtualClustersState(),
+					testCheckVirtualClustersState(vc),
 				),
 			},
 		},
@@ -38,7 +62,7 @@ resource test suite creates virtual clusters.
 There must be a better way to deserialize the data source's attributes but I couldn't figure it out from the docs.
 https://developer.hashicorp.com/terraform/plugin/sdkv2/testing/acceptance-tests/teststep#custom-check-functions
 */
-func testCheckVirtualClustersState() resource.TestCheckFunc {
+func testCheckVirtualClustersState(vc *api.VirtualCluster) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		resourceName := "data.warpstream_virtual_clusters.test"
 		rs, ok := s.RootModule().Resources[resourceName]
@@ -47,11 +71,12 @@ func testCheckVirtualClustersState() resource.TestCheckFunc {
 		}
 
 		vcs, err := attributesMapToVCStatesSlice(rs.Primary.Attributes)
+
 		if err != nil {
 			return err
 		}
 
-		err = assertBYOCVC(vcs, "wtf")
+		err = assertBYOCVC(vcs, vc)
 		if err != nil {
 			return err
 		}
@@ -60,8 +85,8 @@ func testCheckVirtualClustersState() resource.TestCheckFunc {
 	}
 }
 
-func assertBYOCVC(vcs []map[string]string, name string) error {
-	vc, err := getVCWithName(vcs, "vcn_"+name)
+func assertBYOCVC(vcs []map[string]string, expectedVc *api.VirtualCluster) error {
+	vc, err := getVCWithName(vcs, expectedVc.Name)
 	if err != nil {
 		return err
 	}
@@ -70,8 +95,8 @@ func assertBYOCVC(vcs []map[string]string, name string) error {
 		return fmt.Errorf("Expected BYOC virtual cluster, got %s", vc["type"])
 	}
 
-	if !strings.HasPrefix(vc["agent_pool_name"], "apn_"+name) {
-		return fmt.Errorf("Expected agent pool name to start with 'apn_%s', got %s", name, vc["agent_pool_name"])
+	if !strings.HasPrefix(vc["agent_pool_name"], expectedVc.AgentPoolName) {
+		return fmt.Errorf("Expected agent pool name to start with 'apn_%s', got %s", expectedVc.Name, vc["agent_pool_name"])
 	}
 
 	agentKeysCountAttr, ok := vc["agent_keys.#"]
@@ -85,29 +110,35 @@ func assertBYOCVC(vcs []map[string]string, name string) error {
 	if !ok {
 		return errors.New("Expected agent key name")
 	}
-	if agentKeyNameAttr != "akn_virtual_cluster_wtf_af207e45b4e8" {
-		return fmt.Errorf("Expected agent key name to be 'akn_virtual_cluster_wtf_af207e45b4e8', got %s", agentKeyNameAttr)
+
+	expectedAgentKeyName := ""
+	if expectedVc.AgentKeys != nil {
+		agentKeys := *expectedVc.AgentKeys
+		if len(agentKeys) > 0 {
+			expectedAgentKeyName = agentKeys[0].Name
+		}
 	}
+	if agentKeyNameAttr != expectedAgentKeyName {
+		return fmt.Errorf("Expected agent key name to be '%s', got %s", expectedAgentKeyName, agentKeyNameAttr)
+	}
+
 	agentKeysVCIDAttr, ok := vc["agent_keys.0.virtual_cluster_id"]
 	if !ok {
 		return errors.New("Expected agent key virtual cluster ID")
 	}
-	if agentKeysVCIDAttr != "vci_daf191a9_47fa_4215_aa49_2e74c5ba78d9" {
-		return fmt.Errorf("Expected agent key virtual cluster ID to be 'vci_daf191a9_47fa_4215_aa49_2e74c5ba78d9', got %s", agentKeysVCIDAttr)
+	if agentKeysVCIDAttr != expectedVc.ID {
+		return fmt.Errorf("Expected agent key virtual cluster ID to be '%s', got %s", expectedVc.ID, agentKeysVCIDAttr)
 	}
 
 	burl, ok := vc["bootstrap_url"]
-
 	if !ok {
 		return fmt.Errorf("Expected byoc virtual cluster JSON to have a bootstrap URL field")
 	}
 
-	expectedBurl := "api-18b7339a-6bc0-4397-a066-d3bddb4f8392.kafka.discoveryv2.prod-z.us-east-1.warpstream.com:9092"
-
-	if burl != expectedBurl {
+	if burl != *expectedVc.BootstrapURL {
 		return fmt.Errorf(
-			"Expected vcn_wtf byoc cluster bootstrap URL to be %s, got %s",
-			expectedBurl,
+			"Expected byoc cluster bootstrap URL to be %s, got %s",
+			*expectedVc.BootstrapURL,
 			vc["bootstrap_url"],
 		)
 	}
