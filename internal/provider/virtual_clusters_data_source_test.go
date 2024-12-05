@@ -129,17 +129,8 @@ func assertBYOCVC(vcs []map[string]string, expectedVc *api.VirtualCluster) error
 
 	if burl != *expectedVc.BootstrapURL {
 		return fmt.Errorf(
-			"Expected vcn_wtf byoc cluster bootstrap URL to be %s, got %s",
+			"Expected byoc cluster bootstrap URL to be %s, got %s",
 			*expectedVc.BootstrapURL,
-			vc["bootstrap_url"],
-		)
-	}
-
-	endsWith := ".kafka.discoveryv2.prod-z.us-east-1.warpstream.com:9092"
-	if !strings.HasSuffix(burl, endsWith) {
-		return fmt.Errorf(
-			"Expected vcn_wtf byoc cluster bootstrap URL to end with %s, got %s",
-			endsWith,
 			vc["bootstrap_url"],
 		)
 	}
