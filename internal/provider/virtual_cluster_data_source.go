@@ -71,7 +71,7 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 				Computed: true,
 			},
 			"agent_keys": schema.ListNestedAttribute{
-				Description:  "List of keys to authenticate an agent with this cluster. Null for Serverless clusters.",
+				Description:  "List of keys to authenticate an agent with this cluster.",
 				Computed:     true,
 				NestedObject: agentKeyDataSourceSchema,
 			},
@@ -116,7 +116,7 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 				Computed: true,
 			},
 			"bootstrap_url": schema.StringAttribute{
-				Description: "Bootstrap URL to connect to the Virtual Cluster. Null for Serverless clusters.",
+				Description: "Bootstrap URL to connect to the Virtual Cluster.",
 				Computed:    true,
 			},
 		},

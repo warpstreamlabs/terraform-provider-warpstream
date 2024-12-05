@@ -29,10 +29,6 @@ func TestAccVirtualClusterResource(t *testing.T) {
 				Config: testAccVirtualClusterResource_withConfiguration(true, false, 2),
 				Check:  testAccVirtualClusterResourceCheck_BYOC(true, false, 2),
 			},
-			{
-				Config: testAccVirtualClusterResource_withType("serverless"),
-				Check:  testAccVirtualClusterResourceCheck_Serverless(false, true, 1),
-			},
 		},
 	})
 }
@@ -42,14 +38,6 @@ func testAccVirtualClusterResource() string {
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test_acc_%s"
 }`, nameSuffix)
-}
-
-func testAccVirtualClusterResource_withType(t string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
-  type = "%s"
-}`, nameSuffix, t)
 }
 
 func testAccVirtualClusterResource_withPartialConfiguration(acls bool) string {
@@ -80,14 +68,6 @@ func testAccVirtualClusterResourceCheck_BYOC(acls bool, autoTopic bool, numParts
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "agent_keys.#", "1"),
 		utils.TestCheckResourceAttrStartsWith("warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_test_acc_"),
 		utils.TestCheckResourceAttrEndsWith("warpstream_virtual_cluster.test", "bootstrap_url", ".kafka.discoveryv2.prod-z.us-east-1.warpstream.com:9092"),
-	)
-}
-
-func testAccVirtualClusterResourceCheck_Serverless(acls bool, autoTopic bool, numParts int64) resource.TestCheckFunc {
-	return resource.ComposeAggregateTestCheckFunc(
-		testAccVirtualClusterResourceCheck(acls, autoTopic, numParts, "serverless"),
-		resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "agent_keys"),
-		resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "bootstrap_url"),
 	)
 }
 
