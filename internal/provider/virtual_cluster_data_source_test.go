@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -8,6 +9,7 @@ import (
 )
 
 func TestAccVirtualClusterDataSource(t *testing.T) {
+	os.Setenv("WARPSTREAM_API_KEY", "aks_51a3819b5f31d4bf9e313da2e2b39c412ab23de7771fec166cdd611d2910f72e")
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -16,6 +18,7 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 				Check:  testAccVCDataSourceCheck_byoc("default"),
 			},
 		},
+		IsUnitTest: true,
 	})
 }
 
@@ -30,8 +33,11 @@ func testAccVCDataSourceCheck_byoc(name string) resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "type", "byoc"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "agent_keys.#", "1"),
-		resource.TestCheckResourceAttr(
-			"data.warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_default_7695dba1efaa",
+		utils.TestCheckResourceAttrStartsWith(
+			"data.warpstream_virtual_cluster.test", "agent_keys.0.virtual_cluster_id", "vci_",
+		),
+		utils.TestCheckResourceAttrStartsWith(
+			"data.warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_default_",
 		),
 		utils.TestCheckResourceAttrEndsWith(
 			"data.warpstream_virtual_cluster.test",

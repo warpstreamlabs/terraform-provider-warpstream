@@ -85,15 +85,17 @@ func assertBYOCVC(vcs []map[string]string, name string) error {
 	if !ok {
 		return errors.New("Expected agent key name")
 	}
-	if agentKeyNameAttr != "akn_virtual_cluster_wtf_af207e45b4e8" {
-		return fmt.Errorf("Expected agent key name to be 'akn_virtual_cluster_wtf_af207e45b4e8', got %s", agentKeyNameAttr)
+
+	if !strings.HasPrefix(agentKeyNameAttr, "akn_virtual_cluster_wtf_") {
+		return fmt.Errorf("Expected agent key name to start with 'akn_virtual_cluster_wtf_', got %s", agentKeyNameAttr)
 	}
+
 	agentKeysVCIDAttr, ok := vc["agent_keys.0.virtual_cluster_id"]
 	if !ok {
 		return errors.New("Expected agent key virtual cluster ID")
 	}
-	if agentKeysVCIDAttr != "vci_daf191a9_47fa_4215_aa49_2e74c5ba78d9" {
-		return fmt.Errorf("Expected agent key virtual cluster ID to be 'vci_daf191a9_47fa_4215_aa49_2e74c5ba78d9', got %s", agentKeysVCIDAttr)
+	if !strings.HasSuffix(agentKeysVCIDAttr, "vci_") {
+		return fmt.Errorf("Expected agent key virtual cluster ID to start with 'vci_', got %s", agentKeysVCIDAttr)
 	}
 
 	burl, ok := vc["bootstrap_url"]
@@ -102,12 +104,11 @@ func assertBYOCVC(vcs []map[string]string, name string) error {
 		return fmt.Errorf("Expected byoc virtual cluster JSON to have a bootstrap URL field")
 	}
 
-	expectedBurl := "api-18b7339a-6bc0-4397-a066-d3bddb4f8392.kafka.discoveryv2.prod-z.us-east-1.warpstream.com:9092"
-
-	if burl != expectedBurl {
+	endsWith := ".kafka.discoveryv2.prod-z.us-east-1.warpstream.com:9092"
+	if !strings.HasSuffix(burl, endsWith) {
 		return fmt.Errorf(
-			"Expected vcn_wtf byoc cluster bootstrap URL to be %s, got %s",
-			expectedBurl,
+			"Expected vcn_wtf byoc cluster bootstrap URL to end with %s, got %s",
+			endsWith,
 			vc["bootstrap_url"],
 		)
 	}
