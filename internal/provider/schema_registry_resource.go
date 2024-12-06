@@ -15,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
@@ -120,7 +119,7 @@ This resource allows you to create, update and delete virtual clusters.
 // Create a new resource.
 func (r *schemaRegistryResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
-	var plan virtualClusterResourceModel
+	var plan schemaRegistryResourceModel
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -138,38 +137,35 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 	cluster, err := r.client.CreateVirtualCluster(
 		plan.Name.ValueString(),
 		api.ClusterParameters{
-			Type:   plan.Type.ValueString(),
+			Type:   virtualClusterTypeSchemaRegistry,
 			Region: cloudPlan.Region.ValueString(),
 			Cloud:  cloudPlan.Provider.ValueString(),
 		})
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error creating WarpStream Virtual Cluster",
-			"Could not create WarpStream Virtual Cluster, unexpected error: "+err.Error(),
+			"Error creating WarpStream Schema Registry",
+			fmt.Sprintf("Could not create WarpStream Schema Registry Virtual Cluster, unexpected error: %w", err),
 		)
 		return
 	}
 
-	// Describe created virtual cluster
 	cluster, err = r.client.GetVirtualCluster(cluster.ID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Virtual Cluster",
-			"Could not read WarpStream Virtual Cluster ID "+cluster.ID+": "+err.Error(),
+			fmt.Sprintf("Could not get Virtual Cluster %s: %w", cluster.ID, err.Error()),
 		)
 		return
 	}
 
 	// Map response body to schema and populate Computed attribute values
-	state := virtualClusterResourceModel{
+	state := schemaRegistryResourceModel{
 		ID:            types.StringValue(cluster.ID),
 		Name:          types.StringValue(cluster.Name),
-		Type:          types.StringValue(cluster.Type),
 		AgentKeys:     plan.AgentKeys,
 		AgentPoolID:   types.StringValue(cluster.AgentPoolID),
 		AgentPoolName: types.StringValue(cluster.AgentPoolName),
 		CreatedAt:     types.StringValue(cluster.CreatedAt),
-		Default:       types.BoolValue(cluster.Name == "vcn_default"),
 		Configuration: plan.Configuration,
 		Cloud:         plan.Cloud,
 	}
@@ -196,12 +192,11 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	r.applyConfiguration(ctx, state, &resp.State, &resp.Diagnostics)
+	// TODO(schemaregistry): Once we add configurations, we need to apply the configuration.
 }
 
-// Read refreshes the Terraform state with the latest data.
 func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state virtualClusterResourceModel
+	var state schemaRegistryResourceModel
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -217,14 +212,11 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
-	// Overwrite Virtual Cluster with refreshed state
 	state.ID = types.StringValue(cluster.ID)
 	state.Name = types.StringValue(cluster.Name)
-	state.Type = types.StringValue(cluster.Type)
 	state.AgentPoolID = types.StringValue(cluster.AgentPoolID)
 	state.AgentPoolName = types.StringValue(cluster.AgentPoolName)
 	state.CreatedAt = types.StringValue(cluster.CreatedAt)
-	state.Default = types.BoolValue(cluster.Name == "vcn_default")
 
 	if cluster.BootstrapURL != nil {
 		state.BootstrapURL = types.StringValue(*cluster.BootstrapURL)
@@ -243,7 +235,6 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 	state.Cloud = cloudValue
 
-	// Set state
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -253,9 +244,7 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 	r.readConfiguration(ctx, *cluster, &resp.State, &resp.Diagnostics)
 }
 
-// Update updates the resource and sets the updated Terraform state on success.
 func (r *schemaRegistryResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// Retrieve values from plan
 	var plan virtualClusterResourceModel
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -263,26 +252,23 @@ func (r *schemaRegistryResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
-	// Update virtual cluster configuration
 	r.applyConfiguration(ctx, plan, &resp.State, &resp.Diagnostics)
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *schemaRegistryResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	// Retrieve values from state
-	var state virtualClusterResourceModel
+	var state schemaRegistryResourceModel
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Delete existing virtual cluster
 	err := r.client.DeleteVirtualCluster(state.ID.ValueString(), state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error Deleting WarpStream Virtual Cluster",
-			"Could not delete WarpStream Virtual Cluster, unexpected error: "+err.Error(),
+			"Error Deleting WarpStream Schema Registry",
+			fmt.Sprintf("Could not delete WarpStream Schema Registry %s: %w", state.Name, err),
 		)
 		return
 	}
@@ -293,93 +279,27 @@ func (r *schemaRegistryResource) ImportState(ctx context.Context, req resource.I
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 
 	// Retrieve cluster info from imported state
-	var data virtualClusterResourceModel
+	var data schemaRegistryResourceModel
 	diags := resp.State.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Fetch virtual cluster configuration
-	r.readConfiguration(ctx, data.cluster(), &resp.State, &resp.Diagnostics)
+	r.setConfigurationState(ctx, &resp.State, &resp.Diagnostics)
 }
 
-func (m schemaRegistryResource) cluster() api.VirtualCluster {
-	var burl *string
-	if m.BootstrapURL.ValueString() != "" {
-		burlStr := m.BootstrapURL.ValueString()
-		burl = &burlStr
-	}
+func (r *schemaRegistryResource) setConfigurationState(ctx context.Context, state *tfsdk.State, respDiags *diag.Diagnostics) {
+	// Currently, there aren't any schema registry specific configurations.
+	// If there is, we need to fetch it via client.GetConfiguration
+	cfgState := schemaRegistryConfigurationModel{}
 
-	return api.VirtualCluster{
-		ID:            m.ID.ValueString(),
-		Name:          m.Name.ValueString(),
-		Type:          m.Type.ValueString(),
-		AgentPoolID:   m.AgentPoolID.ValueString(),
-		AgentPoolName: m.AgentPoolName.ValueString(),
-		CreatedAt:     m.CreatedAt.ValueString(),
-		BootstrapURL:  burl,
-	}
-}
-
-func (r *schemaRegistryResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {
-	// Get virtual cluster configuration
-	cfg, err := r.client.GetConfiguration(cluster)
-	if err != nil {
-		respDiags.AddError(
-			"Unable to Read configuration of Virtual Cluster with ID="+cluster.ID,
-			err.Error(),
-		)
-		return
-	}
-	tflog.Debug(ctx, fmt.Sprintf("Configuration: %+v", *cfg))
-
-	cfgState := virtualClusterConfigurationModel{
-		AclsEnabled:          types.BoolValue(cfg.AclsEnabled),
-		AutoCreateTopic:      types.BoolValue(cfg.AutoCreateTopic),
-		DefaultNumPartitions: types.Int64Value(cfg.DefaultNumPartitions),
-		DefaultRetention:     types.Int64Value(cfg.DefaultRetentionMillis),
-	}
-
-	// Set configuration state
 	diags := state.SetAttribute(ctx, path.Root("configuration"), cfgState)
 	respDiags.Append(diags...)
 }
 
 func (r *schemaRegistryResource) applyConfiguration(ctx context.Context, plan virtualClusterResourceModel, state *tfsdk.State, respDiags *diag.Diagnostics) {
-	cluster := plan.cluster()
-
-	// If configuration plan is empty, just retrieve it from API
-	if plan.Configuration.IsNull() {
-		tflog.Info(ctx, "No virtual cluster configuration provided")
-		r.readConfiguration(ctx, cluster, state, respDiags)
-		return
-	}
-
-	// Retrieve configuration values from plan
-	var cfgPlan virtualClusterConfigurationModel
-	diags := plan.Configuration.As(ctx, &cfgPlan, basetypes.ObjectAsOptions{})
-	respDiags.Append(diags...)
-	if respDiags.HasError() {
-		return
-	}
-
-	// Update virtual cluster configuration
-	cfg := &api.VirtualClusterConfiguration{
-		AclsEnabled:            cfgPlan.AclsEnabled.ValueBool(),
-		AutoCreateTopic:        cfgPlan.AutoCreateTopic.ValueBool(),
-		DefaultNumPartitions:   cfgPlan.DefaultNumPartitions.ValueInt64(),
-		DefaultRetentionMillis: cfgPlan.DefaultRetention.ValueInt64(),
-	}
-	err := r.client.UpdateConfiguration(*cfg, cluster)
-	if err != nil {
-		respDiags.AddError(
-			"Error Updating WarpStream Virtual Cluster Configuration",
-			"Could not update WarpStream Virtual Cluster Configuration, unexpected error: "+err.Error(),
-		)
-		return
-	}
-
-	// Retrieve updated virtual cluster configuration
-	r.readConfiguration(ctx, cluster, state, respDiags)
+	// Currently, there aren't any schema registry configurations. But if there is, we need to
+	// update it here.
+	return
 }

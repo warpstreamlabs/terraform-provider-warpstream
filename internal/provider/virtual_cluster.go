@@ -6,7 +6,8 @@ import (
 )
 
 const (
-	virtualClusterTypeBYOC = "byoc"
+	virtualClusterTypeBYOC           = "byoc"
+	virtualClusterTypeSchemaRegistry = "byoc_schema_registry"
 )
 
 // virtualClusterModel maps virtual cluster schema data.
