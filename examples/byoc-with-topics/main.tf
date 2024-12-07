@@ -55,7 +55,7 @@ resource "kafka_topic" "logs" {
   name       = "logs"
   partitions = 64
   # Required argument, but has no impact since data is always stored in object storage.
-  replication_factor = 3
+  replication_factor = 1
 
   config = {
     "retention.ms" = "86400000"
