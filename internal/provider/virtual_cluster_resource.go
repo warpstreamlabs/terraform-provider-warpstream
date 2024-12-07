@@ -418,6 +418,12 @@ func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.I
 
 	// Fetch virtual cluster configuration
 	r.readConfiguration(ctx, data.cluster(), &resp.State, &resp.Diagnostics)
+
+	// diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
+	// resp.Diagnostics.Append(diags...)
+	// if resp.Diagnostics.HasError() {
+	// 	return
+	// }
 }
 
 func (m virtualClusterResourceModel) cluster() api.VirtualCluster {
@@ -427,6 +433,8 @@ func (m virtualClusterResourceModel) cluster() api.VirtualCluster {
 		burl = &burlStr
 	}
 
+	// agentKeysState, ok := mapToAgentKeyModels(m.AgentKeys, &resp.Diagnostics)
+
 	return api.VirtualCluster{
 		ID:            m.ID.ValueString(),
 		Name:          m.Name.ValueString(),
@@ -435,6 +443,7 @@ func (m virtualClusterResourceModel) cluster() api.VirtualCluster {
 		AgentPoolName: m.AgentPoolName.ValueString(),
 		CreatedAt:     m.CreatedAt.ValueString(),
 		BootstrapURL:  burl,
+		// AgentKeys:     m.AgentKeys,
 	}
 }
 
