@@ -10,8 +10,8 @@ on:
     paths-ignore:
       - 'README.md'
   schedule:
-    # Run daily at 12am UTC
-    - cron:  '0 0 * * *'
+    # Run daily at 6 am UTC
+    - cron:  '0 6 * * *'
 
 # Testing only needs permissions to read the repository contents.
 permissions:
