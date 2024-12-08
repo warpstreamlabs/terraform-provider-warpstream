@@ -417,13 +417,44 @@ func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.I
 	}
 
 	// Fetch virtual cluster configuration
-	r.readConfiguration(ctx, data.cluster(), &resp.State, &resp.Diagnostics)
+	r.readConfigurationForImport(ctx, data.cluster(), &resp.State, &resp.Diagnostics)
+	apiKeys, err := r.client.GetAPIKeys()
 
-	// diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
-	// resp.Diagnostics.Append(diags...)
-	// if resp.Diagnostics.HasError() {
-	// 	return
-	// }
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"failed to get API keys",
+			err.Error(),
+		)
+		return
+	}
+	lol := data.ID.ValueString()
+	fmt.Println(lol)
+	filtered := filterAgentKeysWithVirtualCluster(apiKeys, data.ID.ValueString())
+	agentKeysState, ok := mapToAgentKeyModels(&filtered, &resp.Diagnostics)
+	if !ok { // Diagnostics handled by helper.
+		return
+	}
+
+	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
+}
+
+func filterAgentKeysWithVirtualCluster(apiKeys []api.APIKey, virtualClusterID string) []api.APIKey {
+	var agentKeys []api.APIKey
+
+	for _, apiKey := range apiKeys {
+		contains := false
+		for _, grant := range apiKey.AccessGrants {
+			if grant.ResourceID == virtualClusterID {
+				contains = true
+				break
+			}
+		}
+		if contains {
+			agentKeys = append(agentKeys, apiKey)
+		}
+	}
+
+	return agentKeys
 }
 
 func (m virtualClusterResourceModel) cluster() api.VirtualCluster {
@@ -432,9 +463,11 @@ func (m virtualClusterResourceModel) cluster() api.VirtualCluster {
 		burlStr := m.BootstrapURL.ValueString()
 		burl = &burlStr
 	}
-
-	// agentKeysState, ok := mapToAgentKeyModels(m.AgentKeys, &resp.Diagnostics)
-
+	foo := m.AgentKeys
+	fmt.Println(foo)
+	if len(m.AgentKeys.Elements()) > 0 {
+		fmt.Println(foo)
+	}
 	return api.VirtualCluster{
 		ID:            m.ID.ValueString(),
 		Name:          m.Name.ValueString(),
@@ -443,7 +476,6 @@ func (m virtualClusterResourceModel) cluster() api.VirtualCluster {
 		AgentPoolName: m.AgentPoolName.ValueString(),
 		CreatedAt:     m.CreatedAt.ValueString(),
 		BootstrapURL:  burl,
-		// AgentKeys:     m.AgentKeys,
 	}
 }
 
@@ -469,6 +501,32 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	// Set configuration state
 	diags := state.SetAttribute(ctx, path.Root("configuration"), cfgState)
 	respDiags.Append(diags...)
+	state.SetAttribute(ctx, path.Root("kobe"), "bryant")
+}
+
+func (r *virtualClusterResource) readConfigurationForImport(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {
+	// Get virtual cluster configuration
+	// cfg, err := r.client.GetConfiguration(cluster)
+	// if err != nil {
+	// 	respDiags.AddError(
+	// 		"Unable to Read configuration of Virtual Cluster with ID="+cluster.ID,
+	// 		err.Error(),
+	// 	)
+	// 	return
+	// }
+	// tflog.Debug(ctx, fmt.Sprintf("Configuration: %+v", *cfg))
+
+	// cfgState := virtualClusterConfigurationModel{
+	// 	AclsEnabled:          types.BoolValue(cfg.AclsEnabled),
+	// 	AutoCreateTopic:      types.BoolValue(cfg.AutoCreateTopic),
+	// 	DefaultNumPartitions: types.Int64Value(cfg.DefaultNumPartitions),
+	// 	DefaultRetention:     types.Int64Value(cfg.DefaultRetentionMillis),
+	// }
+
+	// // Set configuration state
+	// diags := state.SetAttribute(ctx, path.Root("configuration"), cfgState)
+	// respDiags.Append(diags...)
+	// state.SetAttribute(ctx, path.Root("kobe"), "bryant")
 }
 
 func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan virtualClusterResourceModel, state *tfsdk.State, respDiags *diag.Diagnostics) {
