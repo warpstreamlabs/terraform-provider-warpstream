@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -93,7 +92,6 @@ func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int6
 }
 
 func TestAccVirtualClusterImport(t *testing.T) {
-	os.Setenv("WARPSTREAM_API_KEY", "aks_51a3819b5f31d4bf9e313da2e2b39c412ab23de7771fec166cdd611d2910f72e")
 
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
