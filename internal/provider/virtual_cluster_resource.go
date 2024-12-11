@@ -346,17 +346,6 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		state.BootstrapURL = types.StringValue(*cluster.BootstrapURL)
 	}
 
-	agentKeysState, ok := mapToAgentKeyModels(cluster.AgentKeys, &resp.Diagnostics)
-	if !ok { // Diagnostics handled by helper.
-		return
-	}
-
-	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	cloudValue, diagnostics := types.ObjectValue(
 		virtualClusterCloudModel{}.AttributeTypes(),
 		map[string]attr.Value{
@@ -378,6 +367,16 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	r.readConfiguration(ctx, *cluster, &resp.State, &resp.Diagnostics)
+
+	// agentKeysState, ok := mapToAgentKeyModels(cluster.AgentKeys, &resp.Diagnostics)
+	// if !ok { // Diagnostics handled by helper.
+	// 	return
+	// }
+	// diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
+	// resp.Diagnostics.Append(diags...)
+	// if resp.Diagnostics.HasError() {
+	// 	return
+	// }
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
