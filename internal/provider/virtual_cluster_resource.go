@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	warpstreamtypes "github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
@@ -152,12 +153,12 @@ This resource allows you to create, update and delete virtual clusters.
 				Description: "Virtual Cluster Type. Currently, the only valid virtual cluster types is `byoc` (default).",
 				Computed:    true,
 				Optional:    true,
-				Default:     stringdefault.StaticString(virtualClusterTypeBYOC),
+				Default:     stringdefault.StaticString(warpstreamtypes.VirtualClusterTypeBYOC),
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf([]string{virtualClusterTypeBYOC}...),
+					stringvalidator.OneOf([]string{warpstreamtypes.VirtualClusterTypeBYOC}...),
 				},
 			},
 			"agent_keys": schema.ListNestedAttribute{

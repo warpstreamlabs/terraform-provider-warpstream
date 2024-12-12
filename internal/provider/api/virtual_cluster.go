@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/types"
 )
 
 type VirtualClusterDescribeResponse struct {
@@ -70,8 +72,14 @@ func (c *Client) GetVirtualCluster(id string) (*VirtualCluster, error) {
 
 // CreateVirtualCluster - Create new virtual cluster.
 func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*VirtualCluster, error) {
+	var trimmed string
+	if opts.Type == types.VirtualClusterTypeSchemaRegistry {
+		trimmed = strings.TrimPrefix(name, "vcn_sr_")
+	} else {
+		trimmed = strings.TrimPrefix(name, "vcn_")
+	}
 	payload, err := json.Marshal(VirtualClusterCreateRequest{
-		Name:          strings.TrimPrefix(name, "vcn_"),
+		Name:          trimmed,
 		Type:          opts.Type,
 		Region:        opts.Region,
 		CloudProvider: opts.Cloud,

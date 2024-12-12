@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
@@ -19,7 +20,7 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 	vc, err := client.CreateVirtualCluster(
 		vcNameSuffix,
 		api.ClusterParameters{
-			Type:   virtualClusterTypeBYOC,
+			Type:   types.VirtualClusterTypeBYOC,
 			Region: "us-east-1",
 			Cloud:  "aws",
 		},

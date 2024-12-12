@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	warpstreamtypes "github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
@@ -116,14 +117,14 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 	cluster, err := r.client.CreateVirtualCluster(
 		plan.Name.ValueString(),
 		api.ClusterParameters{
-			Type:   virtualClusterTypeSchemaRegistry,
+			Type:   warpstreamtypes.VirtualClusterTypeSchemaRegistry,
 			Region: cloudPlan.Region.ValueString(),
 			Cloud:  cloudPlan.Provider.ValueString(),
 		})
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Schema Registry",
-			fmt.Sprintf("Could not create WarpStream Schema Registry Virtual Cluster, unexpected error: %w", err),
+			fmt.Sprintf("Could not create WarpStream Schema Registry Virtual Cluster, unexpected error: %v", err),
 		)
 		return
 	}
@@ -132,7 +133,7 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Virtual Cluster",
-			fmt.Sprintf("Could not get Virtual Cluster %s: %w", cluster.ID, err.Error()),
+			fmt.Sprintf("Could not get Virtual Cluster %s: %v", cluster.ID, err),
 		)
 		return
 	}
@@ -233,7 +234,7 @@ func (r *schemaRegistryResource) Delete(ctx context.Context, req resource.Delete
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Deleting WarpStream Schema Registry",
-			fmt.Sprintf("Could not delete WarpStream Schema Registry %s: %w", state.Name, err),
+			fmt.Sprintf("Could not delete WarpStream Schema Registry %s: %v", state.Name, err),
 		)
 		return
 	}

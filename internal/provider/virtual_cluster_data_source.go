@@ -160,9 +160,6 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		)
 		return
 	}
-	if vc.Type == "" {
-	}
-
 	tflog.Debug(ctx, fmt.Sprintf("Virtual Cluster: %+v", *vc))
 
 	agentKeys, ok := mapToAgentKeyModels(vc.AgentKeys, &diags)
