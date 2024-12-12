@@ -70,26 +70,58 @@ func (r *virtualClusterResource) Metadata(_ context.Context, req resource.Metada
 	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
 }
 
-var agentKeyResourceSchema = schema.NestedAttributeObject{
-	Attributes: map[string]schema.Attribute{
-		"id": schema.StringAttribute{
-			Computed: true,
+var (
+	agentKeyResourceSchema = schema.NestedAttributeObject{
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed: true,
+			},
+			"name": schema.StringAttribute{
+				Computed: true,
+			},
+			"key": schema.StringAttribute{
+				Computed:  true,
+				Sensitive: true,
+			},
+			"virtual_cluster_id": schema.StringAttribute{
+				Computed: true,
+			},
+			"created_at": schema.StringAttribute{
+				Computed: true,
+			},
 		},
-		"name": schema.StringAttribute{
-			Computed: true,
+	}
+	cloudSchema = schema.SingleNestedAttribute{
+		Attributes: map[string]schema.Attribute{
+			"provider": schema.StringAttribute{
+				Description: "Cloud Provider. Only `aws` is currently supported.",
+				Computed:    true,
+				Optional:    true,
+				Default:     stringdefault.StaticString("aws"),
+				Validators: []validator.String{
+					stringvalidator.OneOf([]string{"aws"}...),
+				},
+			},
+			"region": schema.StringAttribute{
+				Description: "Cloud Region. Defaults to `us-east-1`",
+				Computed:    true,
+				Optional:    true,
+				Default:     stringdefault.StaticString("us-east-1"),
+			},
 		},
-		"key": schema.StringAttribute{
-			Computed:  true,
-			Sensitive: true,
+		Description: "Virtual Cluster Cloud Location.",
+		Optional:    true,
+		Computed:    true,
+		Default: objectdefault.StaticValue(
+			types.ObjectValueMust(
+				virtualClusterCloudModel{}.AttributeTypes(),
+				virtualClusterCloudModel{}.DefaultObject(),
+			)),
+		PlanModifiers: []planmodifier.Object{
+			objectplanmodifier.RequiresReplace(),
 		},
-		"virtual_cluster_id": schema.StringAttribute{
-			Computed: true,
-		},
-		"created_at": schema.StringAttribute{
-			Computed: true,
-		},
-	},
-}
+	}
+)
 
 // Schema defines the schema for the resource.
 func (r *virtualClusterResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -196,36 +228,7 @@ This resource allows you to create, update and delete virtual clusters.
 					objectplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"cloud": schema.SingleNestedAttribute{
-				Attributes: map[string]schema.Attribute{
-					"provider": schema.StringAttribute{
-						Description: "Cloud Provider. Only `aws` is currently supported.",
-						Computed:    true,
-						Optional:    true,
-						Default:     stringdefault.StaticString("aws"),
-						Validators: []validator.String{
-							stringvalidator.OneOf([]string{"aws"}...),
-						},
-					},
-					"region": schema.StringAttribute{
-						Description: "Cloud Region. Defaults to `us-east-1`",
-						Computed:    true,
-						Optional:    true,
-						Default:     stringdefault.StaticString("us-east-1"),
-					},
-				},
-				Description: "Virtual Cluster Cloud Location.",
-				Optional:    true,
-				Computed:    true,
-				Default: objectdefault.StaticValue(
-					types.ObjectValueMust(
-						virtualClusterCloudModel{}.AttributeTypes(),
-						virtualClusterCloudModel{}.DefaultObject(),
-					)),
-				PlanModifiers: []planmodifier.Object{
-					objectplanmodifier.RequiresReplace(),
-				},
-			},
+			"cloud": cloudSchema,
 			"bootstrap_url": schema.StringAttribute{
 				Description: "Bootstrap URL to connect to the Virtual Cluster.",
 				Computed:    true,
