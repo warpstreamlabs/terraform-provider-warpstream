@@ -5,14 +5,12 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
@@ -34,12 +32,10 @@ func NewSchemaRegistryResource() resource.Resource {
 	return &schemaRegistryResource{}
 }
 
-// Metadata returns the resource type name.
 func (r *schemaRegistryResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
+	resp.TypeName = req.ProviderTypeName + "_schema_registry"
 }
 
-// Configure adds the provider configured client to the data source.
 func (r *schemaRegistryResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
@@ -59,11 +55,10 @@ func (r *schemaRegistryResource) Configure(_ context.Context, req resource.Confi
 	r.client = client
 }
 
-// Schema defines the schema for the resource.
 func (r *schemaRegistryResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: `
-This resource allows you to create, update and delete virtual clusters.
+This resource allows you to create, update and delete schema registries.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -86,20 +81,6 @@ This resource allows you to create, update and delete virtual clusters.
 				Computed:     true,
 				NestedObject: agentKeyResourceSchema,
 			},
-			"agent_pool_id": schema.StringAttribute{
-				Description: "Agent Pool ID.",
-				Computed:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"agent_pool_name": schema.StringAttribute{
-				Description: "Agent Pool Name.",
-				Computed:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
 			"created_at": schema.StringAttribute{
 				Description: "Virtual Cluster Creation Timestamp.",
 				Computed:    true,
@@ -116,9 +97,7 @@ This resource allows you to create, update and delete virtual clusters.
 	}
 }
 
-// Create a new resource.
 func (r *schemaRegistryResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	// Retrieve values from plan
 	var plan schemaRegistryResourceModel
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -158,16 +137,12 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	// Map response body to schema and populate Computed attribute values
 	state := schemaRegistryResourceModel{
-		ID:            types.StringValue(cluster.ID),
-		Name:          types.StringValue(cluster.Name),
-		AgentKeys:     plan.AgentKeys,
-		AgentPoolID:   types.StringValue(cluster.AgentPoolID),
-		AgentPoolName: types.StringValue(cluster.AgentPoolName),
-		CreatedAt:     types.StringValue(cluster.CreatedAt),
-		Configuration: plan.Configuration,
-		Cloud:         plan.Cloud,
+		ID:        types.StringValue(cluster.ID),
+		Name:      types.StringValue(cluster.Name),
+		AgentKeys: plan.AgentKeys,
+		CreatedAt: types.StringValue(cluster.CreatedAt),
+		Cloud:     plan.Cloud,
 	}
 
 	if cluster.BootstrapURL != nil {
@@ -191,8 +166,6 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// TODO(schemaregistry): Once we add configurations, we need to apply the configuration.
 }
 
 func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -214,10 +187,7 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 
 	state.ID = types.StringValue(cluster.ID)
 	state.Name = types.StringValue(cluster.Name)
-	state.AgentPoolID = types.StringValue(cluster.AgentPoolID)
-	state.AgentPoolName = types.StringValue(cluster.AgentPoolName)
 	state.CreatedAt = types.StringValue(cluster.CreatedAt)
-
 	if cluster.BootstrapURL != nil {
 		state.BootstrapURL = types.StringValue(*cluster.BootstrapURL)
 	}
@@ -240,8 +210,6 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	r.readConfiguration(ctx, *cluster, &resp.State, &resp.Diagnostics)
 }
 
 func (r *schemaRegistryResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -251,11 +219,8 @@ func (r *schemaRegistryResource) Update(ctx context.Context, req resource.Update
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	r.applyConfiguration(ctx, plan, &resp.State, &resp.Diagnostics)
 }
 
-// Delete deletes the resource and removes the Terraform state on success.
 func (r *schemaRegistryResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var state schemaRegistryResourceModel
 	diags := req.State.Get(ctx, &state)
@@ -275,31 +240,5 @@ func (r *schemaRegistryResource) Delete(ctx context.Context, req resource.Delete
 }
 
 func (r *schemaRegistryResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Retrieve import ID and save to id attribute
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
-
-	// Retrieve cluster info from imported state
-	var data schemaRegistryResourceModel
-	diags := resp.State.Get(ctx, &data)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	r.setConfigurationState(ctx, &resp.State, &resp.Diagnostics)
-}
-
-func (r *schemaRegistryResource) setConfigurationState(ctx context.Context, state *tfsdk.State, respDiags *diag.Diagnostics) {
-	// Currently, there aren't any schema registry specific configurations.
-	// If there is, we need to fetch it via client.GetConfiguration
-	cfgState := schemaRegistryConfigurationModel{}
-
-	diags := state.SetAttribute(ctx, path.Root("configuration"), cfgState)
-	respDiags.Append(diags...)
-}
-
-func (r *schemaRegistryResource) applyConfiguration(ctx context.Context, plan virtualClusterResourceModel, state *tfsdk.State, respDiags *diag.Diagnostics) {
-	// Currently, there aren't any schema registry configurations. But if there is, we need to
-	// update it here.
-	return
 }
