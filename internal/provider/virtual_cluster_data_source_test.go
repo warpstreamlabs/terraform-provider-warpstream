@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -85,4 +86,38 @@ func testAccVCDataSourceCheck(vc *api.VirtualCluster) resource.TestCheckFunc {
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.provider", "aws"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.region", "us-east-1"),
 	)
+}
+
+// Verify that the virtual cluster data source doesn't work with schema registry clusters
+func TestAccVirtualClusterDatasource_SchemaRegistryNotWork(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vc, err := client.CreateVirtualCluster(
+		vcNameSuffix,
+		api.ClusterParameters{
+			Type:   types.VirtualClusterTypeSchemaRegistry,
+			Region: "us-east-1",
+			Cloud:  "aws",
+		},
+	)
+	require.NoError(t, err)
+	defer func() {
+		err := client.DeleteVirtualCluster(vc.ID, vc.Name)
+		if err != nil {
+			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		}
+	}()
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccVirtualClusterDataSourceWithID(vc.ID),
+				Check:       testAccVCDataSourceCheck_byoc(vc),
+				ExpectError: regexp.MustCompile("must not start with: vci_sr_"),
+			},
+		},
+	})
 }
