@@ -367,6 +367,16 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	r.readConfiguration(ctx, *cluster, &resp.State, &resp.Diagnostics)
+
+	agentKeysState, ok := mapToAgentKeyModels(cluster.AgentKeys, &resp.Diagnostics)
+	if !ok { // Diagnostics handled by helper.
+		return
+	}
+	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
@@ -407,17 +417,6 @@ func (r *virtualClusterResource) Delete(ctx context.Context, req resource.Delete
 func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Retrieve import ID and save to id attribute
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
-
-	// Retrieve cluster info from imported state
-	var data virtualClusterResourceModel
-	diags := resp.State.Get(ctx, &data)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Fetch virtual cluster configuration
-	r.readConfiguration(ctx, data.cluster(), &resp.State, &resp.Diagnostics)
 }
 
 func (m virtualClusterResourceModel) cluster() api.VirtualCluster {
