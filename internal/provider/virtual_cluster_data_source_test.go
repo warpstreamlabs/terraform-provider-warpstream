@@ -52,6 +52,13 @@ data "warpstream_virtual_cluster" "test" {
 }`, id)
 }
 
+func testAccVirtualClusterDataSourceWithName(name string) string {
+	return providerConfig + fmt.Sprintf(`
+data "warpstream_virtual_cluster" "test" {
+  name = "%s"
+}`, name)
+}
+
 func testAccVCDataSourceCheck_byoc(vc *api.VirtualCluster) resource.TestCheckFunc {
 	agentKeyName := ""
 	if vc.AgentKeys != nil {
@@ -115,8 +122,11 @@ func TestAccVirtualClusterDatasource_SchemaRegistryNotWork(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccVirtualClusterDataSourceWithID(vc.ID),
-				Check:       testAccVCDataSourceCheck_byoc(vc),
 				ExpectError: regexp.MustCompile("must not start with: vci_sr_"),
+			},
+			{
+				Config:      testAccVirtualClusterDataSourceWithName(vc.Name),
+				ExpectError: regexp.MustCompile("must not start with: vcn_sr_"),
 			},
 		},
 	})

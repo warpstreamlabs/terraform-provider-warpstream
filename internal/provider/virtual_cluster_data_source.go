@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/datasourcevalidator"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -13,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
-	warpstreamtypes "github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
@@ -74,12 +72,13 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 			"name": schema.StringAttribute{
 				Computed: true,
 				Optional: true,
+				Validators: []validator.String{
+					// Cannot read from a schema registry
+					utils.NotStartWith("vcn_sr_"),
+				},
 			},
 			"type": schema.StringAttribute{
 				Computed: true,
-				Validators: []validator.String{
-					stringvalidator.OneOf([]string{warpstreamtypes.VirtualClusterTypeBYOC}...),
-				},
 			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster.",
