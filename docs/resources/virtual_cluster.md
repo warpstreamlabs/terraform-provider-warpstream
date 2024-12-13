@@ -58,7 +58,7 @@ resource "warpstream_virtual_cluster" "test_cloud_region" {
 
 ### Read-Only
 
-- `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster.. (see [below for nested schema](#nestedatt--agent_keys))
+- `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. (see [below for nested schema](#nestedatt--agent_keys))
 - `agent_pool_id` (String) Agent Pool ID.
 - `agent_pool_name` (String) Agent Pool Name.
 - `bootstrap_url` (String) Bootstrap URL to connect to the Virtual Cluster.

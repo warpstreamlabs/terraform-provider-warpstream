@@ -5,10 +5,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-const (
-	virtualClusterTypeBYOC = "byoc"
-)
-
 // virtualClusterModel maps virtual cluster schema data.
 type virtualClusterDataSourceModel struct {
 	ID            types.String     `tfsdk:"id"`
