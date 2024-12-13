@@ -88,7 +88,7 @@ func testAccVCDataSourceCheck(vc *api.VirtualCluster) resource.TestCheckFunc {
 	)
 }
 
-// Verify that the virtual cluster data source doesn't work with schema registry clusters
+// Verify that the virtual cluster data source doesn't work with schema registry clusters.
 func TestAccVirtualClusterDatasource_SchemaRegistryNotWork(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
