@@ -158,7 +158,7 @@ This resource allows you to create, update and delete virtual clusters.
 				},
 			},
 			"agent_keys": schema.ListNestedAttribute{
-				Description:  "List of keys to authenticate an agent with this cluster..",
+				Description:  "List of keys to authenticate an agent with this cluster.",
 				Computed:     true,
 				NestedObject: agentKeyResourceSchema,
 			},
