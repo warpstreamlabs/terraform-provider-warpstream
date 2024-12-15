@@ -78,7 +78,7 @@ This resource allows you to create, update and delete schema registries.
 				Validators: []validator.String{utils.StartsWith("vcn_")},
 			},
 			"agent_keys": schema.ListNestedAttribute{
-				Description:  "List of keys to authenticate an agent with this cluster..",
+				Description:  "List of keys to authenticate an agent with this cluster.",
 				Computed:     true,
 				NestedObject: agentKeyResourceSchema,
 			},
