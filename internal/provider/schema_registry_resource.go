@@ -211,6 +211,16 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	agentKeysState, ok := mapToAgentKeyModels(cluster.AgentKeys, &resp.Diagnostics)
+	if !ok { // Diagnostics handled by helper.
+		return
+	}
+	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 func (r *schemaRegistryResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
