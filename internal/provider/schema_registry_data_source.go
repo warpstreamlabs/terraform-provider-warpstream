@@ -8,9 +8,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 var (
@@ -36,12 +38,14 @@ func (d *schemaRegistryDataSource) Schema(_ context.Context, _ datasource.Schema
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:   true,
+				Optional:   true,
+				Validators: []validator.String{utils.StartsWith("vci_sr_")},
 			},
 			"name": schema.StringAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:   true,
+				Optional:   true,
+				Validators: []validator.String{utils.StartsWith("vcn_sr_")},
 			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster.",

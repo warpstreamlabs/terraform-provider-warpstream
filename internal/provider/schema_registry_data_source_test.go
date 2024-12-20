@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -42,7 +43,6 @@ func TestAccSchemaRegistryDataSource(t *testing.T) {
 				Check:  testAccSchemaRegistryDatasourceCheck(vc, datasourceName),
 			},
 		},
-		IsUnitTest: true,
 	})
 }
 
@@ -51,6 +51,13 @@ func testSchemaRegistryDataSourceWithID(id string) string {
 data "warpstream_schema_registry" "test" {
   id = "%s"
 }`, id)
+}
+
+func testSchemaRegistryDataSourceWithName(name string) string {
+	return providerConfig + fmt.Sprintf(`
+data "warpstream_schema_registry" "test" {
+  name = "%s"
+}`, name)
 }
 
 func testAccSchemaRegistryDatasourceCheck(
@@ -76,4 +83,41 @@ func testAccSchemaRegistryDatasourceCheck(
 		resource.TestCheckResourceAttr(datasourceName, "agent_keys.0.name", agentKeyName),
 		resource.TestCheckResourceAttr(datasourceName, "bootstrap_url", *vc.BootstrapURL),
 	)
+}
+
+// This test makes sure that you cannot use BYOC virtual cluster's ID/name for schema registry datasource.
+func TestAccSchemaRegistryDatasource_BYOCNotWork(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vc, err := client.CreateVirtualCluster(
+		vcNameSuffix,
+		api.ClusterParameters{
+			Type:   types.VirtualClusterTypeBYOC,
+			Region: "us-east-1",
+			Cloud:  "aws",
+		},
+	)
+	require.NoError(t, err)
+	defer func() {
+		err := client.DeleteVirtualCluster(vc.ID, vc.Name)
+		if err != nil {
+			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		}
+	}()
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testSchemaRegistryDataSourceWithID(vc.ID),
+				ExpectError: regexp.MustCompile("must start with 'vci_sr_'"),
+			},
+			{
+				Config:      testSchemaRegistryDataSourceWithName(vc.Name),
+				ExpectError: regexp.MustCompile(" must start with 'vcn_sr_'"),
+			},
+		},
+	})
 }
