@@ -99,7 +99,7 @@ var (
 				Optional:    true,
 				Default:     stringdefault.StaticString("aws"),
 				Validators: []validator.String{
-					stringvalidator.OneOf([]string{"aws"}...),
+					stringvalidator.OneOf([]string{"aws", "gcp"}...),
 				},
 			},
 			"region": schema.StringAttribute{
