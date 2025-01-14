@@ -87,7 +87,6 @@ func (c *Client) CreatePipeline(
 	ctx context.Context,
 	req HTTPCreatePipelineRequest,
 ) (HTTPCreatePipelineResponse, error) {
-	fmt.Println("kobe creating pipeline")
 	resp := &HTTPCreatePipelineResponse{}
 	if err := c.doJSONHTTP(ctx, req, "create_pipeline", resp); err != nil {
 		return HTTPCreatePipelineResponse{}, fmt.Errorf("error creating pipeline: %w", err)
