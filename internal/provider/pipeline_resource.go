@@ -130,7 +130,7 @@ For more details, take a look at: https://docs.warpstream.com/warpstream/configu
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf([]string{bentoPipelineType, orbitPipelineType}...),
+					stringvalidator.OneOf(bentoPipelineType, orbitPipelineType),
 				},
 			},
 		},
