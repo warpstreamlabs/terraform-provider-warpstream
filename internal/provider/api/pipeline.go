@@ -28,6 +28,7 @@ type HTTPPipelineOverview struct {
 type HTTPCreatePipelineRequest struct {
 	VirtualClusterID string `json:"virtual_cluster_id"`
 	PipelineName     string `json:"pipeline_name"`
+	Type             string `json:"pipeline_type"`
 }
 
 type HTTPCreatePipelineResponse struct {
