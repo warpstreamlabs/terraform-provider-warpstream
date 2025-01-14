@@ -3,14 +3,14 @@
 page_title: "warpstream_pipeline Resource - terraform-provider-warpstream"
 subcategory: ""
 description: |-
-  This resource allows you to create pipelines.
-  For more details, take a look at: https://docs.warpstream.com/warpstream/configuration/bento
+  This resource allows you to create pipelines (Bento and Orbit).
+  For more details, take a look at: https://docs.warpstream.com/warpstream/configuration/bento and https://docs.warpstream.com/warpstream/byoc/orbit.
 ---
 
 # warpstream_pipeline (Resource)
 
-This resource allows you to create pipelines.
-For more details, take a look at: https://docs.warpstream.com/warpstream/configuration/bento
+This resource allows you to create pipelines (Bento and Orbit).
+For more details, take a look at: https://docs.warpstream.com/warpstream/configuration/bento and https://docs.warpstream.com/warpstream/byoc/orbit.
 
 ## Example Usage
 
