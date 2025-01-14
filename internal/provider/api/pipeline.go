@@ -28,6 +28,7 @@ type HTTPPipelineOverview struct {
 type HTTPCreatePipelineRequest struct {
 	VirtualClusterID string `json:"virtual_cluster_id"`
 	PipelineName     string `json:"pipeline_name"`
+	Type             string `json:"pipeline_type"`
 }
 
 type HTTPCreatePipelineResponse struct {
@@ -86,6 +87,7 @@ func (c *Client) CreatePipeline(
 	ctx context.Context,
 	req HTTPCreatePipelineRequest,
 ) (HTTPCreatePipelineResponse, error) {
+	fmt.Println("kobe creating pipeline")
 	resp := &HTTPCreatePipelineResponse{}
 	if err := c.doJSONHTTP(ctx, req, "create_pipeline", resp); err != nil {
 		return HTTPCreatePipelineResponse{}, fmt.Errorf("error creating pipeline: %w", err)
