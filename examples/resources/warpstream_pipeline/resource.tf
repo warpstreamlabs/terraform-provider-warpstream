@@ -37,7 +37,7 @@ resource "warpstream_pipeline" "example_pipeline" {
 
 resource "warpstream_pipeline" "example_orbit_pipeline" {
   virtual_cluster_id = warpstream_virtual_cluster.tf_example_pipelines.id
-  name               = "example_pipeline"
+  name               = "example_orbit_pipeline"
   state              = "running"
   type               = "orbit"
   configuration_yaml = <<EOT
