@@ -31,9 +31,9 @@ resource "warpstream_virtual_cluster" "tf_example_pipelines" {
   name = "vcn_tf_example_pipelines"
 }
 
-resource "warpstream_pipeline" "example_pipeline" {
+resource "warpstream_pipeline" "example_bento_pipeline" {
   virtual_cluster_id = warpstream_virtual_cluster.tf_example_pipelines.id
-  name               = "example_pipeline"
+  name               = "example_bento_pipeline"
   state              = "running"
   configuration_yaml = <<EOT
   input:
