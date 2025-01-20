@@ -22,7 +22,24 @@ type agentKeyModel struct {
 	CreatedAt types.String `tfsdk:"created_at"`
 
 	VirtualClusterID types.String `tfsdk:"virtual_cluster_id"`
-	CreatedAt        types.String `tfsdk:"created_at"`
+}
+
+func mapToApplicationKeyModels(apiKeysPtr *[]api.APIKey) *[]applicationKeyModel {
+	apiKeys := *apiKeysPtr
+
+	keyModels := make([]applicationKeyModel, 0, len(apiKeys))
+	for _, key := range apiKeys {
+		keyModel := applicationKeyModel{
+			ID:        types.StringValue(key.ID),
+			Name:      types.StringValue(key.Name),
+			Key:       types.StringValue(key.Key),
+			CreatedAt: types.StringValue(key.CreatedAt),
+		}
+
+		keyModels = append(keyModels, keyModel)
+	}
+
+	return &keyModels
 }
 
 func mapToAgentKeyModels(apiKeysPtr *[]api.APIKey, diags *diag.Diagnostics) (*[]agentKeyModel, bool) {
