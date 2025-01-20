@@ -9,8 +9,13 @@ import (
 	"strings"
 )
 
-const PrincipalKindAgent = "agent"
-const ResourceKindVirtualCluster = "virtual_cluster"
+const (
+	PrincipalKindAgent         = "agent"
+	PrincipalKindApplication   = "app"
+	ResourceKindVirtualCluster = "virtual_cluster"
+	ResourceKindAny            = "*"
+	ResourceIDAny              = "*"
+)
 
 type APIKeyListResponse struct {
 	APIKeys []APIKey `json:"api_keys"`
@@ -31,6 +36,16 @@ func (c *Client) CreateAgentKey(name, virtualClusterID string) (*APIKey, error) 
 		"principal_kind": PrincipalKindAgent,
 		"resource_kind":  ResourceKindVirtualCluster,
 		"resource_id":    virtualClusterID,
+	}
+
+	return c.createAPIKey(name, accessGrant)
+}
+
+func (c *Client) CreateApplicationKey(name string) (*APIKey, error) {
+	accessGrant := map[string]string{
+		"principal_kind": PrincipalKindApplication,
+		"resource_kind":  ResourceKindAny,
+		"resource_id":    ResourceIDAny,
 	}
 
 	return c.createAPIKey(name, accessGrant)

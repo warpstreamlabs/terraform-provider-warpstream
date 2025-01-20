@@ -6,10 +6,21 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
 
+type applicationKeyModel struct {
+	ID        types.String `tfsdk:"id"`
+	Name      types.String `tfsdk:"name"`
+	Key       types.String `tfsdk:"key"`
+	CreatedAt types.String `tfsdk:"created_at"`
+}
+
+// Ideally agentKeyModel and applicationKeyModel would share fields by composing an apiKeyModel struct.
+// But I'm not sure how to make struct composition work with setting state on the TF response object.
 type agentKeyModel struct {
-	ID               types.String `tfsdk:"id"`
-	Name             types.String `tfsdk:"name"`
-	Key              types.String `tfsdk:"key"`
+	ID        types.String `tfsdk:"id"`
+	Name      types.String `tfsdk:"name"`
+	Key       types.String `tfsdk:"key"`
+	CreatedAt types.String `tfsdk:"created_at"`
+
 	VirtualClusterID types.String `tfsdk:"virtual_cluster_id"`
 	CreatedAt        types.String `tfsdk:"created_at"`
 }
