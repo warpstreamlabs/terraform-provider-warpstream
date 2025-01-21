@@ -157,6 +157,7 @@ func (p *warpstreamProvider) DataSources(_ context.Context) []func() datasource.
 		NewVirtualClustersDataSource,
 		NewAccountDataSource,
 		NewAgentKeysDataSource,
+		NewApplicationKeysDataSource,
 		NewSchemaRegistryDataSource,
 	}
 }
@@ -168,6 +169,7 @@ func (p *warpstreamProvider) Resources(_ context.Context) []func() resource.Reso
 		NewVirtualClusterCredentialsResource,
 		NewPipelineResource,
 		NewAgentKeyResource,
+		NewApplicationKeyResource,
 		NewSchemaRegistryResource,
 	}
 }
