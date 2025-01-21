@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	PrincipalKindAny           = "*"
 	PrincipalKindAgent         = "agent"
 	PrincipalKindApplication   = "app"
 	ResourceKindVirtualCluster = "virtual_cluster"

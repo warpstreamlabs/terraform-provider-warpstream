@@ -89,7 +89,7 @@ func filterApplicationKeys(apiKeys []api.APIKey) []api.APIKey {
 
 	for _, apiKey := range apiKeys {
 		for _, grant := range apiKey.AccessGrants {
-			if grant.PrincipalKind == api.PrincipalKindApplication {
+			if grant.PrincipalKind == api.PrincipalKindApplication || grant.PrincipalKind == api.PrincipalKindAny {
 				applicationKeys = append(applicationKeys, apiKey)
 				break
 			}
