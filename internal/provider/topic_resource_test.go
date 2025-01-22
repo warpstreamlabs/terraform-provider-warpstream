@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
@@ -27,7 +28,7 @@ resource "warpstream_topic" "topic" {
   virtual_cluster_id = warpstream_virtual_cluster.default.id
 
 }
-				`, nameSuffix),
+				`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -53,7 +54,7 @@ resource "warpstream_topic" "topic" {
 	value = "604800000"
   }
 }
-				`, nameSuffix),
+				`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
