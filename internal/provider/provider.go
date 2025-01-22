@@ -169,5 +169,6 @@ func (p *warpstreamProvider) Resources(_ context.Context) []func() resource.Reso
 		NewPipelineResource,
 		NewAgentKeyResource,
 		NewSchemaRegistryResource,
+		NewTopicResource,
 	}
 }

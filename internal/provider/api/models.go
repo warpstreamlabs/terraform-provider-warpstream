@@ -50,3 +50,10 @@ type VirtualClusterConfiguration struct {
 	DefaultNumPartitions   int64 `json:"default_num_partitions"`
 	DefaultRetentionMillis int64 `json:"default_retention_millis"`
 }
+
+type Topic struct {
+	VirtualClusterID string             `json:"virtual_cluster_id"`
+	TopicName        string             `json:"topic_name"`
+	PartitionCount   int                `json:"partition_count"`
+	Configs          map[string]*string `json:"configs"`
+}
