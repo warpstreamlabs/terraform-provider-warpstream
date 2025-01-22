@@ -101,7 +101,7 @@ This resource allows you to create, update and delete agent keys.
 		},
 		Blocks: map[string]schema.Block{
 			"config": schema.ListNestedBlock{
-				Description: "Partition Count of the topic.",
+				Description: "Configuration of the topic.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"name": schema.StringAttribute{

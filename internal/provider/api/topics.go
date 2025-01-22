@@ -54,7 +54,7 @@ func (c *Client) CreateTopic(virtualClusterID string, topicName string, partitio
 
 	_, err = c.doRequest(req, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("error doing creating topic request: %w", err)
 	}
 
 	return nil
@@ -76,7 +76,7 @@ func (c *Client) DescribeTopic(virtualClusterID string, topicName string) (*Topi
 
 	body, err := c.doRequest(req, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error doing describe topic request: %w", err)
 	}
 
 	res := TopicDescribeResponse{}
@@ -111,7 +111,7 @@ func (c *Client) UpdateTopic(virtualClusterID string, topicName string, partitio
 
 	_, err = c.doRequest(req, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("error doing update topic request: %w", err)
 	}
 
 	return nil
@@ -133,7 +133,7 @@ func (c *Client) DeleteTopic(virtualClusterID string, topicName string) error {
 
 	_, err = c.doRequest(req, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("error doing delete topic request: %w", err)
 	}
 
 	return nil
