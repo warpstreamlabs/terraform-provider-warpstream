@@ -54,46 +54,46 @@ func TestAccVirtualClusterCredentialsResource(t *testing.T) {
 
 func testAccVirtualClusterCredentialsResource_withSuperuser(su bool) string {
 	return providerConfig + fmt.Sprintf(`
-data "warpstream_virtual_cluster" "default" {
-	default = true
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
 }
 
 resource "warpstream_virtual_cluster_credentials" "test" {
 	name            = "ccn_test_%s"
-	agent_pool      = data.warpstream_virtual_cluster.default.agent_pool_id
-	virtual_cluster_id = data.warpstream_virtual_cluster.default.id
+	agent_pool      = warpstream_virtual_cluster.default.agent_pool_id
+	virtual_cluster_id = warpstream_virtual_cluster.default.id
 	cluster_superuser = %t
   }
-`, nameSuffix, su)
+`, nameSuffix, nameSuffix, su)
 }
 
 func testAccVirtualClusterCredentialsResource_vcField(vcFieldName string) string {
 	return providerConfig + fmt.Sprintf(`
-data "warpstream_virtual_cluster" "default" {
-	default = true
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
 }
 
 resource "warpstream_virtual_cluster_credentials" "test" {
 	name            = "ccn_test_%s"
-	agent_pool      = data.warpstream_virtual_cluster.default.agent_pool_id
-	%s = data.warpstream_virtual_cluster.default.id
+	agent_pool      = warpstream_virtual_cluster.default.agent_pool_id
+	%s = warpstream_virtual_cluster.default.id
 	cluster_superuser = false
   }
-`, nameSuffix, vcFieldName)
+`, nameSuffix, nameSuffix, vcFieldName)
 }
 
 func testAccVirtualClusterCredentialsResource_vcFieldMissing() string {
 	return providerConfig + fmt.Sprintf(`
-data "warpstream_virtual_cluster" "default" {
-	default = true
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
 }
 
 resource "warpstream_virtual_cluster_credentials" "test" {
 	name            = "ccn_test_%s"
-	agent_pool      = data.warpstream_virtual_cluster.default.agent_pool_id
+	agent_pool      = warpstream_virtual_cluster.default.agent_pool_id
 	cluster_superuser = false
   }
-`, nameSuffix)
+`, nameSuffix, nameSuffix)
 }
 
 func testAccVirtualClusterCredentialsResourceCheck(su bool) resource.TestCheckFunc {

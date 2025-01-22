@@ -3,9 +3,6 @@ terraform {
     warpstream = {
       source = "warpstreamlabs/warpstream"
     }
-    kafka = {
-      source = "Mongey/kafka"
-    }
   }
 }
 
@@ -40,24 +37,13 @@ resource "warpstream_agent_key" "terraform_cluster_key" {
   name               = "akn_terraform_topics"
 }
 
-provider "kafka" {
-  # WarpStream's serverless endpoint can be used to administer metadata
-  # for BYOC clusters.
-  bootstrap_servers = ["serverless.warpstream.com:9092"]
-  tls_enabled       = true
-  sasl_mechanism    = "plain"
-  sasl_username     = "${warpstream_virtual_cluster.test.cloud.region}::${warpstream_virtual_cluster.test.id}"
-  sasl_password     = warpstream_agent_key.terraform_cluster_key.key
-}
+resource "warpstream_topic" "topic" {
+  topic_name         = "logs"
+  partition_count    = 1
+  virtual_cluster_id = warpstream_virtual_cluster.test.id
 
-
-resource "kafka_topic" "logs" {
-  name       = "logs"
-  partitions = 64
-  # Required argument, but has no impact since data is always stored in object storage.
-  replication_factor = 1
-
-  config = {
-    "retention.ms" = "86400000"
+  config {
+    name  = "retention.ms"
+    value = "604800000"
   }
 }

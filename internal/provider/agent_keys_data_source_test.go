@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -20,9 +21,14 @@ func TestAccAgentKeyDataSource(t *testing.T) {
 }
 
 func testAccAgentKeyDataSource() string {
-	return providerConfig + `
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+}
+
 data "warpstream_agent_keys" "test" {
-}`
+	depends_on = [warpstream_virtual_cluster.default]
+}`, nameSuffix)
 }
 
 func testAccAgentKeyDataSourceCheck() resource.TestCheckFunc {
