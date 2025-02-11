@@ -31,14 +31,14 @@ func TestAccVirtualClusterResourceDeletePlan(t *testing.T) {
 					vcs, err := client.GetVirtualClusters()
 					require.NoError(t, err)
 
-					var virtualCluster *api.VirtualCluster
+					var virtualCluster api.VirtualCluster
 					for _, vc := range vcs {
 						if vc.Name == fmt.Sprintf("vcn_test_acc_%s", vcNameSuffix) {
-							virtualCluster = &vc
+							virtualCluster = vc
 							break
 						}
 					}
-					require.NotNil(t, virtualCluster)
+					require.NotEmpty(t, virtualCluster.ID)
 
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
 					require.NoError(t, err)

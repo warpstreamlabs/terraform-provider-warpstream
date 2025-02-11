@@ -29,16 +29,16 @@ func TestAccApplicationKeyResourceDeletePLan(t *testing.T) {
 					apiKeys, err := client.GetAPIKeys()
 					require.NoError(t, err)
 
-					var apiKeyID *string
+					var apiKeyID string
 					for _, apiKey := range apiKeys {
 						if apiKey.Name == name {
-							apiKeyID = &apiKey.ID
+							apiKeyID = apiKey.ID
 							break
 						}
 					}
-					require.NotNil(t, apiKeyID)
+					require.NotEmpty(t, apiKeyID)
 
-					err = client.DeleteAPIKey(*apiKeyID)
+					err = client.DeleteAPIKey(apiKeyID)
 					require.NoError(t, err)
 				},
 				Config:             testAccApplicationKeyResource(name),

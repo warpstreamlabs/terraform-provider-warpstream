@@ -44,16 +44,16 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					credentials, err := client.GetCredentials(*virtualCluster)
 					require.NoError(t, err)
 
-					var vcCredentialID *string
+					var vcCredentialID string
 					for cID, credential := range credentials {
 						if credential.Name == fmt.Sprintf("ccn_test_%s", nameSuffix) {
-							vcCredentialID = &cID
+							vcCredentialID = cID
 							break
 						}
 					}
-					require.NotNil(t, vcCredentialID)
+					require.NotEmpty(t, vcCredentialID)
 
-					err = client.DeleteCredentials(*vcCredentialID, *virtualCluster)
+					err = client.DeleteCredentials(vcCredentialID, *virtualCluster)
 					require.NoError(t, err)
 				},
 				Config:             testAccVirtualClusterCredentialsResource_withSuperuser(true),
@@ -75,14 +75,14 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					vcs, err := client.GetVirtualClusters()
 					require.NoError(t, err)
 
-					var virtualCluster *api.VirtualCluster
+					var virtualCluster api.VirtualCluster
 					for _, vc := range vcs {
 						if vc.Name == fmt.Sprintf("vcn_%s", nameSuffix) {
-							virtualCluster = &vc
+							virtualCluster = vc
 							break
 						}
 					}
-					require.NotNil(t, virtualCluster)
+					require.NotEmpty(t, virtualCluster.ID)
 
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
 					require.NoError(t, err)
