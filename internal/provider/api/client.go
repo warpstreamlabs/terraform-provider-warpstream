@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/hashicorp/go-retryablehttp"
 )
+
+var ErrNotFound = errors.New("Resource Not Found")
 
 // HostURL - Default Warpstream URL.
 const HostURL string = "https://api.prod.us-east-1.warpstream.com/api/v1"
@@ -79,6 +82,10 @@ func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error)
 		return nil, err
 	}
 	log.Printf("%q\n", body)
+
+	if res.StatusCode == http.StatusNotFound {
+		return nil, ErrNotFound
+	}
 
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status: %d, body: %s", res.StatusCode, body)

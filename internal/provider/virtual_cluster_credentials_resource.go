@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -226,6 +227,10 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 
 	cluster, err := r.client.GetVirtualCluster(vci)
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Virtual Cluster",
 			"Could not read WarpStream Virtual Cluster ID "+vci+": "+err.Error(),
@@ -244,10 +249,7 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 
 	c, ok := creds[state.ID.ValueString()]
 	if !ok {
-		resp.Diagnostics.AddError(
-			"Error Reading WarpStream Virtual Cluster Credentials",
-			"Could not find WarpStream Virtual Cluster Credentials with ID "+state.ID.ValueString(),
-		)
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -296,6 +298,10 @@ func (r *virtualClusterCredentialsResource) Delete(ctx context.Context, req reso
 
 	cluster, err := r.client.GetVirtualCluster(vci)
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Virtual Cluster",
 			"Could not read WarpStream Virtual Cluster ID "+vci+": "+err.Error(),
@@ -306,6 +312,10 @@ func (r *virtualClusterCredentialsResource) Delete(ctx context.Context, req reso
 	// Delete existing credentials
 	err = r.client.DeleteCredentials(state.ID.ValueString(), *cluster)
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Deleting WarpStream Virtual Cluster Credentials",
 			"Could not delete WarpStream Virtual Cluster Credentials, unexpected error: "+err.Error(),

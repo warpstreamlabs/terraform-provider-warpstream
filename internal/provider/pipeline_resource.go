@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -231,6 +232,11 @@ func (r *pipelineResource) Read(ctx context.Context, req resource.ReadRequest, r
 		PipelineID:       state.ID.ValueString(),
 	})
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Reading Pipeline",
 			fmt.Sprintf("Unable to fetch details for pipeline '%s'. Please check the pipeline ID and ensure it exists. Error details: %s", state.ID.ValueString(), err.Error()),
@@ -316,6 +322,10 @@ func (r *pipelineResource) Delete(ctx context.Context, req resource.DeleteReques
 		PipelineID:       state.ID.ValueString(),
 	})
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Deleting Pipeline",
 			fmt.Sprintf("Unable to delete pipeline '%s'. Please check your permissions and ensure there are no dependencies on this pipeline. Error details: %s", state.ID.ValueString(), err.Error()),

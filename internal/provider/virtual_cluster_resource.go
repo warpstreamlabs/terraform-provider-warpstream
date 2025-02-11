@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -330,6 +331,11 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 
 	cluster, err := r.client.GetVirtualCluster(state.ID.ValueString())
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Virtual Cluster",
 			"Could not read WarpStream Virtual Cluster ID "+state.ID.ValueString()+": "+err.Error(),
@@ -410,6 +416,10 @@ func (r *virtualClusterResource) Delete(ctx context.Context, req resource.Delete
 	// Delete existing virtual cluster
 	err := r.client.DeleteVirtualCluster(state.ID.ValueString(), state.Name.ValueString())
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Deleting WarpStream Virtual Cluster",
 			"Could not delete WarpStream Virtual Cluster, unexpected error: "+err.Error(),

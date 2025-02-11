@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -179,6 +180,11 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 
 	cluster, err := r.client.GetVirtualCluster(state.ID.ValueString())
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Virtual Cluster",
 			"Could not read WarpStream Virtual Cluster ID "+state.ID.ValueString()+": "+err.Error(),
@@ -242,6 +248,10 @@ func (r *schemaRegistryResource) Delete(ctx context.Context, req resource.Delete
 
 	err := r.client.DeleteVirtualCluster(state.ID.ValueString(), state.Name.ValueString())
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Deleting WarpStream Schema Registry",
 			fmt.Sprintf("Could not delete WarpStream Schema Registry %s: %v", state.Name, err),

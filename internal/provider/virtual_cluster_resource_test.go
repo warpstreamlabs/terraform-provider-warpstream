@@ -2,13 +2,54 @@ package provider
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/stretchr/testify/require"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
+
+func TestAccVirtualClusterResourceDeletePlan(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterResource_withPartialConfiguration(false, vcNameSuffix),
+				Check:  testAccVirtualClusterResourceCheck_BYOC(false, true, 1),
+			},
+			{
+				PreConfig: func() {
+					token := os.Getenv("WARPSTREAM_API_KEY")
+					client, err := api.NewClient("", &token)
+					require.NoError(t, err)
+
+					vcs, err := client.GetVirtualClusters()
+					require.NoError(t, err)
+
+					var virtualCluster api.VirtualCluster
+					for _, vc := range vcs {
+						if vc.Name == fmt.Sprintf("vcn_test_acc_%s", vcNameSuffix) {
+							virtualCluster = vc
+							break
+						}
+					}
+					require.NotEmpty(t, virtualCluster.ID)
+
+					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
+					require.NoError(t, err)
+				},
+				Config:             testAccVirtualClusterResource_withPartialConfiguration(false, vcNameSuffix),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
 
 func TestAccVirtualClusterResource(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)

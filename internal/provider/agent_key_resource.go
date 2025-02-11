@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -170,6 +171,11 @@ func (r *agentKeyResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 	apiKey, err := r.client.GetAPIKey(state.ID.ValueString())
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Agent Key",
 			"Could not read WarpStream Agent Key ID "+state.ID.ValueString()+": "+err.Error(),
@@ -217,6 +223,10 @@ func (r *agentKeyResource) Delete(ctx context.Context, req resource.DeleteReques
 	// Delete existing agent key
 	err := r.client.DeleteAPIKey(state.ID.ValueString())
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Deleting WarpStream Agent Key",
 			"Could not delete WarpStream Agent Key, unexpected error: "+err.Error(),
