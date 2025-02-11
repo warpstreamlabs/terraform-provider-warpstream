@@ -2,10 +2,53 @@ package provider
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/stretchr/testify/require"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
+
+func TestAccAgentKeyResourceDeletePlan(t *testing.T) {
+	name := "akn_test_agent_key" + nameSuffix
+	vcID := "vci_test_virtual_cluster_id"
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAgentKeyResource(name, vcID),
+				Check:  testAccAgentKeyResourceCheck(name, vcID),
+			},
+			{
+				PreConfig: func() {
+					token := os.Getenv("WARPSTREAM_API_KEY")
+					client, err := api.NewClient("", &token)
+					require.NoError(t, err)
+
+					apiKeys, err := client.GetAPIKeys()
+					require.NoError(t, err)
+
+					var apiKeyID *string
+					for _, apiKey := range apiKeys {
+						if apiKey.Name == name {
+							apiKeyID = &apiKey.ID
+							break
+						}
+					}
+					require.NotNil(t, apiKeyID)
+
+					err = client.DeleteAPIKey(*apiKeyID)
+					require.NoError(t, err)
+				},
+				Config:             testAccAgentKeyResource(name, vcID),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
 
 func TestAccAgentKeyResource(t *testing.T) {
 	name := "akn_test_agent_key" + nameSuffix

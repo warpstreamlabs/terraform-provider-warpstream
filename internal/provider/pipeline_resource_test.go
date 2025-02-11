@@ -1,30 +1,114 @@
 package provider
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/stretchr/testify/require"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
+
+func TestBentoPipelineResourceDeletePlan(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create Pipeline
+			{
+				Config: testBentoPipeline(vcNameSuffix),
+				Check:  testPipelineCheck(bentoPipelineType),
+			},
+			// Pre delete pipeline and try planning
+			{
+				PreConfig: func() {
+					token := os.Getenv("WARPSTREAM_API_KEY")
+					client, err := api.NewClient("", &token)
+					require.NoError(t, err)
+
+					vcs, err := client.GetVirtualClusters()
+					require.NoError(t, err)
+
+					var virtualCluster *api.VirtualCluster
+					for _, vc := range vcs {
+						if vc.Name == fmt.Sprintf("vcn_test_acc_%s", vcNameSuffix) {
+							virtualCluster = &vc
+							break
+						}
+					}
+					require.NotNil(t, virtualCluster)
+
+					pipelineListResp, err := client.ListPipelines(context.TODO(), api.HTTPListPipelinesRequest{
+						VirtualClusterID: virtualCluster.ID,
+					})
+					require.NoError(t, err)
+
+					_, err = client.DeletePipeline(context.TODO(), api.HTTPDeletePipelineRequest{
+						VirtualClusterID: virtualCluster.ID,
+						PipelineID:       pipelineListResp.Pipelines[0].ID,
+					})
+					require.NoError(t, err)
+
+				},
+				Config:             testBentoPipeline(vcNameSuffix),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+			},
+			// Create pipeline
+			{
+				Config: testBentoPipeline(vcNameSuffix),
+				Check:  testPipelineCheck(bentoPipelineType),
+			},
+			// Delete virtual cluster and try planning
+			{
+				PreConfig: func() {
+					token := os.Getenv("WARPSTREAM_API_KEY")
+					client, err := api.NewClient("", &token)
+					require.NoError(t, err)
+
+					vcs, err := client.GetVirtualClusters()
+					require.NoError(t, err)
+
+					var virtualCluster *api.VirtualCluster
+					for _, vc := range vcs {
+						if vc.Name == fmt.Sprintf("vcn_test_acc_%s", vcNameSuffix) {
+							virtualCluster = &vc
+							break
+						}
+					}
+					require.NotNil(t, virtualCluster)
+
+					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
+					require.NoError(t, err)
+				},
+				Config:             testBentoPipeline(vcNameSuffix),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
 
 func TestBentoPipelineResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testBentoPipeline(),
+				Config: testBentoPipeline(acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)),
 				Check:  testPipelineCheck(bentoPipelineType),
 			},
 		},
 	})
 }
 
-func testBentoPipeline() string {
+func testBentoPipeline(vcNameSuffix string) string {
 	virtualClusterResource := fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
 	name = "vcn_test_acc_%s"
-}`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+}`, vcNameSuffix)
 	return providerConfig + virtualClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {
   virtual_cluster_id = warpstream_virtual_cluster.test.id

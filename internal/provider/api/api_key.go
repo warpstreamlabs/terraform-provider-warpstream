@@ -142,5 +142,5 @@ func (c *Client) GetAPIKey(apiKeyID string) (*APIKey, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("API key with ID %s not found", apiKeyID)
+	return nil, ErrNotFound
 }
