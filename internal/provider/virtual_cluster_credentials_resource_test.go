@@ -17,7 +17,7 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create crednetial
+			// Create credential
 			{
 				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true),
 				Check:  testAccVirtualClusterCredentialsResourceCheck(true),
@@ -29,19 +29,10 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClient("", &token)
 					require.NoError(t, err)
 
-					vcs, err := client.GetVirtualClusters()
+					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_%s", nameSuffix))
 					require.NoError(t, err)
 
-					var virtualCluster api.VirtualCluster
-					for _, vc := range vcs {
-						if vc.Name == fmt.Sprintf("vcn_%s", nameSuffix) {
-							virtualCluster = vc
-							break
-						}
-					}
-					require.NotEmpty(t, virtualCluster.ID)
-
-					credentials, err := client.GetCredentials(virtualCluster)
+					credentials, err := client.GetCredentials(*virtualCluster)
 					require.NoError(t, err)
 
 					var vcCredentialID string
@@ -53,12 +44,17 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					}
 					require.NotEmpty(t, vcCredentialID)
 
-					err = client.DeleteCredentials(vcCredentialID, virtualCluster)
+					err = client.DeleteCredentials(vcCredentialID, *virtualCluster)
 					require.NoError(t, err)
 				},
-				Config:             testAccVirtualClusterCredentialsResource_withSuperuser(true),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
+				RefreshState:       true,
+				RefreshPlanChecks: resource.RefreshPlanChecks{
+					PostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_virtual_cluster_credentials.test", plancheck.ResourceActionCreate),
+					},
+				},
 			},
 			// Create credential
 			{
@@ -72,24 +68,21 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClient("", &token)
 					require.NoError(t, err)
 
-					vcs, err := client.GetVirtualClusters()
+					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_%s", nameSuffix))
 					require.NoError(t, err)
-
-					var virtualCluster api.VirtualCluster
-					for _, vc := range vcs {
-						if vc.Name == fmt.Sprintf("vcn_%s", nameSuffix) {
-							virtualCluster = vc
-							break
-						}
-					}
-					require.NotEmpty(t, virtualCluster.ID)
 
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
 					require.NoError(t, err)
 				},
-				Config:             testAccVirtualClusterCredentialsResource_withSuperuser(true),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
+				RefreshState:       true,
+				RefreshPlanChecks: resource.RefreshPlanChecks{
+					PostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_virtual_cluster.default", plancheck.ResourceActionCreate),
+						plancheck.ExpectResourceAction("warpstream_virtual_cluster_credentials.test", plancheck.ResourceActionCreate),
+					},
+				},
 			},
 		},
 	})

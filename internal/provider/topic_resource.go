@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
@@ -191,6 +192,11 @@ func (r *topicResource) Read(ctx context.Context, req resource.ReadRequest, resp
 
 	topic, err := r.client.DescribeTopic(state.VirtualClusterID.ValueString(), state.TopicName.ValueString())
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Topic",
 			"Could not read WarpStream Topic ID "+state.ID.ValueString()+": "+err.Error(),
@@ -309,6 +315,10 @@ func (r *topicResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 	err := r.client.DeleteTopic(state.VirtualClusterID.ValueString(), state.TopicName.ValueString())
 	if err != nil {
+		if errors.Is(err, api.ErrNotFound) {
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Error Deleting WarpStream Topic",
 			"Could not delete WarpStream Topic, unexpected error: "+err.Error(),

@@ -2,77 +2,117 @@ package provider
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
+	"github.com/stretchr/testify/require"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
-// TODO: this currently doesn't work, the describe topic api returns a 500 instead of 404
-// func TestAccTopicResourceNotExists(t *testing.T) {
+func TestAccTopicResourceDeletePlan(t *testing.T) {
+	virtualClusterName := fmt.Sprintf("vcn_%s", acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create topic
+			{
+				Config: providerConfig + fmt.Sprintf(`
+				resource "warpstream_virtual_cluster" "default" {
+					name = "%s"
+				}
+				
+				resource "warpstream_topic" "topic" {
+				  topic_name         = "test"
+				  partition_count    = 1
+				  virtual_cluster_id = warpstream_virtual_cluster.default.id
+				
+				}`, virtualClusterName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
+				),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("topic_name"), knownvalue.StringExact("test")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("partition_count"), knownvalue.Int64Exact(1)),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config"), knownvalue.ListSizeExact(0)),
+				},
+			},
+			// Pre delete topic and try planning
+			{
+				PreConfig: func() {
+					token := os.Getenv("WARPSTREAM_API_KEY")
+					client, err := api.NewClient("", &token)
+					require.NoError(t, err)
 
-// 	virtualClusterName := fmt.Sprintf("vcn_%s", acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+					virtualCluster, err := client.FindVirtualCluster(virtualClusterName)
+					require.NoError(t, err)
 
-// 	resource.Test(t, resource.TestCase{
-// 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-// 		Steps: []resource.TestStep{
-// 			{
-// 				Config: providerConfig + fmt.Sprintf(`
-// resource "warpstream_virtual_cluster" "default" {
-// 	name = "%s"
-// }
+					err = client.DeleteTopic(virtualCluster.ID, "test")
+					require.NoError(t, err)
+				},
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+				RefreshState:       true,
+				RefreshPlanChecks: resource.RefreshPlanChecks{
+					PostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_topic.topic", plancheck.ResourceActionCreate),
+					},
+				},
+			},
+			// Create topic
+			{
+				Config: providerConfig + fmt.Sprintf(`
+				resource "warpstream_virtual_cluster" "default" {
+					name = "%s"
+				}
+				
+				resource "warpstream_topic" "topic" {
+				  topic_name         = "test"
+				  partition_count    = 1
+				  virtual_cluster_id = warpstream_virtual_cluster.default.id
+				
+				}`, virtualClusterName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
+				),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("topic_name"), knownvalue.StringExact("test")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("partition_count"), knownvalue.Int64Exact(1)),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config"), knownvalue.ListSizeExact(0)),
+				},
+			},
+			// Delete virtual cluster and try planning
+			{
+				PreConfig: func() {
+					token := os.Getenv("WARPSTREAM_API_KEY")
+					client, err := api.NewClient("", &token)
+					require.NoError(t, err)
 
-// resource "warpstream_topic" "topic" {
-//   topic_name         = "test"
-//   partition_count    = 1
-//   virtual_cluster_id = warpstream_virtual_cluster.default.id
+					virtualCluster, err := client.FindVirtualCluster(virtualClusterName)
+					require.NoError(t, err)
 
-// }
-// 				`, virtualClusterName),
-// 				Check: resource.ComposeAggregateTestCheckFunc(
-// 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
-// 				),
-// 				ConfigStateChecks: []statecheck.StateCheck{
-// 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("topic_name"), knownvalue.StringExact("test")),
-// 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("partition_count"), knownvalue.Int64Exact(1)),
-// 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config"), knownvalue.ListSizeExact(0)),
-// 				},
-// 			},
-// 			{
-// 				PreConfig: func() {
-// 					token := os.Getenv("WARPSTREAM_API_KEY")
-// 					client, _ := api.NewClient("", &token)
-// 					// TODO: error
-
-// 					vcs, _ := client.GetVirtualClusters()
-// 					// TODO: err
-
-// 					var virtualCluster *api.VirtualCluster
-// 					for _, vc := range vcs {
-// 						fmt.Println(vc.Name)
-// 						if vc.Name == virtualClusterName {
-// 							fmt.Println("found vc")
-// 							virtualCluster = &vc
-// 							break
-// 						}
-// 					}
-
-// 					if virtualCluster == nil {
-// 						panic("nil virtual cluster")
-// 					}
-
-// 					_ = client.DeleteTopic(virtualCluster.ID, "test")
-// 					// TODO: err
-// 				},
-// 				RefreshState: true,
-// 			},
-// 		},
-// 	})
-// }
+					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
+					require.NoError(t, err)
+				},
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+				RefreshState:       true,
+				RefreshPlanChecks: resource.RefreshPlanChecks{
+					PostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_virtual_cluster.default", plancheck.ResourceActionCreate),
+						plancheck.ExpectResourceAction("warpstream_topic.topic", plancheck.ResourceActionCreate),
+					},
+				},
+			},
+		},
+	})
+}
 
 func TestAccTopicResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{

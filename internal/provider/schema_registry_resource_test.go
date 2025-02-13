@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
@@ -35,24 +36,20 @@ func TestAccSchemaRegistryResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClient("", &token)
 					require.NoError(t, err)
 
-					vcs, err := client.GetVirtualClusters()
+					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_sr_test_%s", vcNameSuffix))
 					require.NoError(t, err)
-
-					var virtualCluster api.VirtualCluster
-					for _, vc := range vcs {
-						if vc.Name == fmt.Sprintf("vcn_sr_test_%s", vcNameSuffix) {
-							virtualCluster = vc
-							break
-						}
-					}
-					require.NotEmpty(t, virtualCluster.ID)
 
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
 					require.NoError(t, err)
 				},
-				Config:             testSchemaRegistryResource(vcNameSuffix),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
+				RefreshState:       true,
+				RefreshPlanChecks: resource.RefreshPlanChecks{
+					PostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_schema_registry.test", plancheck.ResourceActionCreate),
+					},
+				},
 			},
 		},
 	})
