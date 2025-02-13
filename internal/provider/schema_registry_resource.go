@@ -178,6 +178,29 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
+	var cluster *api.VirtualCluster
+
+	// Crossplane.io creates terraform state manually with empty IDs. There is
+	// no terraform standard to handle empty IDs and our API does not handle
+	// them in a way that is useful. Other TF providers are a mixed bag when
+	// handling empty IDs, so let's explicitly handle them.
+	if state.ID.ValueString() == "" {
+		var err error
+		cluster, err = r.client.FindVirtualCluster(state.Name.ValueString())
+		if err != nil {
+			if errors.Is(err, api.ErrNotFound) {
+				resp.State.RemoveResource(ctx)
+				return
+			}
+
+			resp.Diagnostics.AddError(
+				"Error Reading WarpStream Virtual Cluster",
+				"Could not read WarpStream Virtual Cluster Name "+state.Name.ValueString()+": "+err.Error(),
+			)
+		}
+		state.ID = types.StringValue(cluster.ID)
+	}
+
 	cluster, err := r.client.GetVirtualCluster(state.ID.ValueString())
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
