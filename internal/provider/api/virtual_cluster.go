@@ -173,7 +173,7 @@ func (c *Client) FindVirtualCluster(name string) (*VirtualCluster, error) {
 		}
 	}
 
-	return nil, ErrNotFound
+	return nil, fmt.Errorf("could not find virtual cluster with name %s: %w", name, ErrNotFound)
 }
 
 // GetDefaultCluster - Return the default virtual cluster.
