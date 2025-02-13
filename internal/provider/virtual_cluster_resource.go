@@ -331,8 +331,10 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 
 	var cluster *api.VirtualCluster
 
-	// handle case where ID is empty but the cluster is in state
-	// this is to handle systems like crossplane
+	// Crossplane.io creates terraform state manually with empty IDs. There is
+	// no terraform standard to handle empty IDs and our API does not handle
+	// them in a way that is useful. Other TF providers are a mixed bag when
+	// handling empty IDs, so let's explictly handle them.
 	if state.ID.ValueString() == "" {
 		var err error
 		cluster, err = r.client.FindVirtualCluster(state.Name.ValueString())
