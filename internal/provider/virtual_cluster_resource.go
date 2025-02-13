@@ -329,6 +329,27 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
+	var cluster *api.VirtualCluster
+
+	// handle case where ID is empty but the cluster is in state
+	// this is to handle systems like crossplane
+	if state.ID.ValueString() == "" {
+		var err error
+		cluster, err = r.client.FindVirtualCluster(state.Name.ValueString())
+		if err != nil {
+			if errors.Is(err, api.ErrNotFound) {
+				resp.State.RemoveResource(ctx)
+				return
+			}
+
+			resp.Diagnostics.AddError(
+				"Error Reading WarpStream Virtual Cluster",
+				"Could not read WarpStream Virtual Cluster Name "+state.Name.ValueString()+": "+err.Error(),
+			)
+		}
+		state.ID = types.StringValue(cluster.ID)
+	}
+
 	cluster, err := r.client.GetVirtualCluster(state.ID.ValueString())
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
