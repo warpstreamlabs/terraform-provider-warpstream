@@ -21,7 +21,7 @@ func TestAccTopicResourceDeletePlan(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create crednetial
+			// Create topic
 			{
 				Config: providerConfig + fmt.Sprintf(`
 				resource "warpstream_virtual_cluster" "default" {
@@ -50,17 +50,8 @@ func TestAccTopicResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClient("", &token)
 					require.NoError(t, err)
 
-					vcs, err := client.GetVirtualClusters()
+					virtualCluster, err := client.FindVirtualCluster(virtualClusterName)
 					require.NoError(t, err)
-
-					var virtualCluster api.VirtualCluster
-					for _, vc := range vcs {
-						if vc.Name == virtualClusterName {
-							virtualCluster = vc
-							break
-						}
-					}
-					require.NotEmpty(t, virtualCluster.ID)
 
 					err = client.DeleteTopic(virtualCluster.ID, "test")
 					require.NoError(t, err)
@@ -103,17 +94,8 @@ func TestAccTopicResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClient("", &token)
 					require.NoError(t, err)
 
-					vcs, err := client.GetVirtualClusters()
+					virtualCluster, err := client.FindVirtualCluster(virtualClusterName)
 					require.NoError(t, err)
-
-					var virtualCluster api.VirtualCluster
-					for _, vc := range vcs {
-						if vc.Name == virtualClusterName {
-							virtualCluster = vc
-							break
-						}
-					}
-					require.NotEmpty(t, virtualCluster.ID)
 
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
 					require.NoError(t, err)
