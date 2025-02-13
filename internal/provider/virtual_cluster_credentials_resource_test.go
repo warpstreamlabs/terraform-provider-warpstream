@@ -56,9 +56,14 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					err = client.DeleteCredentials(vcCredentialID, virtualCluster)
 					require.NoError(t, err)
 				},
-				Config:             testAccVirtualClusterCredentialsResource_withSuperuser(true),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
+				RefreshState:       true,
+				RefreshPlanChecks: resource.RefreshPlanChecks{
+					PostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_virtual_cluster_credentials.test", plancheck.ResourceActionCreate),
+					},
+				},
 			},
 			// Create credential
 			{
@@ -87,9 +92,15 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
 					require.NoError(t, err)
 				},
-				Config:             testAccVirtualClusterCredentialsResource_withSuperuser(true),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
+				RefreshState:       true,
+				RefreshPlanChecks: resource.RefreshPlanChecks{
+					PostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_virtual_cluster.default", plancheck.ResourceActionCreate),
+						plancheck.ExpectResourceAction("warpstream_virtual_cluster_credentials.test", plancheck.ResourceActionCreate),
+					},
+				},
 			},
 		},
 	})

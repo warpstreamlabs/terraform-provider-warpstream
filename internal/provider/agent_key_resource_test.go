@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
@@ -42,9 +43,14 @@ func TestAccAgentKeyResourceDeletePlan(t *testing.T) {
 					err = client.DeleteAPIKey(apiKeyID)
 					require.NoError(t, err)
 				},
-				Config:             testAccAgentKeyResource(name, vcID),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
+				RefreshState:       true,
+				RefreshPlanChecks: resource.RefreshPlanChecks{
+					PostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_agent_key.test", plancheck.ResourceActionCreate),
+					},
+				},
 			},
 		},
 	})

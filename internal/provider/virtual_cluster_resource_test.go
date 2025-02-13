@@ -43,9 +43,14 @@ func TestAccVirtualClusterResourceDeletePlan(t *testing.T) {
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
 					require.NoError(t, err)
 				},
-				Config:             testAccVirtualClusterResource_withPartialConfiguration(false, vcNameSuffix),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
+				RefreshState:       true,
+				RefreshPlanChecks: resource.RefreshPlanChecks{
+					PostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_virtual_cluster.test", plancheck.ResourceActionCreate),
+					},
+				},
 			},
 		},
 	})

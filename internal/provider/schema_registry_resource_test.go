@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
@@ -50,9 +51,14 @@ func TestAccSchemaRegistryResourceDeletePlan(t *testing.T) {
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
 					require.NoError(t, err)
 				},
-				Config:             testSchemaRegistryResource(vcNameSuffix),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
+				RefreshState:       true,
+				RefreshPlanChecks: resource.RefreshPlanChecks{
+					PostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_schema_registry.test", plancheck.ResourceActionCreate),
+					},
+				},
 			},
 		},
 	})

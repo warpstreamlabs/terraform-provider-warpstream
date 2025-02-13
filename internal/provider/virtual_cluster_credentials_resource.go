@@ -228,6 +228,7 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 	cluster, err := r.client.GetVirtualCluster(vci)
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
+			resp.State.RemoveResource(ctx)
 			return
 		}
 
