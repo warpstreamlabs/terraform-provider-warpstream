@@ -183,7 +183,7 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 	// Crossplane.io creates terraform state manually with empty IDs. There is
 	// no terraform standard to handle empty IDs and our API does not handle
 	// them in a way that is useful. Other TF providers are a mixed bag when
-	// handling empty IDs, so let's explictly handle them.
+	// handling empty IDs, so let's explicitly handle them.
 	if state.ID.ValueString() == "" {
 		var err error
 		cluster, err = r.client.FindVirtualCluster(state.Name.ValueString())
