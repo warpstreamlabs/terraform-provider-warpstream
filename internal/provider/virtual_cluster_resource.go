@@ -95,7 +95,7 @@ var (
 	cloudSchema = schema.SingleNestedAttribute{
 		Attributes: map[string]schema.Attribute{
 			"provider": schema.StringAttribute{
-				Description: "Cloud Provider. Only `aws` is currently supported.",
+				Description: "Cloud Provider. Valid providers are: `aws` (default) and `gcp`.",
 				Computed:    true,
 				Optional:    true,
 				Default:     stringdefault.StaticString("aws"),
