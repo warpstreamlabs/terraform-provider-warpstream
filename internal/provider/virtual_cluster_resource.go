@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -162,6 +163,9 @@ This resource allows you to create, update and delete virtual clusters.
 				Description:  "List of keys to authenticate an agent with this cluster.",
 				Computed:     true,
 				NestedObject: agentKeyResourceSchema,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"agent_pool_id": schema.StringAttribute{
 				Description: "Agent Pool ID.",
@@ -233,6 +237,9 @@ This resource allows you to create, update and delete virtual clusters.
 			"bootstrap_url": schema.StringAttribute{
 				Description: "Bootstrap URL to connect to the Virtual Cluster.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
