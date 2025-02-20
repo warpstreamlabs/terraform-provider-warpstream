@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -82,6 +83,9 @@ This resource allows you to create, update and delete schema registries.
 				Description:  "List of keys to authenticate an agent with this cluster.",
 				Computed:     true,
 				NestedObject: agentKeyResourceSchema,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Virtual Cluster Creation Timestamp.",
@@ -94,6 +98,9 @@ This resource allows you to create, update and delete schema registries.
 			"bootstrap_url": schema.StringAttribute{
 				Description: "Bootstrap URL to connect to the Schema Registry.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
