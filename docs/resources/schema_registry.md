@@ -35,7 +35,7 @@ This resource allows you to create, update and delete schema registries.
 
 Optional:
 
-- `provider` (String) Cloud Provider. Only `aws` is currently supported.
+- `provider` (String) Cloud Provider. Valid providers are: `aws` (default) and `gcp`.
 - `region` (String) Cloud Region. Defaults to `us-east-1`
 
 
