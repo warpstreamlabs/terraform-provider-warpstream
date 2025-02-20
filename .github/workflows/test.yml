@@ -78,9 +78,17 @@ jobs:
           terraform_version: ${{ matrix.terraform }}
           terraform_wrapper: false
       - run: go mod download
+
+      - name: Create Playground Account for Tests
+        run: |
+          playground_account_raw=`curl https://api.prod.us-east-1.warpstream.com/api/v1/signup -X POST -d '{"primary_user_first_name": "terraform-provider-ci", "primary_user_last_name": "Account", "tenant_name": "terraform-provider-ci-organization-'$(uuidgen)'", "primary_user_email": "terraform-provider-ci-email@'$(uuidgen)'", "primary_user_password": "terraform-provider-ci-password-'$(uuidgen)'", "is_demo": true}'`
+
+          export DefaultAPIKey=`echo ${playground_account_raw} | jq -r .DefaultAPIKey`
+
+          echo "WARPSTREAM_API_KEY=${DefaultAPIKey}" >> $GITHUB_ENV
+
       - env:
           TF_ACC: "1"
-          WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_API_KEY }}
         run: go test -v -cover ./internal/provider/
         timeout-minutes: 10
 
