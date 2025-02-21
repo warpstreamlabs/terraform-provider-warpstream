@@ -1,6 +1,7 @@
 module github.com/warpstreamlabs/terraform-provider-warpstream
 
-go 1.21
+go 1.22.7
+
 toolchain go1.23.6
 
 require (
