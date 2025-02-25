@@ -122,6 +122,9 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 					"provider": schema.StringAttribute{
 						Computed: true,
 					},
+					"region_group": schema.StringAttribute{
+						Computed: true,
+					},
 				},
 				Computed: true,
 			},
@@ -202,8 +205,14 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	}
 
 	cldState := virtualClusterCloudModel{
-		Provider: types.StringValue(vc.CloudProvider),
-		Region:   types.StringValue(vc.Region),
+		Provider:    types.StringValue(vc.CloudProvider),
+		Region:      types.StringNull(),
+		RegionGroup: types.StringNull(),
+	}
+	if vc.ClusterRegion.IsMultiRegion {
+		cldState.RegionGroup = types.StringValue(vc.ClusterRegion.RegionGroup.Name)
+	} else {
+		cldState.Region = types.StringValue(vc.ClusterRegion.Region.Name)
 	}
 
 	diags = resp.State.SetAttribute(ctx, path.Root("cloud"), cldState)

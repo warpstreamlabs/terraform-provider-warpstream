@@ -60,20 +60,23 @@ func (m virtualClusterConfigurationModel) DefaultObject() map[string]attr.Value 
 }
 
 type virtualClusterCloudModel struct {
-	Provider types.String `tfsdk:"provider"`
-	Region   types.String `tfsdk:"region"`
+	Provider    types.String `tfsdk:"provider"`
+	Region      types.String `tfsdk:"region"`
+	RegionGroup types.String `tfsdk:"region_group"`
 }
 
 func (m virtualClusterCloudModel) AttributeTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"provider": types.StringType,
-		"region":   types.StringType,
+		"provider":     types.StringType,
+		"region":       types.StringType,
+		"region_group": types.StringType,
 	}
 }
 
 func (m virtualClusterCloudModel) DefaultObject() map[string]attr.Value {
 	return map[string]attr.Value{
-		"provider": types.StringValue("aws"),
-		"region":   types.StringValue("us-east-1"),
+		"provider":     types.StringValue("aws"),
+		"region":       types.StringValue("us-east-1"),
+		"region_group": types.StringNull(),
 	}
 }
