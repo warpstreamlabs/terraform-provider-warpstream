@@ -115,12 +115,12 @@ This resource allows you to create and delete virtual cluster credentials.
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.ExactlyOneOf(path.Expressions{
+					stringvalidator.ExactlyOneOf(
 						// The ExactlyOneOf docstring suggest that "virtual_cluster_id" is implicitly included in
 						// this array of expressions. In practice we see that the resulting error message reports
 						// just the expressions that are passed to this array explicitly. So we include both.
 						path.MatchRoot("virtual_cluster"), path.MatchRoot("virtual_cluster_id"),
-					}...),
+					),
 				},
 			},
 			"created_at": schema.StringAttribute{

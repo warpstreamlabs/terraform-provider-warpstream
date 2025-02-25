@@ -36,7 +36,7 @@ This resource allows you to create, update and delete schema registries.
 Optional:
 
 - `provider` (String) Cloud Provider. Valid providers are: `aws` (default) and `gcp`.
-- `region` (String) Cloud Region. Defaults to `us-east-1`
+- `region` (String) Cloud Region. Defaults to `us-east-1`.
 
 
 <a id="nestedatt--agent_keys"></a>

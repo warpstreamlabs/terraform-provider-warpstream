@@ -5,12 +5,16 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -58,6 +62,37 @@ func (r *schemaRegistryResource) Configure(_ context.Context, req resource.Confi
 	r.client = client
 }
 
+var registryCloudSchema = schema.SingleNestedAttribute{
+	Attributes: map[string]schema.Attribute{
+		"provider": schema.StringAttribute{
+			Description: "Cloud Provider. Valid providers are: `aws` (default) and `gcp`.",
+			Computed:    true,
+			Optional:    true,
+			Default:     stringdefault.StaticString("aws"),
+			Validators: []validator.String{
+				stringvalidator.OneOf("aws", "gcp"),
+			},
+		},
+		"region": schema.StringAttribute{
+			Description: "Cloud Region. Defaults to `us-east-1`.",
+			Computed:    true,
+			Optional:    true,
+			Default:     stringdefault.StaticString("us-east-1"),
+		},
+	},
+	Description: "Virtual Cluster Cloud Location.",
+	Optional:    true,
+	Computed:    true,
+	Default: objectdefault.StaticValue(
+		types.ObjectValueMust(
+			virtualClusterRegistryCloudModel{}.AttributeTypes(),
+			virtualClusterRegistryCloudModel{}.DefaultObject(),
+		)),
+	PlanModifiers: []planmodifier.Object{
+		objectplanmodifier.RequiresReplace(),
+	},
+}
+
 func (r *schemaRegistryResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: `
@@ -94,7 +129,7 @@ This resource allows you to create, update and delete schema registries.
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"cloud": cloudSchema,
+			"cloud": registryCloudSchema,
 			"bootstrap_url": schema.StringAttribute{
 				Description: "Bootstrap URL to connect to the Schema Registry.",
 				Computed:    true,
@@ -114,7 +149,7 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	var cloudPlan virtualClusterCloudModel
+	var cloudPlan virtualClusterRegistryCloudModel
 	diags = plan.Cloud.As(ctx, &cloudPlan, basetypes.ObjectAsOptions{})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -126,7 +161,7 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 		plan.Name.ValueString(),
 		api.ClusterParameters{
 			Type:   warpstreamtypes.VirtualClusterTypeSchemaRegistry,
-			Region: cloudPlan.Region.ValueString(),
+			Region: cloudPlan.Region.ValueStringPointer(),
 			Cloud:  cloudPlan.Provider.ValueString(),
 		})
 	if err != nil {
@@ -230,10 +265,11 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	cloudValue, diagnostics := types.ObjectValue(
-		virtualClusterCloudModel{}.AttributeTypes(),
+		virtualClusterRegistryCloudModel{}.AttributeTypes(),
 		map[string]attr.Value{
 			"provider": types.StringValue(cluster.CloudProvider),
-			"region":   types.StringValue(cluster.Region),
+			// schema registry is always single region
+			"region": types.StringValue(cluster.ClusterRegion.Region.Name),
 		},
 	)
 	if diagnostics != nil {

@@ -1,9 +1,10 @@
 package api
 
 type ClusterParameters struct {
-	Type   string
-	Region string
-	Cloud  string
+	Type        string
+	Region      *string
+	RegionGroup *string
+	Cloud       string
 }
 
 type AccessGrant struct {
@@ -21,16 +22,32 @@ type APIKey struct {
 }
 
 type VirtualCluster struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	Type          string    `json:"type"`
-	AgentKeys     *[]APIKey `json:"agent_keys"`
-	AgentPoolID   string    `json:"agent_pool_id"`
-	AgentPoolName string    `json:"agent_pool_name"`
-	CreatedAt     string    `json:"created_at"`
-	Region        string    `json:"region"`
-	CloudProvider string    `json:"cloud_provider"`
-	BootstrapURL  *string   `json:"bootstrap_url"`
+	ID            string        `json:"id"`
+	Name          string        `json:"name"`
+	Type          string        `json:"type"`
+	AgentKeys     *[]APIKey     `json:"agent_keys"`
+	AgentPoolID   string        `json:"agent_pool_id"`
+	AgentPoolName string        `json:"agent_pool_name"`
+	CreatedAt     string        `json:"created_at"`
+	CloudProvider string        `json:"cloud_provider"`
+	ClusterRegion ClusterRegion `json:"cluster_region"`
+	BootstrapURL  *string       `json:"bootstrap_url"`
+}
+
+type ClusterRegion struct {
+	IsMultiRegion bool         `json:"is_multi_region"`
+	RegionGroup   *RegionGroup `json:"region_group"`
+	Region        *Region      `json:"region"`
+}
+
+type Region struct {
+	Name          string `json:"name"`
+	CloudProvider string `json:"cloud_provider"`
+}
+
+type RegionGroup struct {
+	Name    string   `json:"name"`
+	Regions []Region `json:"regions"`
 }
 
 type VirtualClusterCredentials struct {

@@ -21,11 +21,12 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 	require.NoError(t, err)
 
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
 		vcNameSuffix,
 		api.ClusterParameters{
 			Type:   types.VirtualClusterTypeBYOC,
-			Region: "us-east-1",
+			Region: &region,
 			Cloud:  "aws",
 		},
 	)

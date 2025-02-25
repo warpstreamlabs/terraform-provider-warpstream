@@ -133,9 +133,10 @@ func (d *schemaRegistryDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	cldState := virtualClusterCloudModel{
+	cldState := virtualClusterRegistryCloudModel{
 		Provider: types.StringValue(vc.CloudProvider),
-		Region:   types.StringValue(vc.Region),
+		// schema registry is always single region
+		Region: types.StringValue(vc.ClusterRegion.Region.Name),
 	}
 
 	diags = resp.State.SetAttribute(ctx, path.Root("cloud"), cldState)

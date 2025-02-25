@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -101,19 +102,28 @@ var (
 				Optional:    true,
 				Default:     stringdefault.StaticString("aws"),
 				Validators: []validator.String{
-					stringvalidator.OneOf([]string{"aws", "gcp"}...),
+					stringvalidator.OneOf("aws", "gcp"),
 				},
 			},
 			"region": schema.StringAttribute{
-				Description: "Cloud Region. Defaults to `us-east-1`",
+				Description: "Cloud Region. Defaults to `us-east-1`. Can't be set if `region_group` is set.",
 				Computed:    true,
 				Optional:    true,
 				Default:     stringdefault.StaticString("us-east-1"),
+			},
+			"region_group": schema.StringAttribute{
+				Description: "Cloud Region Group. Defaults to null. Can't be set if `region` is set.",
+				Computed:    true,
+				Optional:    true,
+				Default:     nil,
 			},
 		},
 		Description: "Virtual Cluster Cloud Location.",
 		Optional:    true,
 		Computed:    true,
+		Validators: []validator.Object{
+			objectvalidator.ConflictsWith(path.MatchRoot("region"), path.MatchRoot("region_group")),
+		},
 		Default: objectdefault.StaticValue(
 			types.ObjectValueMust(
 				virtualClusterCloudModel{}.AttributeTypes(),
@@ -156,7 +166,7 @@ This resource allows you to create, update and delete virtual clusters.
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf([]string{warpstreamtypes.VirtualClusterTypeBYOC}...),
+					stringvalidator.OneOf(warpstreamtypes.VirtualClusterTypeBYOC),
 				},
 			},
 			"agent_keys": schema.ListNestedAttribute{
@@ -266,10 +276,12 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	cluster, err := r.client.CreateVirtualCluster(
 		plan.Name.ValueString(),
 		api.ClusterParameters{
-			Type:   plan.Type.ValueString(),
-			Region: cloudPlan.Region.ValueString(),
-			Cloud:  cloudPlan.Provider.ValueString(),
-		})
+			Type:        plan.Type.ValueString(),
+			RegionGroup: cloudPlan.RegionGroup.ValueStringPointer(),
+			Region:      cloudPlan.Region.ValueStringPointer(),
+			Cloud:       cloudPlan.Provider.ValueString(),
+		},
+	)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Virtual Cluster",
@@ -288,6 +300,12 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	cloudValue, diagnostics := getCloudValue(cluster)
+	if diagnostics != nil {
+		resp.Diagnostics.Append(diagnostics...)
+		return
+	}
+
 	// Map response body to schema and populate Computed attribute values
 	state := virtualClusterResourceModel{
 		ID:            types.StringValue(cluster.ID),
@@ -299,7 +317,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		CreatedAt:     types.StringValue(cluster.CreatedAt),
 		Default:       types.BoolValue(cluster.Name == "vcn_default"),
 		Configuration: plan.Configuration,
-		Cloud:         plan.Cloud,
+		Cloud:         cloudValue,
 	}
 
 	if cluster.BootstrapURL != nil {
@@ -325,6 +343,26 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	}
 
 	r.applyConfiguration(ctx, state, &resp.State, &resp.Diagnostics)
+}
+
+func getCloudValue(cluster *api.VirtualCluster) (basetypes.ObjectValue, diag.Diagnostics) {
+	var regionGroup *string
+	var region *string
+	if cluster.ClusterRegion.IsMultiRegion {
+		regionGroup = &cluster.ClusterRegion.RegionGroup.Name
+	} else {
+		region = &cluster.ClusterRegion.Region.Name
+	}
+
+	cloudValue, diagnostics := types.ObjectValue(
+		virtualClusterCloudModel{}.AttributeTypes(),
+		map[string]attr.Value{
+			"provider":     types.StringValue(cluster.CloudProvider),
+			"region":       types.StringPointerValue(region),
+			"region_group": types.StringPointerValue(regionGroup),
+		},
+	)
+	return cloudValue, diagnostics
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -386,13 +424,7 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		state.BootstrapURL = types.StringValue(*cluster.BootstrapURL)
 	}
 
-	cloudValue, diagnostics := types.ObjectValue(
-		virtualClusterCloudModel{}.AttributeTypes(),
-		map[string]attr.Value{
-			"provider": types.StringValue(cluster.CloudProvider),
-			"region":   types.StringValue(cluster.Region),
-		},
-	)
+	cloudValue, diagnostics := getCloudValue(cluster)
 	if diagnostics != nil {
 		resp.Diagnostics.Append(diagnostics...)
 		return

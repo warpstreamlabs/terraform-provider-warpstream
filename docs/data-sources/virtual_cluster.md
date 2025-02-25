@@ -69,6 +69,7 @@ Read-Only:
 
 - `provider` (String)
 - `region` (String)
+- `region_group` (String)
 
 
 <a id="nestedatt--configuration"></a>
