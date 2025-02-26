@@ -17,13 +17,14 @@ import (
 )
 
 func TestAccTopicResourceDeletePlan(t *testing.T) {
-	virtualClusterName := fmt.Sprintf("vcn_%s", acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+	virtualClusterRandString := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	virtualClusterName := fmt.Sprintf("vcn_%s", virtualClusterRandString)
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create topic
 			{
-				Config: testAccTopicAndClusterResource(virtualClusterName),
+				Config: testAccTopicAndClusterResource(virtualClusterRandString),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -57,7 +58,7 @@ func TestAccTopicResourceDeletePlan(t *testing.T) {
 			},
 			// Create topic
 			{
-				Config: testAccTopicAndClusterResource(virtualClusterName),
+				Config: testAccTopicAndClusterResource(virtualClusterRandString),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
