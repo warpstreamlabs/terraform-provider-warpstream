@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
@@ -18,8 +20,9 @@ import (
 )
 
 var (
-	_ resource.Resource              = &topicResource{}
-	_ resource.ResourceWithConfigure = &topicResource{}
+	_ resource.Resource                = &topicResource{}
+	_ resource.ResourceWithConfigure   = &topicResource{}
+	_ resource.ResourceWithImportState = &topicResource{}
 )
 
 func NewTopicResource() resource.Resource {
@@ -325,4 +328,17 @@ func (r *topicResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		)
 		return
 	}
+}
+
+func (r *topicResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.Split(req.ID, "/")
+	if len(parts) != 2 {
+		resp.Diagnostics.AddError(
+			"Invalid Import ID",
+			"Expected an ID in the format virtual_cluster_id/topic_name",
+		)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("virtual_cluster_id"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("topic_name"), parts[1])...)
 }
