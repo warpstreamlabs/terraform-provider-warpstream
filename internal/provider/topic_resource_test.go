@@ -17,23 +17,14 @@ import (
 )
 
 func TestAccTopicResourceDeletePlan(t *testing.T) {
-	virtualClusterName := fmt.Sprintf("vcn_%s", acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+	virtualClusterRandString := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	virtualClusterName := fmt.Sprintf("vcn_%s", virtualClusterRandString)
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create topic
 			{
-				Config: providerConfig + fmt.Sprintf(`
-				resource "warpstream_virtual_cluster" "default" {
-					name = "%s"
-				}
-				
-				resource "warpstream_topic" "topic" {
-				  topic_name         = "test"
-				  partition_count    = 1
-				  virtual_cluster_id = warpstream_virtual_cluster.default.id
-				
-				}`, virtualClusterName),
+				Config: testAccTopicAndClusterResource(virtualClusterRandString),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -67,17 +58,7 @@ func TestAccTopicResourceDeletePlan(t *testing.T) {
 			},
 			// Create topic
 			{
-				Config: providerConfig + fmt.Sprintf(`
-				resource "warpstream_virtual_cluster" "default" {
-					name = "%s"
-				}
-				
-				resource "warpstream_topic" "topic" {
-				  topic_name         = "test"
-				  partition_count    = 1
-				  virtual_cluster_id = warpstream_virtual_cluster.default.id
-				
-				}`, virtualClusterName),
+				Config: testAccTopicAndClusterResource(virtualClusterRandString),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -119,18 +100,7 @@ func TestAccTopicResource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
-}
-
-resource "warpstream_topic" "topic" {
-  topic_name         = "test"
-  partition_count    = 1
-  virtual_cluster_id = warpstream_virtual_cluster.default.id
-
-}
-				`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)),
+				Config: testAccTopicAndClusterResource(acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -169,5 +139,34 @@ resource "warpstream_topic" "topic" {
 				},
 			},
 		},
+	})
+}
+
+func testAccTopicAndClusterResource(clusterName string) string {
+	return providerConfig + fmt.Sprintf(`
+	resource "warpstream_virtual_cluster" "default" {
+		name = "vcn_%s"
+	}
+	resource "warpstream_topic" "topic" {
+	  topic_name         = "test"
+	  partition_count    = 1
+	  virtual_cluster_id = warpstream_virtual_cluster.default.id
+	}`, clusterName)
+}
+
+func TestAccTopicImport(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccTopicAndClusterResource(acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)),
+			},
+			{
+				ImportState:       true,
+				ImportStateVerify: true,
+				ResourceName:      "warpstream_topic.topic",
+			},
+		},
+		IsUnitTest: true,
 	})
 }
