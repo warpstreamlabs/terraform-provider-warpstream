@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -110,20 +109,23 @@ var (
 				Computed:    true,
 				Optional:    true,
 				Default:     stringdefault.StaticString("us-east-1"),
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName("region_group")),
+				},
 			},
 			"region_group": schema.StringAttribute{
 				Description: "Cloud Region Group. Defaults to null. Can't be set if `region` is set.",
 				Computed:    true,
 				Optional:    true,
 				Default:     nil,
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName("region")),
+				},
 			},
 		},
 		Description: "Virtual Cluster Cloud Location.",
 		Optional:    true,
 		Computed:    true,
-		Validators: []validator.Object{
-			objectvalidator.ConflictsWith(path.MatchRoot("region"), path.MatchRoot("region_group")),
-		},
 		Default: objectdefault.StaticValue(
 			types.ObjectValueMust(
 				virtualClusterCloudModel{}.AttributeTypes(),
