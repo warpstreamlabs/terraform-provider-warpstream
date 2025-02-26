@@ -9,6 +9,8 @@ on:
   push:
     paths-ignore:
       - 'README.md'
+    branches:
+      - main
   schedule:
     # Run daily at 6 am UTC
     - cron:  '0 6 * * *'
