@@ -75,7 +75,7 @@ This resource allows you to create, update and delete agent keys.
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-				Validators: []validator.String{utils.StartsWith("vci_")},
+				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vci_")},
 			},
 			"topic_name": schema.StringAttribute{
 				Description: "Topic Name",

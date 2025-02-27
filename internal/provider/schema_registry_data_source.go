@@ -40,12 +40,12 @@ func (d *schemaRegistryDataSource) Schema(_ context.Context, _ datasource.Schema
 			"id": schema.StringAttribute{
 				Computed:   true,
 				Optional:   true,
-				Validators: []validator.String{utils.StartsWith("vci_sr_")},
+				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vci_sr_")},
 			},
 			"name": schema.StringAttribute{
 				Computed:   true,
 				Optional:   true,
-				Validators: []validator.String{utils.StartsWith("vcn_sr_")},
+				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vcn_sr_")},
 			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster.",

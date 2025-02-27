@@ -157,7 +157,7 @@ This resource allows you to create, update and delete virtual clusters.
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-				Validators: []validator.String{utils.StartsWith("vcn_")},
+				Validators: []validator.String{utils.ValidClusterName()},
 			},
 			"type": schema.StringAttribute{
 				Description: "Virtual Cluster Type. Currently, the only valid virtual cluster types is `byoc` (default).",
