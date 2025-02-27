@@ -79,7 +79,7 @@ This resource allows you to create, update and delete agent keys.
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-				Validators: []validator.String{utils.StartsWith("akn_")},
+				Validators: []validator.String{utils.StartsWithAndAlphanumeric("akn_")},
 			},
 			"key": schema.StringAttribute{
 				Description: "Agent Key Secret Value.",
@@ -92,7 +92,7 @@ This resource allows you to create, update and delete agent keys.
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-				Validators: []validator.String{utils.StartsWith("vci_")},
+				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vci_")},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Agent Key Creation Timestamp.",

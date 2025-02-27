@@ -112,7 +112,7 @@ This resource allows you to create, update and delete schema registries.
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-				Validators: []validator.String{utils.StartsWith("vcn_")},
+				Validators: []validator.String{utils.ValidClusterName()},
 			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster.",
