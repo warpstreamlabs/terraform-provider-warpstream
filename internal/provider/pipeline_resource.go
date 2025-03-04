@@ -151,7 +151,7 @@ func (r *pipelineResource) Create(ctx context.Context, req resource.CreateReques
 	// There is only a single orbit pipeline. In the case of orbit, check if the pipeline already exists,
 	// and if it does, use that.
 	var pipelineID string
-	if plan.Type.String() == orbitPipelineType {
+	if plan.Type.ValueString() == orbitPipelineType {
 		// Get pipeline by pipeline type instead of id. This is because there can only be one orbit
 		// pipeline per virtual cluster, and the UI can automatically create this.
 		pipeline, err := r.client.DescribePipeline(ctx, api.HTTPDescribePipelineRequest{
