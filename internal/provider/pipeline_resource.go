@@ -148,23 +148,52 @@ func (r *pipelineResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	c, err := r.client.CreatePipeline(ctx, api.HTTPCreatePipelineRequest{
-		VirtualClusterID: plan.VirtualClusterID.ValueString(),
-		PipelineName:     plan.Name.ValueString(),
-		Type:             plan.Type.ValueString(),
-	})
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Pipeline Creation Failed",
-			fmt.Sprintf("Failed to create pipeline '%s' in virtual cluster '%s': %s", plan.Name.ValueString(), plan.VirtualClusterID.ValueString(), err),
-		)
-		return
+	// There is only a single orbit pipeline. In the case of orbit, check if the pipeline already exists,
+	// and if it does, use that.
+	var pipelineID string
+	if plan.Type.String() == orbitPipelineType {
+		// Get pipeline by pipeline type instead of id. This is because there can only be one orbit
+		// pipeline per virtual cluster, and the UI can automatically create this.
+		pipeline, err := r.client.DescribePipeline(ctx, api.HTTPDescribePipelineRequest{
+			VirtualClusterID: plan.VirtualClusterID.ValueString(),
+			PipelineType:     orbitPipelineType,
+		})
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Pipeline Creation Failed",
+				fmt.Sprintf(
+					"Failed to describe orbit pipeline '%s' in virtual cluster '%s': %s",
+					plan.Name.ValueString(),
+					plan.VirtualClusterID.ValueString(),
+					err,
+				),
+			)
+			return
+		}
+		pipelineID = pipeline.PipelineOverview.ID
 	}
-	plan.ID = types.StringValue(c.PipelineID)
+
+	if pipelineID == "" {
+		c, err := r.client.CreatePipeline(ctx, api.HTTPCreatePipelineRequest{
+			VirtualClusterID: plan.VirtualClusterID.ValueString(),
+			PipelineName:     plan.Name.ValueString(),
+			Type:             plan.Type.ValueString(),
+		})
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Pipeline Creation Failed",
+				fmt.Sprintf("Failed to create pipeline '%s' in virtual cluster '%s': %s", plan.Name.ValueString(), plan.VirtualClusterID.ValueString(), err),
+			)
+			return
+		}
+		pipelineID = c.PipelineID
+	}
+
+	plan.ID = types.StringValue(pipelineID)
 
 	cc, err := r.client.CreatePipelineConfiguration(ctx, api.HTTPCreatePipelineConfigurationRequest{
 		VirtualClusterID:  plan.VirtualClusterID.ValueString(),
-		PipelineID:        c.PipelineID,
+		PipelineID:        pipelineID,
 		ConfigurationYAML: plan.ConfigurationYAML.ValueString(),
 	})
 	if err != nil {
@@ -227,23 +256,10 @@ func (r *pipelineResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	var (
-		pipeline api.HTTPDescribePipelineResponse
-		err      error
-	)
-	if state.Type.String() == orbitPipelineType {
-		// Get pipeline by pipeline type instead of id. This is because there can only be one orbit
-		// pipeline per virtual cluster, and the UI can automatically create this.
-		pipeline, err = r.client.DescribePipeline(ctx, api.HTTPDescribePipelineRequest{
-			VirtualClusterID: state.VirtualClusterID.ValueString(),
-			PipelineType:     orbitPipelineType,
-		})
-	} else {
-		pipeline, err = r.client.DescribePipeline(ctx, api.HTTPDescribePipelineRequest{
-			VirtualClusterID: state.VirtualClusterID.ValueString(),
-			PipelineID:       state.ID.ValueString(),
-		})
-	}
+	pipeline, err := r.client.DescribePipeline(ctx, api.HTTPDescribePipelineRequest{
+		VirtualClusterID: state.VirtualClusterID.ValueString(),
+		PipelineID:       state.ID.ValueString(),
+	})
 
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
