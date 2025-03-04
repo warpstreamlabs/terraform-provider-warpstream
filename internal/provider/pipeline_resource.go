@@ -227,10 +227,24 @@ func (r *pipelineResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	pipeline, err := r.client.DescribePipeline(ctx, api.HTTPDescribePipelineRequest{
-		VirtualClusterID: state.VirtualClusterID.ValueString(),
-		PipelineID:       state.ID.ValueString(),
-	})
+	var (
+		pipeline api.HTTPDescribePipelineResponse
+		err      error
+	)
+	if state.Type.String() == orbitPipelineType {
+		// Get pipeline by pipeline type instead of id. This is because there can only be one orbit
+		// pipeline per virtual cluster, and the UI can automatically create this.
+		pipeline, err = r.client.DescribePipeline(ctx, api.HTTPDescribePipelineRequest{
+			VirtualClusterID: state.VirtualClusterID.ValueString(),
+			PipelineType:     orbitPipelineType,
+		})
+	} else {
+		pipeline, err = r.client.DescribePipeline(ctx, api.HTTPDescribePipelineRequest{
+			VirtualClusterID: state.VirtualClusterID.ValueString(),
+			PipelineID:       state.ID.ValueString(),
+		})
+	}
+
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
 			resp.State.RemoveResource(ctx)
@@ -259,7 +273,7 @@ func (r *pipelineResource) Read(ctx context.Context, req resource.ReadRequest, r
 		}
 	}
 
-	// Set state
+	// Set state.
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
