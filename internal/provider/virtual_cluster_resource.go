@@ -103,6 +103,9 @@ var (
 				Validators: []validator.String{
 					stringvalidator.OneOf("aws", "gcp"),
 				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"region": schema.StringAttribute{
 				Description: "Cloud Region. Defaults to `us-east-1`. Can't be set if `region_group` is set.",
@@ -111,6 +114,9 @@ var (
 				Default:     stringdefault.StaticString("us-east-1"),
 				Validators: []validator.String{
 					stringvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName("region_group")),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"region_group": schema.StringAttribute{
@@ -131,9 +137,6 @@ var (
 				virtualClusterCloudModel{}.AttributeTypes(),
 				virtualClusterCloudModel{}.DefaultObject(),
 			)),
-		PlanModifiers: []planmodifier.Object{
-			objectplanmodifier.RequiresReplace(),
-		},
 	}
 )
 
