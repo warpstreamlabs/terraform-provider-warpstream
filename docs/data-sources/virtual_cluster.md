@@ -48,6 +48,7 @@ output "vc_default_id" {
 - `configuration` (Attributes) (see [below for nested schema](#nestedatt--configuration))
 - `created_at` (String)
 - `id` (String) The ID of this resource.
+- `tags` (Map of String) Tags associated with the virtual cluster.
 - `type` (String)
 
 <a id="nestedatt--agent_keys"></a>
