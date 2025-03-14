@@ -70,6 +70,7 @@ type HTTPDeletePipelineResponse struct {
 type HTTPDescribePipelineRequest struct {
 	VirtualClusterID string `json:"virtual_cluster_id"`
 	PipelineID       string `json:"pipeline_id"`
+	PipelineType     string `json:"pipeline_type"`
 }
 
 type HTTPDescribePipelineResponse struct {
