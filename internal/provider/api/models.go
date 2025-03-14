@@ -5,6 +5,7 @@ type ClusterParameters struct {
 	Region      *string
 	RegionGroup *string
 	Cloud       string
+	Tags        map[string]string
 }
 
 type AccessGrant struct {

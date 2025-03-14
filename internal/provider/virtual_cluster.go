@@ -15,6 +15,7 @@ type virtualClusterDataSourceModel struct {
 	AgentPoolName types.String     `tfsdk:"agent_pool_name"`
 	CreatedAt     types.String     `tfsdk:"created_at"`
 	Default       types.Bool       `tfsdk:"default"`
+	Tags          types.Map        `tfsdk:"tags"`
 	Configuration types.Object     `tfsdk:"configuration"`
 	Cloud         types.Object     `tfsdk:"cloud"`
 	BootstrapURL  types.String     `tfsdk:"bootstrap_url"`
@@ -29,6 +30,7 @@ type virtualClusterResourceModel struct {
 	AgentPoolName types.String `tfsdk:"agent_pool_name"`
 	CreatedAt     types.String `tfsdk:"created_at"`
 	Default       types.Bool   `tfsdk:"default"`
+	Tags          types.Map    `tfsdk:"tags"`
 	Configuration types.Object `tfsdk:"configuration"`
 	Cloud         types.Object `tfsdk:"cloud"`
 	BootstrapURL  types.String `tfsdk:"bootstrap_url"`

@@ -20,7 +20,7 @@ func TestAccVirtualClusterResourceDeletePlan(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVirtualClusterResource_withPartialConfiguration(false, vcNameSuffix),
-				Check:  testAccVirtualClusterResourceCheck_BYOC(false, true, 1),
+				Check:  testAccVirtualClusterResourceCheck(false, true, 1, "byoc", false),
 			},
 			{
 				PreConfig: func() {
@@ -54,7 +54,7 @@ func TestAccVirtualClusterResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVirtualClusterResource_withPartialConfiguration(false, vcNameSuffix),
-				Check:  testAccVirtualClusterResourceCheck_BYOC(false, true, 1),
+				Check:  testAccVirtualClusterResourceCheck(false, true, 1, "byoc", false),
 			},
 			{
 				Config: testAccVirtualClusterResource(vcNameSuffix),
@@ -66,7 +66,7 @@ func TestAccVirtualClusterResource(t *testing.T) {
 			},
 			{
 				Config: testAccVirtualClusterResource_withConfiguration(true, false, 2, vcNameSuffix),
-				Check:  testAccVirtualClusterResourceCheck_BYOC(true, false, 2),
+				Check:  testAccVirtualClusterResourceCheck(true, false, 2, "byoc", true),
 			},
 		},
 	})
@@ -106,20 +106,14 @@ resource "warpstream_virtual_cluster" "test" {
     default_num_partitions = %d
     auto_create_topic = %t
   }
+  tags = {
+    "test_tag" = "test_value"
+  }
 }`, vcNameSuffix, acls, numParts, autoTopic)
 }
 
-func testAccVirtualClusterResourceCheck_BYOC(acls bool, autoTopic bool, numParts int64) resource.TestCheckFunc {
-	return resource.ComposeAggregateTestCheckFunc(
-		testAccVirtualClusterResourceCheck(acls, autoTopic, numParts, "byoc"),
-		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "agent_keys.#", "1"),
-		utils.TestCheckResourceAttrStartsWith("warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_test_acc_"),
-		utils.TestCheckResourceAttrEndsWith("warpstream_virtual_cluster.test", "bootstrap_url", ".kafka.discoveryv2.prod-z.us-east-1.warpstream.com:9092"),
-	)
-}
-
-func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int64, vcType string) resource.TestCheckFunc {
-	return resource.ComposeAggregateTestCheckFunc(
+func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int64, vcType string, tags bool) resource.TestCheckFunc {
+	var checks = []resource.TestCheckFunc{
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "id"),
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_id"),
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "created_at"),
@@ -133,7 +127,22 @@ func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int6
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", fmt.Sprintf("%d", 86400000)),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "cloud.provider", "aws"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "cloud.region", "us-east-1"),
-	)
+	}
+	if vcType == "byoc" {
+		checks = append(checks,
+			resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "agent_keys.#", "1"),
+			utils.TestCheckResourceAttrStartsWith("warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_test_acc_"),
+			utils.TestCheckResourceAttrEndsWith("warpstream_virtual_cluster.test", "bootstrap_url", ".kafka.discoveryv2.prod-z.us-east-1.warpstream.com:9092"),
+		)
+	}
+	if tags {
+		checks = append(checks,
+			resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "tags.test_tag", "test_value"),
+		)
+	}
+
+	return resource.ComposeAggregateTestCheckFunc(checks...)
+
 }
 
 func TestAccVirtualClusterImport(t *testing.T) {

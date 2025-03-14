@@ -209,6 +209,12 @@ This resource allows you to create, update and delete virtual clusters.
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"tags": schema.MapAttribute{
+				Description: "Tags associated with the virtual cluster.",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+			},
 			"configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"auto_create_topic": schema.BoolAttribute{
@@ -277,6 +283,17 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	var tagsMap map[string]string
+	if plan.Tags.IsNull() || plan.Tags.IsUnknown() {
+		tagsMap = make(map[string]string)
+	} else {
+		diags = plan.Tags.ElementsAs(ctx, &tagsMap, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	// Create new virtual cluster
 	cluster, err := r.client.CreateVirtualCluster(
 		plan.Name.ValueString(),
@@ -285,6 +302,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 			RegionGroup: cloudPlan.RegionGroup.ValueStringPointer(),
 			Region:      cloudPlan.Region.ValueStringPointer(),
 			Cloud:       cloudPlan.Provider.ValueString(),
+			Tags:        tagsMap,
 		},
 	)
 	if err != nil {
@@ -323,6 +341,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		Default:       types.BoolValue(cluster.Name == "vcn_default"),
 		Configuration: plan.Configuration,
 		Cloud:         cloudValue,
+		Tags:          plan.Tags,
 	}
 
 	if cluster.BootstrapURL != nil {
@@ -332,6 +351,11 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	r.readTags(ctx, *cluster, &resp.State, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -444,6 +468,7 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	r.readConfiguration(ctx, *cluster, &resp.State, &resp.Diagnostics)
+	r.readTags(ctx, *cluster, &resp.State, &resp.Diagnostics)
 
 	agentKeysState, ok := mapToAgentKeyModels(cluster.AgentKeys, &resp.Diagnostics)
 	if !ok { // Diagnostics handled by helper.
@@ -466,8 +491,23 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
+	// Get current state
+	var state virtualClusterResourceModel
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// Update virtual cluster configuration
 	r.applyConfiguration(ctx, plan, &resp.State, &resp.Diagnostics)
+
+	// Update tags if they have changed
+	if !plan.Tags.IsUnknown() && !state.Tags.IsUnknown() && !plan.Tags.Equal(state.Tags) {
+		stateWithPlanTags := state
+		stateWithPlanTags.Tags = plan.Tags
+		r.applyTags(ctx, stateWithPlanTags, &resp.State, &resp.Diagnostics)
+	}
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
@@ -578,4 +618,58 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan vi
 
 	// Retrieve updated virtual cluster configuration
 	r.readConfiguration(ctx, cluster, state, respDiags)
+}
+
+func (r *virtualClusterResource) readTags(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {
+	tags, err := r.client.GetTags(cluster)
+	if err != nil {
+		respDiags.AddError(
+			"Unable to Read tags of Virtual Cluster with ID="+cluster.ID,
+			err.Error(),
+		)
+		return
+	}
+	tflog.Debug(ctx, fmt.Sprintf("Tags: %+v", tags))
+
+	tagsMap := make(map[string]attr.Value)
+	for k, v := range tags {
+		tagsMap[k] = types.StringValue(v)
+	}
+
+	tagsValue, diags := types.MapValue(types.StringType, tagsMap)
+	respDiags.Append(diags...)
+	if respDiags.HasError() {
+		return
+	}
+
+	diags = state.SetAttribute(ctx, path.Root("tags"), tagsValue)
+	respDiags.Append(diags...)
+}
+
+func (r *virtualClusterResource) applyTags(ctx context.Context, state virtualClusterResourceModel, respState *tfsdk.State, respDiags *diag.Diagnostics) {
+	// Skip if tags are unknown (during import)
+	if state.Tags.IsUnknown() {
+		return
+	}
+
+	cluster := state.cluster()
+
+	var tagsMap map[string]string
+	diags := state.Tags.ElementsAs(ctx, &tagsMap, false)
+	respDiags.Append(diags...)
+	if respDiags.HasError() {
+		return
+	}
+
+	err := r.client.UpdateTags(tagsMap, cluster)
+	if err != nil {
+		respDiags.AddError(
+			"Error Updating WarpStream Virtual Cluster Tags",
+			"Could not update WarpStream Virtual Cluster Tags, unexpected error: "+err.Error(),
+		)
+		return
+	}
+
+	// Read updated tags
+	r.readTags(ctx, cluster, respState, respDiags)
 }

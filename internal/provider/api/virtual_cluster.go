@@ -33,11 +33,12 @@ type VirtualClusterDescribeRequest struct {
 }
 
 type VirtualClusterCreateRequest struct {
-	Name          string  `json:"virtual_cluster_name"`
-	Type          string  `json:"virtual_cluster_type,omitempty"`
-	Region        *string `json:"virtual_cluster_region,omitempty"`
-	RegionGroup   *string `json:"virtual_cluster_region_group,omitempty"`
-	CloudProvider string  `json:"virtual_cluster_cloud_provider,omitempty"`
+	Name          string            `json:"virtual_cluster_name"`
+	Type          string            `json:"virtual_cluster_type,omitempty"`
+	Region        *string           `json:"virtual_cluster_region,omitempty"`
+	RegionGroup   *string           `json:"virtual_cluster_region_group,omitempty"`
+	CloudProvider string            `json:"virtual_cluster_cloud_provider,omitempty"`
+	Tags          map[string]string `json:"virtual_cluster_tags,omitempty"`
 }
 
 type VirtualClusterDeleteRequest struct {
@@ -85,6 +86,7 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 		Region:        opts.Region,
 		RegionGroup:   opts.RegionGroup,
 		CloudProvider: opts.Cloud,
+		Tags:          opts.Tags,
 	})
 	if err != nil {
 		return nil, err
