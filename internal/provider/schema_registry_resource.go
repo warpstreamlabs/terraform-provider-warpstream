@@ -70,7 +70,7 @@ var registryCloudSchema = schema.SingleNestedAttribute{
 			Optional:    true,
 			Default:     stringdefault.StaticString("aws"),
 			Validators: []validator.String{
-				stringvalidator.OneOf("aws", "gcp"),
+				stringvalidator.OneOf("aws", "gcp", "azure"),
 			},
 		},
 		"region": schema.StringAttribute{
