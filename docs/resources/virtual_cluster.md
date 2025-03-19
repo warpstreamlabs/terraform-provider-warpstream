@@ -54,6 +54,7 @@ resource "warpstream_virtual_cluster" "test_cloud_region" {
 
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
+- `tags` (Map of String) Tags associated with the virtual cluster.
 - `type` (String) Virtual Cluster Type. Currently, the only valid virtual cluster types is `byoc` (default).
 
 ### Read-Only

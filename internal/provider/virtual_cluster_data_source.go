@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/datasourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -96,6 +97,11 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 			},
 			"default": schema.BoolAttribute{
 				Optional: true,
+			},
+			"tags": schema.MapAttribute{
+				Description: "Tags associated with the virtual cluster.",
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 			"configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
@@ -191,6 +197,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		CreatedAt:     types.StringValue(vc.CreatedAt),
 		Configuration: data.Configuration,
 		Cloud:         data.Cloud,
+		Tags:          data.Tags,
 	}
 
 	if vc.BootstrapURL != nil {
@@ -216,6 +223,32 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	}
 
 	diags = resp.State.SetAttribute(ctx, path.Root("cloud"), cldState)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	tags, err := d.client.GetTags(*vc)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read tags of Virtual Cluster with ID="+vc.ID,
+			err.Error(),
+		)
+		return
+	}
+
+	tagsMap := make(map[string]attr.Value)
+	for k, v := range tags {
+		tagsMap[k] = types.StringValue(v)
+	}
+
+	tagsValue, diags := types.MapValue(types.StringType, tagsMap)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	diags = resp.State.SetAttribute(ctx, path.Root("tags"), tagsValue)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return

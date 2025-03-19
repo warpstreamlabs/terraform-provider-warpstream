@@ -25,6 +25,7 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 			Type:   types.VirtualClusterTypeBYOC,
 			Region: &region,
 			Cloud:  "aws",
+			Tags:   map[string]string{"test_tag": "test_value"},
 		},
 	)
 	require.NoError(t, err)
@@ -71,6 +72,7 @@ func testAccVCDataSourceCheck_byoc(vc *api.VirtualCluster) resource.TestCheckFun
 
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "type", "byoc"),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "tags.test_tag", "test_value"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "agent_keys.#", "1"),
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_cluster.test", "agent_keys.0.virtual_cluster_id", vc.ID,
@@ -89,6 +91,7 @@ func testAccVCDataSourceCheck(vc *api.VirtualCluster) resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "id"),
 		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "agent_pool_id"),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "tags.test_tag", "test_value"),
 		utils.TestCheckResourceAttrStartsWith("data.warpstream_virtual_cluster.test", "agent_pool_name", vc.AgentPoolName),
 		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "created_at"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.provider", "aws"),
