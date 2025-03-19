@@ -74,3 +74,15 @@ type Topic struct {
 	PartitionCount   int                `json:"partition_count"`
 	Configs          map[string]*string `json:"configs"`
 }
+
+// NewWorkspace is different from Workspace because the application key is only shown when a workspace is first created.
+type NewWorkspace struct {
+	ID             string `json:"workspace_id"`
+	ApplicationKey APIKey `json:"application_key"`
+}
+
+type Workspace struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"created_at"`
+}

@@ -172,5 +172,6 @@ func (p *warpstreamProvider) Resources(_ context.Context) []func() resource.Reso
 		NewApplicationKeyResource,
 		NewSchemaRegistryResource,
 		NewTopicResource,
+		NewWorkspaceResource,
 	}
 }
