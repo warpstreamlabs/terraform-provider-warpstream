@@ -195,11 +195,10 @@ func (r *workspaceResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 	// Overwrite Workspace with refreshed state
 	state = workspaceModel{
-		ID:        types.StringValue(workspace.ID),
-		Name:      types.StringValue(workspace.Name),
-		CreatedAt: types.StringValue(workspace.CreatedAt),
-		// The application key is only shown when the workspace is first created.
-		ApplicationKey: types.ObjectNull(applicationKeyModel{}.AttributeTypes()),
+		ID:             types.StringValue(workspace.ID),
+		Name:           types.StringValue(workspace.Name),
+		CreatedAt:      types.StringValue(workspace.CreatedAt),
+		ApplicationKey: state.ApplicationKey,
 	}
 
 	// Set state
