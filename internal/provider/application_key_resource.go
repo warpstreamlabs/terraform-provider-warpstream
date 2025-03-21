@@ -137,6 +137,8 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 		CreatedAt: types.StringValue(apiKey.CreatedAt),
 	}
 
+	setWorkspaceIDIfPresent(&state, apiKey.AccessGrants)
+
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -176,11 +178,28 @@ func (r *applicationKeyResource) Read(ctx context.Context, req resource.ReadRequ
 		CreatedAt: types.StringValue(apiKey.CreatedAt),
 	}
 
+	setWorkspaceIDIfPresent(&state, apiKey.AccessGrants)
+
 	// Set state
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+}
+
+func setWorkspaceIDIfPresent(appKey *applicationKeyModel, grants []api.AccessGrant) {
+	var workspaceID string
+	for _, grant := range grants {
+		if grant.WorkspaceID == api.WorkspaceIDAny {
+			workspaceID = grant.WorkspaceID
+			break
+		}
+		workspaceID = grant.WorkspaceID
+	}
+
+	if workspaceID != "" {
+		appKey.WorkspaceID = types.StringValue(workspaceID)
 	}
 }
 
