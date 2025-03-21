@@ -37,27 +37,30 @@ type virtualClusterResourceModel struct {
 }
 
 type virtualClusterConfigurationModel struct {
-	AclsEnabled          types.Bool  `tfsdk:"enable_acls"`
-	AutoCreateTopic      types.Bool  `tfsdk:"auto_create_topic"`
-	DefaultNumPartitions types.Int64 `tfsdk:"default_num_partitions"`
-	DefaultRetention     types.Int64 `tfsdk:"default_retention_millis"`
+	AclsEnabled              types.Bool  `tfsdk:"enable_acls"`
+	AutoCreateTopic          types.Bool  `tfsdk:"auto_create_topic"`
+	DefaultNumPartitions     types.Int64 `tfsdk:"default_num_partitions"`
+	DefaultRetention         types.Int64 `tfsdk:"default_retention_millis"`
+	EnableDeletionProtection types.Bool  `tfsdk:"enable_deletion_protection"`
 }
 
 func (m virtualClusterConfigurationModel) AttributeTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"auto_create_topic":        types.BoolType,
-		"default_num_partitions":   types.Int64Type,
-		"default_retention_millis": types.Int64Type,
-		"enable_acls":              types.BoolType,
+		"auto_create_topic":          types.BoolType,
+		"default_num_partitions":     types.Int64Type,
+		"default_retention_millis":   types.Int64Type,
+		"enable_acls":                types.BoolType,
+		"enable_deletion_protection": types.BoolType,
 	}
 }
 
 func (m virtualClusterConfigurationModel) DefaultObject() map[string]attr.Value {
 	return map[string]attr.Value{
-		"auto_create_topic":        types.BoolValue(true),
-		"default_num_partitions":   types.Int64Value(1),
-		"default_retention_millis": types.Int64Value(86400000),
-		"enable_acls":              types.BoolValue(false),
+		"auto_create_topic":          types.BoolValue(true),
+		"default_num_partitions":     types.Int64Value(1),
+		"default_retention_millis":   types.Int64Value(86400000),
+		"enable_acls":                types.BoolValue(false),
+		"enable_deletion_protection": types.BoolValue(false),
 	}
 }
 
