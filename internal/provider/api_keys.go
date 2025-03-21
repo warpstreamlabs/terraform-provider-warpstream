@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
@@ -11,6 +12,15 @@ type applicationKeyModel struct {
 	Name      types.String `tfsdk:"name"`
 	Key       types.String `tfsdk:"key"`
 	CreatedAt types.String `tfsdk:"created_at"`
+}
+
+func (m applicationKeyModel) AttributeTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"id":         types.StringType,
+		"name":       types.StringType,
+		"key":        types.StringType,
+		"created_at": types.StringType,
+	}
 }
 
 // Ideally agentKeyModel and applicationKeyModel would share fields by composing an apiKeyModel struct.

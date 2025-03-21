@@ -21,7 +21,7 @@ var (
 	_ resource.ResourceWithConfigure = &applicationKeyResource{}
 )
 
-// NewVirtualClusterResource is a helper function to simplify the provider implementation.
+// NewApplicationKeyResource is a helper function to simplify the provider implementation.
 func NewApplicationKeyResource() resource.Resource {
 	return &applicationKeyResource{}
 }
@@ -56,44 +56,62 @@ func (r *applicationKeyResource) Metadata(_ context.Context, req resource.Metada
 	resp.TypeName = req.ProviderTypeName + "_application_key"
 }
 
+func applicationKeyResourceSchema(isNameAttrComputed bool) map[string]schema.Attribute {
+	var nameAttr schema.StringAttribute
+
+	if isNameAttrComputed {
+		nameAttr = schema.StringAttribute{
+			Description: "Application Key Name.",
+			Computed:    true,
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
+			},
+		}
+	} else {
+		nameAttr = schema.StringAttribute{
+			Description: "Application Key Name. " +
+				"Must be unique across WarpStream account. " +
+				"Must start with 'akn_' and contain underscores and alphanumeric characters only. " +
+				"Cannot be changed after creation.",
+			Required: true,
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.RequiresReplace(),
+			},
+			Validators: []validator.String{utils.StartsWithAndAlphanumeric("akn_")},
+		}
+	}
+
+	return map[string]schema.Attribute{
+		"id": schema.StringAttribute{
+			Description: "Application Key ID.",
+			Computed:    true,
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
+			},
+		},
+		"key": schema.StringAttribute{
+			Description: "Application Key Secret Value.",
+			Computed:    true,
+			Sensitive:   true,
+		},
+		"created_at": schema.StringAttribute{
+			Description: "Application Key Creation Timestamp.",
+			Computed:    true,
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
+			},
+		},
+		"name": nameAttr,
+	}
+}
+
 // Schema defines the schema for the resource.
 func (r *applicationKeyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: `
 This resource allows you to create, update and delete application keys.
 `,
-		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Description: "Application Key ID.",
-				Computed:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"name": schema.StringAttribute{
-				Description: "Application Key Name. " +
-					"Must be unique across WarpStream account. " +
-					"Must start with 'akn_' and contain underscores and alphanumeric characters only. " +
-					"Cannot be changed after creation.",
-				Required: true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-				Validators: []validator.String{utils.StartsWithAndAlphanumeric("akn_")},
-			},
-			"key": schema.StringAttribute{
-				Description: "Application Key Secret Value.",
-				Computed:    true,
-				Sensitive:   true,
-			},
-			"created_at": schema.StringAttribute{
-				Description: "Application Key Creation Timestamp.",
-				Computed:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-		},
+		Attributes: applicationKeyResourceSchema(false),
 	}
 }
 
