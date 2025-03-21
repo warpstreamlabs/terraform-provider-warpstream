@@ -63,10 +63,11 @@ type VirtualClusterCredentials struct {
 }
 
 type VirtualClusterConfiguration struct {
-	AclsEnabled            bool  `json:"are_acls_enabled"`
-	AutoCreateTopic        bool  `json:"is_auto_create_topic_enabled"`
-	DefaultNumPartitions   int64 `json:"default_num_partitions"`
-	DefaultRetentionMillis int64 `json:"default_retention_millis"`
+	AclsEnabled              bool  `json:"are_acls_enabled"`
+	AutoCreateTopic          bool  `json:"is_auto_create_topic_enabled"`
+	DefaultNumPartitions     int64 `json:"default_num_partitions"`
+	DefaultRetentionMillis   int64 `json:"default_retention_millis"`
+	EnableDeletionProtection bool  `json:"enable_deletion_protection"`
 }
 
 type Topic struct {

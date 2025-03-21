@@ -241,6 +241,12 @@ This resource allows you to create, update and delete virtual clusters.
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
 					},
+					"enable_deletion_protection": schema.BoolAttribute{
+						Description: "Enable deletion protection, defaults to `false`. If set to true, it is impossible to delete this cluster. enable_deletion_protection needs to be set to false before deleting the cluster.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
 				},
 				Description: "Virtual Cluster Configuration.",
 				Optional:    true,
@@ -571,10 +577,11 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	tflog.Debug(ctx, fmt.Sprintf("Configuration: %+v", *cfg))
 
 	cfgState := virtualClusterConfigurationModel{
-		AclsEnabled:          types.BoolValue(cfg.AclsEnabled),
-		AutoCreateTopic:      types.BoolValue(cfg.AutoCreateTopic),
-		DefaultNumPartitions: types.Int64Value(cfg.DefaultNumPartitions),
-		DefaultRetention:     types.Int64Value(cfg.DefaultRetentionMillis),
+		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
+		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
+		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
+		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
+		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
 	}
 
 	// Set configuration state
@@ -602,10 +609,11 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan vi
 
 	// Update virtual cluster configuration
 	cfg := &api.VirtualClusterConfiguration{
-		AclsEnabled:            cfgPlan.AclsEnabled.ValueBool(),
-		AutoCreateTopic:        cfgPlan.AutoCreateTopic.ValueBool(),
-		DefaultNumPartitions:   cfgPlan.DefaultNumPartitions.ValueInt64(),
-		DefaultRetentionMillis: cfgPlan.DefaultRetention.ValueInt64(),
+		AclsEnabled:              cfgPlan.AclsEnabled.ValueBool(),
+		AutoCreateTopic:          cfgPlan.AutoCreateTopic.ValueBool(),
+		DefaultNumPartitions:     cfgPlan.DefaultNumPartitions.ValueInt64(),
+		DefaultRetentionMillis:   cfgPlan.DefaultRetention.ValueInt64(),
+		EnableDeletionProtection: cfgPlan.EnableDeletionProtection.ValueBool(),
 	}
 	err := r.client.UpdateConfiguration(*cfg, cluster)
 	if err != nil {
