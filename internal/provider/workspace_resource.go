@@ -60,6 +60,22 @@ func (r *workspaceResource) Metadata(_ context.Context, req resource.MetadataReq
 	resp.TypeName = req.ProviderTypeName + "_workspace"
 }
 
+func applicationKeyInsideWorkspaceResourceSchema() map[string]schema.Attribute {
+	appKeyResourceSchema := applicationKeyResourceSchema()
+
+	appKeyResourceSchema["name"] = schema.StringAttribute{
+		Description: "Application Key Name.",
+		Computed:    true,
+		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.UseStateForUnknown(),
+		},
+	}
+
+	delete(appKeyResourceSchema, "workspace_id")
+
+	return appKeyResourceSchema
+}
+
 // Schema defines the schema for the resource.
 func (r *workspaceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
@@ -86,7 +102,7 @@ This resource allows you to create and delete workspaces.
 				Validators: []validator.String{utils.ValidWorkspaceName()},
 			},
 			"application_key": schema.SingleNestedAttribute{
-				Attributes:  applicationKeyResourceSchema(true),
+				Attributes:  applicationKeyInsideWorkspaceResourceSchema(),
 				Description: "Application Key associated with the Workspace.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.Object{
@@ -198,7 +214,7 @@ func (r *workspaceResource) Read(ctx context.Context, req resource.ReadRequest, 
 		ID:             types.StringValue(workspace.ID),
 		Name:           types.StringValue(workspace.Name),
 		CreatedAt:      types.StringValue(workspace.CreatedAt),
-		ApplicationKey: state.ApplicationKey,
+		ApplicationKey: state.ApplicationKey, // Should this only be present on create and null on read?
 	}
 
 	// Set state

@@ -56,31 +56,7 @@ func (r *applicationKeyResource) Metadata(_ context.Context, req resource.Metada
 	resp.TypeName = req.ProviderTypeName + "_application_key"
 }
 
-func applicationKeyResourceSchema(isNameAttrComputed bool) map[string]schema.Attribute {
-	var nameAttr schema.StringAttribute
-
-	if isNameAttrComputed {
-		nameAttr = schema.StringAttribute{
-			Description: "Application Key Name.",
-			Computed:    true,
-			PlanModifiers: []planmodifier.String{
-				stringplanmodifier.UseStateForUnknown(),
-			},
-		}
-	} else {
-		nameAttr = schema.StringAttribute{
-			Description: "Application Key Name. " +
-				"Must be unique across WarpStream account. " +
-				"Must start with 'akn_' and contain underscores and alphanumeric characters only. " +
-				"Cannot be changed after creation.",
-			Required: true,
-			PlanModifiers: []planmodifier.String{
-				stringplanmodifier.RequiresReplace(),
-			},
-			Validators: []validator.String{utils.StartsWithAndAlphanumeric("akn_")},
-		}
-	}
-
+func applicationKeyResourceSchema() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		"id": schema.StringAttribute{
 			Description: "Application Key ID.",
@@ -94,6 +70,24 @@ func applicationKeyResourceSchema(isNameAttrComputed bool) map[string]schema.Att
 			Computed:    true,
 			Sensitive:   true,
 		},
+		"name": schema.StringAttribute{
+			Description: "Application Key Name. " +
+				"Must be unique across WarpStream account. " +
+				"Must start with 'akn_' and contain underscores and alphanumeric characters only. " +
+				"Cannot be changed after creation.",
+			Required: true,
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.RequiresReplace(),
+			},
+			Validators: []validator.String{utils.StartsWithAndAlphanumeric("akn_")},
+		},
+		"workspace_id": schema.StringAttribute{
+			Description: "ID of the Workspace in which the application key is authorized to manage resources.",
+			Optional:    true,
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.RequiresReplace(),
+			},
+		},
 		"created_at": schema.StringAttribute{
 			Description: "Application Key Creation Timestamp.",
 			Computed:    true,
@@ -101,7 +95,6 @@ func applicationKeyResourceSchema(isNameAttrComputed bool) map[string]schema.Att
 				stringplanmodifier.UseStateForUnknown(),
 			},
 		},
-		"name": nameAttr,
 	}
 }
 
@@ -111,7 +104,7 @@ func (r *applicationKeyResource) Schema(_ context.Context, _ resource.SchemaRequ
 		Description: `
 This resource allows you to create, update and delete application keys.
 `,
-		Attributes: applicationKeyResourceSchema(false),
+		Attributes: applicationKeyResourceSchema(),
 	}
 }
 
@@ -155,6 +148,8 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 		CreatedAt: types.StringValue(apiKey.CreatedAt),
 	}
 
+	setWorkspaceIDIfPresent(&state, apiKey.AccessGrants)
+
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -194,11 +189,28 @@ func (r *applicationKeyResource) Read(ctx context.Context, req resource.ReadRequ
 		CreatedAt: types.StringValue(apiKey.CreatedAt),
 	}
 
+	setWorkspaceIDIfPresent(&state, apiKey.AccessGrants)
+
 	// Set state
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+}
+
+func setWorkspaceIDIfPresent(appKey *applicationKeyModel, grants []api.AccessGrant) {
+	var workspaceID string
+	for _, grant := range grants {
+		if grant.WorkspaceID == api.WorkspaceIDAny {
+			workspaceID = grant.WorkspaceID
+			break
+		}
+		workspaceID = grant.WorkspaceID
+	}
+
+	if workspaceID != "" {
+		appKey.WorkspaceID = types.StringValue(workspaceID)
 	}
 }
 

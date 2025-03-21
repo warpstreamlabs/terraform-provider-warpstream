@@ -8,10 +8,11 @@ import (
 )
 
 type applicationKeyModel struct {
-	ID        types.String `tfsdk:"id"`
-	Name      types.String `tfsdk:"name"`
-	Key       types.String `tfsdk:"key"`
-	CreatedAt types.String `tfsdk:"created_at"`
+	ID          types.String `tfsdk:"id"`
+	Name        types.String `tfsdk:"name"`
+	Key         types.String `tfsdk:"key"`
+	WorkspaceID types.String `tfsdk:"workspace_id"`
+	CreatedAt   types.String `tfsdk:"created_at"`
 }
 
 func (m applicationKeyModel) AttributeTypes() map[string]attr.Type {
