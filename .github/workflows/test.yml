@@ -80,10 +80,18 @@ jobs:
           terraform_version: ${{ matrix.terraform }}
           terraform_wrapper: false
       - run: go mod download
-      - env:
+      - name: Run acceptance tests that require an application key
+        env:
           TF_ACC: "1"
           WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_API_KEY }}
-        run: go test -v -cover ./internal/provider/
+        run: go test -v -cover ./internal/provider/ -skip TestAccWorkspaceResource
+        timeout-minutes: 10
+        # Workspace resources require a different kind of API key.
+      - name: Run acceptance tests that require an account key
+        env:
+          TF_ACC: "1"
+          WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_ACCOUNT_KEY }}
+        run: go test -v -cover ./internal/provider/ -run TestAccWorkspaceResource
         timeout-minutes: 10
 
   finally:
@@ -91,7 +99,7 @@ jobs:
     needs: [test, generate]
     runs-on: ubuntu-latest
     if: always()
-    
+
     steps:
       - name: Set Slack message
         run: |
