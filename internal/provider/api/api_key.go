@@ -128,7 +128,7 @@ func (c *Client) GetAPIKeys() ([]APIKey, error) {
 	return res.APIKeys, nil
 }
 
-// GetAPIKey - Returns one API key.
+// GetAPIKeys - Returns list of API keys.
 func (c *Client) GetAPIKey(apiKeyID string) (*APIKey, error) {
 	keys, err := c.GetAPIKeys()
 
