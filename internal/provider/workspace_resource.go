@@ -5,15 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
@@ -138,19 +135,6 @@ func (r *workspaceResource) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-}
-
-func getApplicationKeyValue(applicationKey *api.APIKey) (basetypes.ObjectValue, diag.Diagnostics) {
-	applicationKeyValue, diagnostics := types.ObjectValue(
-		applicationKeyModel{}.AttributeTypes(),
-		map[string]attr.Value{
-			"id":         types.StringValue(applicationKey.ID),
-			"name":       types.StringValue(applicationKey.Name),
-			"key":        types.StringValue(applicationKey.Key),
-			"created_at": types.StringValue(applicationKey.CreatedAt),
-		},
-	)
-	return applicationKeyValue, diagnostics
 }
 
 // Read refreshes the Terraform state with the latest data.

@@ -21,7 +21,7 @@ var (
 	_ resource.ResourceWithConfigure = &applicationKeyResource{}
 )
 
-// NewApplicationKeyResource is a helper function to simplify the provider implementation.
+// NewVirtualClusterResource is a helper function to simplify the provider implementation.
 func NewApplicationKeyResource() resource.Resource {
 	return &applicationKeyResource{}
 }
