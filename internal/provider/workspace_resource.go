@@ -9,7 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -85,15 +84,6 @@ This resource allows you to create and delete workspaces.
 				},
 				Validators: []validator.String{utils.ValidWorkspaceName()},
 			},
-			"application_key": schema.SingleNestedAttribute{
-				Attributes:  applicationKeyResourceSchema(true),
-				Description: "Application Key associated with the Workspace.",
-				Computed:    true,
-				PlanModifiers: []planmodifier.Object{
-					objectplanmodifier.UseStateForUnknown(),
-				},
-				Optional: true,
-			},
 			"created_at": schema.StringAttribute{
 				Description: "Workspace Creation Timestamp.",
 				Computed:    true,
@@ -125,12 +115,6 @@ func (r *workspaceResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	applicationKeyObjectValue, diagnostics := getApplicationKeyValue(&newWorkspace.ApplicationKey)
-	if diagnostics != nil {
-		resp.Diagnostics.Append(diagnostics...)
-		return
-	}
-
 	// Describe created workspace
 	workspace, err := r.client.GetWorkspace(newWorkspace.ID)
 	if err != nil {
@@ -143,10 +127,9 @@ func (r *workspaceResource) Create(ctx context.Context, req resource.CreateReque
 
 	// Map response body to schema and populate Computed attribute values
 	state := workspaceModel{
-		ID:             types.StringValue(workspace.ID),
-		Name:           types.StringValue(workspace.Name),
-		ApplicationKey: applicationKeyObjectValue,
-		CreatedAt:      types.StringValue(workspace.CreatedAt),
+		ID:        types.StringValue(workspace.ID),
+		Name:      types.StringValue(workspace.Name),
+		CreatedAt: types.StringValue(workspace.CreatedAt),
 	}
 
 	// Set state to fully populated data
@@ -195,10 +178,9 @@ func (r *workspaceResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 	// Overwrite Workspace with refreshed state
 	state = workspaceModel{
-		ID:             types.StringValue(workspace.ID),
-		Name:           types.StringValue(workspace.Name),
-		CreatedAt:      types.StringValue(workspace.CreatedAt),
-		ApplicationKey: state.ApplicationKey,
+		ID:        types.StringValue(workspace.ID),
+		Name:      types.StringValue(workspace.Name),
+		CreatedAt: types.StringValue(workspace.CreatedAt),
 	}
 
 	// Set state
