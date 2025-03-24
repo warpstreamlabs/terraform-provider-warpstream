@@ -86,6 +86,7 @@ Optional:
 - `default_num_partitions` (Number) Number of partitions created by default.
 - `default_retention_millis` (Number) Default retention for topics that are created automatically using Kafka's topic auto-creation feature.
 - `enable_acls` (Boolean) Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)
+- `enable_deletion_protection` (Boolean) Enable deletion protection, defaults to `false`. If set to true, it is impossible to delete this cluster. enable_deletion_protection needs to be set to false before deleting the cluster.
 
 
 <a id="nestedatt--agent_keys"></a>

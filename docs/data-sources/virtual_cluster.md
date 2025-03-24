@@ -82,3 +82,4 @@ Read-Only:
 - `default_num_partitions` (Number)
 - `default_retention_millis` (Number)
 - `enable_acls` (Boolean)
+- `enable_deletion_protection` (Boolean)

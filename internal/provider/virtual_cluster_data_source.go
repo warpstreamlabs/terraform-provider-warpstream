@@ -117,6 +117,9 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 					"enable_acls": schema.BoolAttribute{
 						Computed: true,
 					},
+					"enable_deletion_protection": schema.BoolAttribute{
+						Computed: true,
+					},
 				},
 				Computed: true,
 			},
@@ -265,10 +268,11 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	}
 
 	cfgState := virtualClusterConfigurationModel{
-		AclsEnabled:          types.BoolValue(cfg.AclsEnabled),
-		AutoCreateTopic:      types.BoolValue(cfg.AutoCreateTopic),
-		DefaultNumPartitions: types.Int64Value(cfg.DefaultNumPartitions),
-		DefaultRetention:     types.Int64Value(cfg.DefaultRetentionMillis),
+		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
+		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
+		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
+		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
+		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
 	}
 
 	// Set configuration state

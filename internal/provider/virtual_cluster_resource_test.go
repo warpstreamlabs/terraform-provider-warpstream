@@ -20,7 +20,7 @@ func TestAccVirtualClusterResourceDeletePlan(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVirtualClusterResource_withPartialConfiguration(false, vcNameSuffix),
-				Check:  testAccVirtualClusterResourceCheck(false, true, 1, "byoc", false),
+				Check:  testAccVirtualClusterResourceCheck(false, true, 1, "byoc", false, false),
 			},
 			{
 				PreConfig: func() {
@@ -54,7 +54,7 @@ func TestAccVirtualClusterResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVirtualClusterResource_withPartialConfiguration(false, vcNameSuffix),
-				Check:  testAccVirtualClusterResourceCheck(false, true, 1, "byoc", false),
+				Check:  testAccVirtualClusterResourceCheck(false, true, 1, "byoc", false, false),
 			},
 			{
 				Config: testAccVirtualClusterResource(vcNameSuffix),
@@ -66,10 +66,28 @@ func TestAccVirtualClusterResource(t *testing.T) {
 			},
 			{
 				Config: testAccVirtualClusterResource_withConfiguration(true, false, 2, vcNameSuffix),
-				Check:  testAccVirtualClusterResourceCheck(true, false, 2, "byoc", true),
+				Check:  testAccVirtualClusterResourceCheck(true, false, 2, "byoc", true, true),
+			},
+			{
+				Config: testAccVirtualClusterResource_removeDeletionProtection(vcNameSuffix),
+				Check:  testNoDeletionProtection(),
 			},
 		},
 	})
+}
+
+func testNoDeletionProtection() resource.TestCheckFunc {
+	return resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_deletion_protection", "false")
+}
+
+func testAccVirtualClusterResource_removeDeletionProtection(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  configuration = {
+    enable_deletion_protection = false
+  }
+}`, vcNameSuffix)
 }
 
 func testAccVirtualClusterResource(vcNameSuffix string) string {
@@ -105,6 +123,7 @@ resource "warpstream_virtual_cluster" "test" {
     enable_acls = %t
     default_num_partitions = %d
     auto_create_topic = %t
+    enable_deletion_protection = true
   }
   tags = {
     "test_tag" = "test_value"
@@ -112,7 +131,7 @@ resource "warpstream_virtual_cluster" "test" {
 }`, vcNameSuffix, acls, numParts, autoTopic)
 }
 
-func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int64, vcType string, tags bool) resource.TestCheckFunc {
+func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int64, vcType string, tags bool, deletionProtection bool) resource.TestCheckFunc {
 	var checks = []resource.TestCheckFunc{
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "id"),
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_id"),
@@ -138,6 +157,11 @@ func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int6
 	if tags {
 		checks = append(checks,
 			resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "tags.test_tag", "test_value"),
+		)
+	}
+	if deletionProtection {
+		checks = append(checks,
+			resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_deletion_protection", "true"),
 		)
 	}
 
