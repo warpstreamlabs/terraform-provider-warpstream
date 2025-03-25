@@ -202,3 +202,36 @@ func testPipelineCheck(
 		resource.TestCheckResourceAttr("warpstream_pipeline.test_pipeline", "type", pipelineType),
 	)
 }
+
+func TestSchemaMigratorPipelineResource(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testSchemaMigratorPipeline(),
+				Check:  testPipelineCheck(schemaLinkingPipelineType),
+			},
+		},
+	})
+}
+
+func testSchemaMigratorPipeline() string {
+	virtualClusterResource := fmt.Sprintf(`
+resource "warpstream_schema_registry" "test" {
+  name = "vcn_sr_test_%s"
+}`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+	return providerConfig + virtualClusterResource + `
+resource "warpstream_pipeline" "test_pipeline" {
+  virtual_cluster_id = warpstream_schema_registry.test.id
+  name               = "test_pipeline"
+  state              = "running"
+  type				 = "schema_linking"
+  configuration_yaml = <<EOT
+source_schema_registry:
+  hostname: "localhost"
+  port: 8087
+sync_every_seconds: 300
+context_type: "DEFAULT"
+EOT
+}`
+}

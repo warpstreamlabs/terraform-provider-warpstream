@@ -63,3 +63,17 @@ resource "warpstream_pipeline" "example_orbit_pipeline" {
     cluster_fetch_concurrency: 2
   EOT
 }
+
+resource "warpstream_pipeline" "example_schema_linking_pipeline" {
+  virtual_cluster_id = warpstream_virtual_cluster.tf_example_pipelines.id
+  name               = "example_schema_linking_pipeline"
+  state              = "running"
+  type               = "schema_linking"
+  configuration_yaml = <<EOT
+  source_schema_registry:
+    hostname: localhost
+    port: 8087
+  sync_every_seconds: 300
+  context_type: "DEFAULT"
+  EOT
+}
