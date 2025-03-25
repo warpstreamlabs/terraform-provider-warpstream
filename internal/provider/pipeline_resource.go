@@ -80,8 +80,8 @@ func (r *pipelineResource) Metadata(_ context.Context, req resource.MetadataRequ
 func (r *pipelineResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: `
-This resource allows you to create pipelines (Bento and Orbit).
-For more details, take a look at: https://docs.warpstream.com/warpstream/configuration/bento and https://docs.warpstream.com/warpstream/byoc/orbit.
+This resource allows you to create pipelines (Bento, Orbit, and Schema Linking).
+For more details, take a look at: https://docs.warpstream.com/warpstream/configuration/bento, https://docs.warpstream.com/warpstream/byoc/orbit and https://docs.warpstream.com/warpstream/byoc/schema-registry/warpstream-schema-linking.
 `,
 		Attributes: map[string]schema.Attribute{
 			"virtual_cluster_id": schema.StringAttribute{
