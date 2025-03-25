@@ -19,6 +19,9 @@ resource "warpstream_virtual_cluster" "test" {
     auto_create_topic        = false
     default_num_partitions   = 1
     default_retention_millis = 86400000
+
+    # Make it impossible to delete this cluster.
+    enable_deletion_protection = true
   }
   cloud = {
     # This is the cloud provider and region of the WarpStream control plane,
