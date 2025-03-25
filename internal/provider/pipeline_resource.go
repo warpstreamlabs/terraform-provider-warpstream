@@ -26,8 +26,9 @@ var (
 type pipelineType = string
 
 const (
-	bentoPipelineType pipelineType = "bento"
-	orbitPipelineType pipelineType = "orbit"
+	bentoPipelineType         pipelineType = "bento"
+	orbitPipelineType         pipelineType = "orbit"
+	schemaLinkingPipelineType pipelineType = "schema_linking"
 )
 
 // NewPipelineResource is a helper function to simplify the provider implementation.
@@ -123,7 +124,7 @@ For more details, take a look at: https://docs.warpstream.com/warpstream/configu
 				Computed:    true,
 			},
 			"type": schema.StringAttribute{
-				Description: "Pipeline type. Valid types are: `bento` (default) and `orbit`",
+				Description: "Pipeline type. Valid types are: `bento` (default), `orbit`, `schema_linking`",
 				Optional:    true,
 				Computed:    true,
 				Default:     stringdefault.StaticString(bentoPipelineType),
@@ -131,7 +132,7 @@ For more details, take a look at: https://docs.warpstream.com/warpstream/configu
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf(bentoPipelineType, orbitPipelineType),
+					stringvalidator.OneOf(bentoPipelineType, orbitPipelineType, schemaLinkingPipelineType),
 				},
 			},
 		},
