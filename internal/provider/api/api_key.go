@@ -43,11 +43,12 @@ func (c *Client) CreateAgentKey(name, virtualClusterID string) (*APIKey, error) 
 	return c.createAPIKey(name, accessGrant)
 }
 
-func (c *Client) CreateApplicationKey(name string) (*APIKey, error) {
+func (c *Client) CreateApplicationKey(name, workspaceID string) (*APIKey, error) {
 	accessGrant := map[string]string{
 		"principal_kind": PrincipalKindApplication,
 		"resource_kind":  ResourceKindAny,
 		"resource_id":    ResourceIDAny,
+		"workspace_id":   workspaceID, // Can be empty.
 	}
 
 	return c.createAPIKey(name, accessGrant)
