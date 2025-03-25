@@ -23,8 +23,8 @@ func TestAccApplicationKeyResourceDeletePLan(t *testing.T) {
 			},
 			{
 				PreConfig: func() {
-					token := os.Getenv("WARPSTREAM_API_KEY")
-					client, err := api.NewClient("", &token)
+					token, host := os.Getenv("WARPSTREAM_API_KEY"), os.Getenv("WARPSTREAM_API_URL")
+					client, err := api.NewClient(host, &token)
 					require.NoError(t, err)
 
 					apiKeys, err := client.GetAPIKeys()
@@ -81,6 +81,7 @@ func testAccApplicationKeyResourceCheck(name string) resource.TestCheckFunc {
 		resource.TestCheckResourceAttrSet("warpstream_application_key.test", "id"),
 		resource.TestCheckResourceAttr("warpstream_application_key.test", "name", name),
 		resource.TestCheckResourceAttrSet("warpstream_application_key.test", "key"),
+		resource.TestCheckResourceAttrSet("warpstream_application_key.test", "workspace_id"),
 		resource.TestCheckResourceAttrSet("warpstream_application_key.test", "created_at"),
 	)
 }
