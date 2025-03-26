@@ -84,14 +84,14 @@ jobs:
         env:
           TF_ACC: "1"
           WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_API_KEY }}
-        run: go test -v -cover ./internal/provider/ -skip TestAccWorkspaceResource
+        run: go test -v -cover ./internal/provider/ -skip TestAccAccountKey
         timeout-minutes: 10
-        # Workspace resources require a different kind of API key.
+        # Tests starting with TestAccAccountKey require an account key instead of an application key.
       - name: Run acceptance tests that require an account key
         env:
           TF_ACC: "1"
           WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_ACCOUNT_KEY }}
-        run: go test -v -cover ./internal/provider/ -run TestAccWorkspaceResource
+        run: go test -v -cover ./internal/provider/ -run TestAccAccountKey
         timeout-minutes: 10
 
   finally:
