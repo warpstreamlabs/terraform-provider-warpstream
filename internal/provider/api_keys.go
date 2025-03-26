@@ -7,10 +7,11 @@ import (
 )
 
 type applicationKeyModel struct {
-	ID        types.String `tfsdk:"id"`
-	Name      types.String `tfsdk:"name"`
-	Key       types.String `tfsdk:"key"`
-	CreatedAt types.String `tfsdk:"created_at"`
+	ID          types.String `tfsdk:"id"`
+	Name        types.String `tfsdk:"name"`
+	Key         types.String `tfsdk:"key"`
+	WorkspaceID types.String `tfsdk:"workspace_id"`
+	CreatedAt   types.String `tfsdk:"created_at"`
 }
 
 // Ideally agentKeyModel and applicationKeyModel would share fields by composing an apiKeyModel struct.
@@ -30,10 +31,11 @@ func mapToApplicationKeyModels(apiKeysPtr *[]api.APIKey) *[]applicationKeyModel 
 	keyModels := make([]applicationKeyModel, 0, len(apiKeys))
 	for _, key := range apiKeys {
 		keyModel := applicationKeyModel{
-			ID:        types.StringValue(key.ID),
-			Name:      types.StringValue(key.Name),
-			Key:       types.StringValue(key.Key),
-			CreatedAt: types.StringValue(key.CreatedAt),
+			ID:          types.StringValue(key.ID),
+			Name:        types.StringValue(key.Name),
+			Key:         types.StringValue(key.Key),
+			WorkspaceID: types.StringValue(readWorkspaceIDSafe(key.AccessGrants)),
+			CreatedAt:   types.StringValue(key.CreatedAt),
 		}
 
 		keyModels = append(keyModels, keyModel)

@@ -25,6 +25,9 @@ var (
 				Computed:  true,
 				Sensitive: true,
 			},
+			"workspace_id": schema.StringAttribute{
+				Computed: true,
+			},
 			"created_at": schema.StringAttribute{
 				Computed: true,
 			},

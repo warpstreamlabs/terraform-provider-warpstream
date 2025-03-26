@@ -37,6 +37,10 @@ resource "warpstream_application_key" "example_application_key" {
 
 - `name` (String) Application Key Name. Must be unique across WarpStream account. Must start with 'akn_' and contain underscores and alphanumeric characters only. Cannot be changed after creation.
 
+### Optional
+
+- `workspace_id` (String) Workspace ID. ID of the workspace in which the application key is authorized to manage resources Must a be valid workspace ID starting with 'wi_'. If empty, defaults to the oldest workspace that the provided WarpStream API key is authorized to access. Cannot be changed after creation.
+
 ### Read-Only
 
 - `created_at` (String) Application Key Creation Timestamp.

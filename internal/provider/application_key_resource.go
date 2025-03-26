@@ -21,7 +21,7 @@ var (
 	_ resource.ResourceWithConfigure = &applicationKeyResource{}
 )
 
-// NewVirtualClusterResource is a helper function to simplify the provider implementation.
+// NewApplicationKeyResource is a helper function to simplify the provider implementation.
 func NewApplicationKeyResource() resource.Resource {
 	return &applicationKeyResource{}
 }
@@ -86,6 +86,21 @@ This resource allows you to create, update and delete application keys.
 				Computed:    true,
 				Sensitive:   true,
 			},
+			"workspace_id": schema.StringAttribute{
+				Description: "Workspace ID. " +
+					"ID of the workspace in which the application key is authorized to manage resources " +
+					"Must a be valid workspace ID starting with 'wi_'. " +
+					"If empty, defaults to the oldest workspace that the provided WarpStream API key is authorized to access. " +
+					"Cannot be changed after creation.",
+				Optional: true,
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					utils.StartsWithAndAlphanumeric("wi_"),
+				},
+			},
 			"created_at": schema.StringAttribute{
 				Description: "Application Key Creation Timestamp.",
 				Computed:    true,
@@ -110,7 +125,20 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 	// Create new application key
 	apiKey, err := r.client.CreateApplicationKey(
 		plan.Name.ValueString(),
+		plan.WorkspaceID.ValueString(),
 	)
+
+	// TODO: Make client return an structured HTTP error and branch on the specific case where it's the workspace that's not found.
+	if err != nil && errors.Is(err, api.ErrNotFound) {
+		resp.Diagnostics.AddError(
+			"Error Creating WarpStream Application Key",
+			"Could not create WarpStream Application Key, workspace not found. "+
+				"Either the workspace "+plan.WorkspaceID.ValueString()+" doesn't exist, or the API key used to authenticate "+
+				"this provider doesn't have access to it.",
+		)
+		return
+	}
+
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Application Key",
@@ -131,10 +159,11 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 
 	// Map response body to schema and populate Computed attribute values
 	state := applicationKeyModel{
-		ID:        types.StringValue(apiKey.ID),
-		Name:      types.StringValue(apiKey.Name),
-		Key:       types.StringValue(apiKey.Key),
-		CreatedAt: types.StringValue(apiKey.CreatedAt),
+		ID:          types.StringValue(apiKey.ID),
+		Name:        types.StringValue(apiKey.Name),
+		Key:         types.StringValue(apiKey.Key),
+		WorkspaceID: types.StringValue(readWorkspaceIDSafe(apiKey.AccessGrants)),
+		CreatedAt:   types.StringValue(apiKey.CreatedAt),
 	}
 
 	// Set state to fully populated data
@@ -170,9 +199,11 @@ func (r *applicationKeyResource) Read(ctx context.Context, req resource.ReadRequ
 
 	// Overwrite Application Key with refreshed state
 	state = applicationKeyModel{
-		ID:        types.StringValue(apiKey.ID),
-		Name:      types.StringValue(apiKey.Name),
-		Key:       types.StringValue(apiKey.Key),
+		ID:          types.StringValue(apiKey.ID),
+		Name:        types.StringValue(apiKey.Name),
+		Key:         types.StringValue(apiKey.Key),
+		WorkspaceID: types.StringValue(readWorkspaceIDSafe(apiKey.AccessGrants)),
+		// WorkspaceID: types.StringUnknown(),
 		CreatedAt: types.StringValue(apiKey.CreatedAt),
 	}
 
@@ -182,6 +213,14 @@ func (r *applicationKeyResource) Read(ctx context.Context, req resource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+}
+
+func readWorkspaceIDSafe(grants []api.AccessGrant) string {
+	if len(grants) == 0 {
+		return ""
+	}
+
+	return grants[0].WorkspaceID
 }
 
 // Update updates the resource and sets the updated Terraform state on success.

@@ -16,6 +16,7 @@ const (
 	ResourceKindVirtualCluster = "virtual_cluster"
 	ResourceKindAny            = "*"
 	ResourceIDAny              = "*"
+	WorkspaceIDAny             = "*"
 )
 
 type APIKeyListResponse struct {
@@ -42,11 +43,12 @@ func (c *Client) CreateAgentKey(name, virtualClusterID string) (*APIKey, error) 
 	return c.createAPIKey(name, accessGrant)
 }
 
-func (c *Client) CreateApplicationKey(name string) (*APIKey, error) {
+func (c *Client) CreateApplicationKey(name, workspaceID string) (*APIKey, error) {
 	accessGrant := map[string]string{
 		"principal_kind": PrincipalKindApplication,
 		"resource_kind":  ResourceKindAny,
 		"resource_id":    ResourceIDAny,
+		"workspace_id":   workspaceID, // Can be empty.
 	}
 
 	return c.createAPIKey(name, accessGrant)
@@ -128,7 +130,7 @@ func (c *Client) GetAPIKeys() ([]APIKey, error) {
 	return res.APIKeys, nil
 }
 
-// GetAPIKeys - Returns list of API keys.
+// GetAPIKey - Returns one API key.
 func (c *Client) GetAPIKey(apiKeyID string) (*APIKey, error) {
 	keys, err := c.GetAPIKeys()
 
