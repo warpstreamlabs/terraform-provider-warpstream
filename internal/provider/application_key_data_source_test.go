@@ -30,5 +30,6 @@ func testAccApplicationKeyDataSourceCheck() resource.TestCheckFunc {
 		resource.TestCheckResourceAttrSet("data.warpstream_application_keys.test", "application_keys.#"),
 		utils.TestCheckResourceAttrStartsWith("data.warpstream_application_keys.test", "application_keys.0.name", "akn_"),
 		utils.TestCheckResourceAttrStartsWith("data.warpstream_application_keys.test", "application_keys.0.key", "aks_"),
+		utils.TestCheckResourceAttrStartsWith("data.warpstream_application_keys.test", "application_keys.0.workspace_id", "wi_"),
 	)
 }

@@ -31,10 +31,11 @@ func mapToApplicationKeyModels(apiKeysPtr *[]api.APIKey) *[]applicationKeyModel 
 	keyModels := make([]applicationKeyModel, 0, len(apiKeys))
 	for _, key := range apiKeys {
 		keyModel := applicationKeyModel{
-			ID:        types.StringValue(key.ID),
-			Name:      types.StringValue(key.Name),
-			Key:       types.StringValue(key.Key),
-			CreatedAt: types.StringValue(key.CreatedAt),
+			ID:          types.StringValue(key.ID),
+			Name:        types.StringValue(key.Name),
+			Key:         types.StringValue(key.Key),
+			WorkspaceID: types.StringValue(readWorkspaceIDSafe(key.AccessGrants)),
+			CreatedAt:   types.StringValue(key.CreatedAt),
 		}
 
 		keyModels = append(keyModels, keyModel)

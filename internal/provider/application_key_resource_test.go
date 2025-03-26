@@ -77,7 +77,7 @@ func TestAccApplicationKeyResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccApplicationKeyResource(name),
-				// Defaults to first workspace.
+				// Defaults to the first i.e. the oldest workspace.
 				Check: testAccApplicationKeyResourceCheckWithWorkspaceID(name, workspaces[0].ID),
 			},
 		},
