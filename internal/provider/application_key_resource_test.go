@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"testing"
 
@@ -25,7 +24,8 @@ func TestAccApplicationKeyResourceDeletePLan(t *testing.T) {
 			},
 			{
 				PreConfig: func() {
-					client := getProviderClient(t)
+					client, err := api.NewClientDefault()
+					require.NoError(t, err)
 
 					apiKeys, err := client.GetAPIKeys()
 					require.NoError(t, err)
@@ -95,7 +95,8 @@ func TestAccApplicationKeyResourceWithWorkspaceID(t *testing.T) {
 func TestAccAccountKeyApplicationKeyResourceWithWorkspaceID(t *testing.T) {
 	resourceName1, resourceName2 := "test1", "test2"
 	keyName1, keyName2 := "akn_test_application_key"+nameSuffix+"_1", "akn_test_application_key"+nameSuffix+"_2"
-	client := getProviderClient(t)
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
 	workspaces, err := client.GetWorkspaces()
 	require.NoError(t, err)
 	require.Greater(t, len(workspaces), 1, "Are you running this test with an account key?") // Get at least two workspaces.
@@ -166,15 +167,9 @@ func testAccApplicationKeyResourceCheckWithWorkspaceID(resourceName, keyName, wo
 	)
 }
 
-func getProviderClient(t *testing.T) *api.Client {
-	token, host := os.Getenv("WARPSTREAM_API_KEY"), os.Getenv("WARPSTREAM_API_URL")
-	client, err := api.NewClient(host, &token)
-	require.NoError(t, err)
-	return client
-}
-
 func getWorkspacesNotEmpty(t *testing.T) []api.Workspace {
-	client := getProviderClient(t)
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
 	workspaces, err := client.GetWorkspaces()
 	require.NoError(t, err)
 	require.NotEmpty(t, workspaces)
