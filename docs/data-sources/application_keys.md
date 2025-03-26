@@ -38,3 +38,4 @@ Read-Only:
 - `id` (String)
 - `key` (String, Sensitive)
 - `name` (String)
+- `workspace_id` (String)

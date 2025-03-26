@@ -91,7 +91,7 @@ This resource allows you to create, update and delete application keys.
 				Description: "Workspace ID. " +
 					"ID of the workspace in which the application key is authorized to manage resources " +
 					"Must be valid workspace ID starting with 'wi_'. " +
-					"If empty, defaults to the oldest workspace that the provided WarpStream API key is authorized to access." +
+					"If empty, defaults to the oldest workspace that the provided WarpStream API key is authorized to access. " +
 					"Cannot be changed after creation.",
 				Optional: true,
 				Computed: true,
