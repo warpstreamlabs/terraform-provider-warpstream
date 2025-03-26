@@ -215,8 +215,6 @@ func (r *applicationKeyResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 }
 
-// readWorkspaceIDSafe sets the workspace ID on the application key model.
-// Application keys are tied to a single workspace so all grants should have the same workspace ID.
 func readWorkspaceIDSafe(grants []api.AccessGrant) string {
 	if len(grants) == 0 {
 		return ""
