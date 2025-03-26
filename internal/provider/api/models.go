@@ -76,3 +76,13 @@ type Topic struct {
 	PartitionCount   int                `json:"partition_count"`
 	Configs          map[string]*string `json:"configs"`
 }
+
+type Workspace struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"created_at"`
+}
+
+type NewWorkspace struct {
+	ID string `json:"workspace_id"`
+}

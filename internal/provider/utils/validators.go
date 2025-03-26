@@ -24,6 +24,16 @@ func ValidClusterName() validator.String {
 	)
 }
 
+func ValidWorkspaceName() validator.String {
+	return stringvalidator.All(
+		stringvalidator.LengthBetween(3, 128),
+		stringvalidator.RegexMatches(
+			regexp.MustCompile(`^[a-z_\-A-Z0-9 ]{3,128}$`),
+			"must contain only alphanumeric characters, spaces, underscores, and hyphens",
+		),
+	)
+}
+
 func StartsWith(prefix string) validator.String {
 	return stringvalidator.RegexMatches(
 		regexp.MustCompile(fmt.Sprintf("^%s.+$", prefix)),
