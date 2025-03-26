@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -129,18 +128,7 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 		plan.WorkspaceID.ValueString(),
 	)
 
-	// TODO: Make client return an structured HTTP error type.
-	if err != nil && strings.Contains(err.Error(), "duplicate_api_key_name") {
-		resp.Diagnostics.AddError(
-			"Error Creating WarpStream Application Key",
-			"Could not create WarpStream Application Key, name is already in use. "+
-				"If you are using an application key to authenticate this provider, it's likely that a key named "+plan.Name.ValueString()+
-				" exists in a different workspace.",
-		)
-		return
-	}
-
-	// TODO: Branch on a more specific check once we've modified the client to return structured HTTP errors.
+	// TODO: Make client return an structured HTTP error and branch on the specific case where it's the workspace that's not found.
 	if err != nil && errors.Is(err, api.ErrNotFound) {
 		resp.Diagnostics.AddError(
 			"Error Creating WarpStream Application Key",
