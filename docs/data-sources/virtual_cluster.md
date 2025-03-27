@@ -50,6 +50,7 @@ output "vc_default_id" {
 - `id` (String) The ID of this resource.
 - `tags` (Map of String) Tags associated with the virtual cluster.
 - `type` (String)
+- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongsAssigned based on the workspace of the application key with which the virtual cluster is created. Cannot be changed after creation.
 
 <a id="nestedatt--agent_keys"></a>
 ### Nested Schema for `agent_keys`

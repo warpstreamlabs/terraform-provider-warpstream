@@ -66,7 +66,7 @@ resource "warpstream_virtual_cluster" "test_cloud_region" {
 - `created_at` (String) Virtual Cluster Creation Timestamp.
 - `default` (Boolean)
 - `id` (String) Virtual Cluster ID.
-- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongsAssigned based on the workspace of the application key with which the virtual cluster is created.Cannot be changed after creation.
+- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongsAssigned based on the workspace of the application key with which the virtual cluster is created. Cannot be changed after creation.
 
 <a id="nestedatt--cloud"></a>
 ### Nested Schema for `cloud`
