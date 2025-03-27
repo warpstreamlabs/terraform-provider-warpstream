@@ -4,11 +4,14 @@ page_title: "warpstream_workspace Resource - terraform-provider-warpstream"
 subcategory: ""
 description: |-
   This resource allows you to create and delete workspaces.
+  The WarpStream provider must be authenticated with an account key to consume this resource.
 ---
 
 # warpstream_workspace (Resource)
 
 This resource allows you to create and delete workspaces.
+
+The WarpStream provider must be authenticated with an account key to consume this resource.
 
 ## Example Usage
 

@@ -82,6 +82,8 @@ func (r *pipelineResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 		Description: `
 This resource allows you to create pipelines (Bento, Orbit, and Schema Linking).
 For more details, take a look at: https://docs.warpstream.com/warpstream/configuration/bento, https://docs.warpstream.com/warpstream/byoc/orbit and https://docs.warpstream.com/warpstream/byoc/schema-registry/warpstream-schema-linking.
+
+The WarpStream provider must be authenticated with an application key to consume this resource.
 `,
 		Attributes: map[string]schema.Attribute{
 			"virtual_cluster_id": schema.StringAttribute{

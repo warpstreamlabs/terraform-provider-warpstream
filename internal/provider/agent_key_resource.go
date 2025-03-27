@@ -61,6 +61,8 @@ func (r *agentKeyResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 	resp.Schema = schema.Schema{
 		Description: `
 This resource allows you to create, update and delete agent keys.
+
+The WarpStream provider must be authenticated with an application key to consume this resource.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

@@ -3,12 +3,17 @@
 page_title: "warpstream_application_keys Data Source - terraform-provider-warpstream"
 subcategory: ""
 description: |-
-  
+  This data source lists application keys.
+  If the WarpStream provider is authenticated with an application key, this data source lists application keys in that key's workspace only.
+  If the WarpStream provider is authenticated with an account key, it lists application keys in all workspaces.
 ---
 
 # warpstream_application_keys (Data Source)
 
+This data source lists application keys.
 
+If the WarpStream provider is authenticated with an application key, this data source lists application keys in that key's workspace only.
+If the WarpStream provider is authenticated with an account key, it lists application keys in all workspaces.
 
 ## Example Usage
 

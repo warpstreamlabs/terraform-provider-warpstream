@@ -4,11 +4,16 @@ page_title: "warpstream_application_key Resource - terraform-provider-warpstream
 subcategory: ""
 description: |-
   This resource allows you to create, update and delete application keys.
+  If the WarpStream provider is authenticated with an application key, this resource can access application keys in that key's workspace only.
+  If the WarpStream provider is authenticated with an account key, it can access application keys in any workspace.
 ---
 
 # warpstream_application_key (Resource)
 
 This resource allows you to create, update and delete application keys.
+
+If the WarpStream provider is authenticated with an application key, this resource can access application keys in that key's workspace only.
+If the WarpStream provider is authenticated with an account key, it can access application keys in any workspace.
 
 ## Example Usage
 

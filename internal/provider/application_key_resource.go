@@ -61,6 +61,9 @@ func (r *applicationKeyResource) Schema(_ context.Context, _ resource.SchemaRequ
 	resp.Schema = schema.Schema{
 		Description: `
 This resource allows you to create, update and delete application keys.
+
+If the WarpStream provider is authenticated with an application key, this resource can access application keys in that key's workspace only.
+If the WarpStream provider is authenticated with an account key, it can access application keys in any workspace.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

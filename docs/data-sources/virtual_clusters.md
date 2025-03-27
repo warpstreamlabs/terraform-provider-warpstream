@@ -3,12 +3,15 @@
 page_title: "warpstream_virtual_clusters Data Source - terraform-provider-warpstream"
 subcategory: ""
 description: |-
-  
+  This data source allows you to list virtual clusters and their respective agent keys.
+  The WarpStream provider must be authenticated with an application key to read this data source.
 ---
 
 # warpstream_virtual_clusters (Data Source)
 
+This data source allows you to list virtual clusters and their respective agent keys.
 
+The WarpStream provider must be authenticated with an application key to read this data source.
 
 ## Example Usage
 

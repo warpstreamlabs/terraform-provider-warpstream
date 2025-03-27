@@ -61,6 +61,8 @@ func (r *workspaceResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 	resp.Schema = schema.Schema{
 		Description: `
 This resource allows you to create and delete workspaces.
+
+The WarpStream provider must be authenticated with an account key to consume this resource.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

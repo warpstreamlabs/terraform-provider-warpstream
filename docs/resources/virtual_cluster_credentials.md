@@ -4,11 +4,14 @@ page_title: "warpstream_virtual_cluster_credentials Resource - terraform-provide
 subcategory: ""
 description: |-
   This resource allows you to create and delete virtual cluster credentials.
+  The WarpStream provider must be authenticated with an application key to consume this resource.
 ---
 
 # warpstream_virtual_cluster_credentials (Resource)
 
 This resource allows you to create and delete virtual cluster credentials.
+
+The WarpStream provider must be authenticated with an application key to consume this resource.
 
 ## Example Usage
 
