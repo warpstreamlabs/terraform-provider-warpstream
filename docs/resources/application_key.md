@@ -39,7 +39,7 @@ resource "warpstream_application_key" "example_application_key" {
 
 ### Optional
 
-- `workspace_id` (String) Workspace ID. ID of the workspace in which the application key is authorized to manage resources Must a be valid workspace ID starting with 'wi_'. If empty, defaults to the oldest workspace that the provided WarpStream API key is authorized to access. Cannot be changed after creation.
+- `workspace_id` (String) Workspace ID. ID of the workspace in which the application key is authorized to manage resources Must be a valid workspace ID starting with 'wi_'. If empty, defaults to the oldest workspace that the provided WarpStream API key is authorized to access. Cannot be changed after creation.
 
 ### Read-Only
 
