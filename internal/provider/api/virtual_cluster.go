@@ -80,6 +80,7 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 	} else {
 		trimmed = strings.TrimPrefix(name, "vcn_")
 	}
+
 	payload, err := json.Marshal(VirtualClusterCreateRequest{
 		Name:          trimmed,
 		Type:          opts.Type,

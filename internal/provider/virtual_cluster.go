@@ -34,6 +34,7 @@ type virtualClusterResourceModel struct {
 	Configuration types.Object `tfsdk:"configuration"`
 	Cloud         types.Object `tfsdk:"cloud"`
 	BootstrapURL  types.String `tfsdk:"bootstrap_url"`
+	WorkspaceID   types.String `tfsdk:"workspace_id"`
 }
 
 type virtualClusterConfigurationModel struct {

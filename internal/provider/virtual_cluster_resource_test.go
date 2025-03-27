@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -24,8 +23,7 @@ func TestAccVirtualClusterResourceDeletePlan(t *testing.T) {
 			},
 			{
 				PreConfig: func() {
-					token := os.Getenv("WARPSTREAM_API_KEY")
-					client, err := api.NewClient("", &token)
+					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
 					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_test_acc_%s", vcNameSuffix))
@@ -136,8 +134,6 @@ func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int6
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "id"),
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_id"),
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "created_at"),
-		// Note: agent_pool_name is now equal to "apn_test_acc_"+nameSuffix + randomSuffix
-		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_name"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "default", "false"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "type", vcType),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acls", fmt.Sprintf("%t", acls)),
@@ -146,12 +142,16 @@ func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int6
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", fmt.Sprintf("%d", 86400000)),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "cloud.provider", "aws"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "cloud.region", "us-east-1"),
+		// Note: agent_pool_name is now equal to "apn_test_acc_"+nameSuffix + randomSuffix
+		utils.TestCheckResourceAttrStartsWith("warpstream_virtual_cluster.test", "agent_pool_name", "apn_test_acc_"),
+		utils.TestCheckResourceAttrStartsWith("warpstream_virtual_cluster.test", "workspace_id", "wi_"),
 	}
+
 	if vcType == "byoc" {
 		checks = append(checks,
 			resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "agent_keys.#", "1"),
 			utils.TestCheckResourceAttrStartsWith("warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_test_acc_"),
-			utils.TestCheckResourceAttrEndsWith("warpstream_virtual_cluster.test", "bootstrap_url", ".kafka.discoveryv2.prod-z.us-east-1.warpstream.com:9092"),
+			utils.TestCheckResourceAttrMatchesRegex("warpstream_virtual_cluster.test", "bootstrap_url", `kafka\.discoveryv2\..+\.us-east-1\.warpstream\.com:9092`),
 		)
 	}
 	if tags {

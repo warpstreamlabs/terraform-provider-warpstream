@@ -34,6 +34,7 @@ type VirtualCluster struct {
 	CloudProvider string        `json:"cloud_provider"`
 	ClusterRegion ClusterRegion `json:"cluster_region"`
 	BootstrapURL  *string       `json:"bootstrap_url"`
+	WorkspaceID   string        `json:"workspace_id"`
 }
 
 type ClusterRegion struct {
