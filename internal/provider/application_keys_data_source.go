@@ -58,6 +58,12 @@ func (d *applicationKeysDataSource) Metadata(_ context.Context, req datasource.M
 // Schema defines the schema for the data source.
 func (d *applicationKeysDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: `
+This data source lists application keys.
+
+If the WarpStream provider is authenticated with an application key, this data source lists application keys in that key's workspace only.
+If the WarpStream provider is authenticated with an account key, it lists application keys in all workspaces.
+`,
 		Attributes: map[string]schema.Attribute{
 			"application_keys": schema.ListNestedAttribute{Computed: true, NestedObject: applicationKeyDataSourceSchema},
 		},

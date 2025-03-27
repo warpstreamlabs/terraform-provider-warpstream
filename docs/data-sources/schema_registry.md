@@ -3,12 +3,15 @@
 page_title: "warpstream_schema_registry Data Source - terraform-provider-warpstream"
 subcategory: ""
 description: |-
-  
+  This data source lists schema registries and their respective agent keys.
+  The WarpStream provider must be authenticated with an application key to read this data source.
 ---
 
 # warpstream_schema_registry (Data Source)
 
+This data source lists schema registries and their respective agent keys.
 
+The WarpStream provider must be authenticated with an application key to read this data source.
 
 ## Example Usage
 
@@ -40,7 +43,7 @@ output "vc_sr_by_name_id" {
 - `cloud` (Attributes) (see [below for nested schema](#nestedatt--cloud))
 - `created_at` (String)
 - `id` (String) The ID of this resource.
-- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key with which the virtual cluster is created. Cannot be changed after creation.
+- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key used to authenticate the WarpStream provider. Cannot be changed after creation.
 
 <a id="nestedatt--agent_keys"></a>
 ### Nested Schema for `agent_keys`

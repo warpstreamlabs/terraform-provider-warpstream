@@ -61,6 +61,11 @@ var agentKeyDataSourceSchema = schema.NestedAttributeObject{
 // Schema defines the schema for the data source.
 func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: `
+This data source allows you to look up a virtual cluster and its agent keys.
+
+The WarpStream provider must be authenticated with an application key to read this data source.
+`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,

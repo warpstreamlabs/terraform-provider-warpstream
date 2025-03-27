@@ -97,6 +97,8 @@ func (r *schemaRegistryResource) Schema(_ context.Context, _ resource.SchemaRequ
 	resp.Schema = schema.Schema{
 		Description: `
 This resource allows you to create, update and delete schema registries.
+
+The WarpStream provider must be authenticated with an application key to consume this resource.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

@@ -3,12 +3,15 @@
 page_title: "warpstream_agent_keys Data Source - terraform-provider-warpstream"
 subcategory: ""
 description: |-
-  
+  This data source lists agent keys.
+  The WarpStream provider must be authenticated with an application key to read this data source.
 ---
 
 # warpstream_agent_keys (Data Source)
 
+This data source lists agent keys.
 
+The WarpStream provider must be authenticated with an application key to read this data source.
 
 ## Example Usage
 

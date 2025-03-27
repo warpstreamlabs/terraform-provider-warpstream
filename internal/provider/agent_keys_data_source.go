@@ -38,6 +38,11 @@ func (d *agentKeysDataSource) Metadata(_ context.Context, req datasource.Metadat
 // Schema defines the schema for the data source.
 func (d *agentKeysDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: `
+This data source lists agent keys.
+
+The WarpStream provider must be authenticated with an application key to read this data source.
+`,
 		Attributes: map[string]schema.Attribute{
 			"agent_keys": schema.ListNestedAttribute{Computed: true, NestedObject: agentKeyDataSourceSchema},
 		},

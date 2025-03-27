@@ -4,11 +4,14 @@ page_title: "warpstream_agent_key Resource - terraform-provider-warpstream"
 subcategory: ""
 description: |-
   This resource allows you to create, update and delete agent keys.
+  The WarpStream provider must be authenticated with an application key to consume this resource.
 ---
 
 # warpstream_agent_key (Resource)
 
 This resource allows you to create, update and delete agent keys.
+
+The WarpStream provider must be authenticated with an application key to consume this resource.
 
 ## Example Usage
 

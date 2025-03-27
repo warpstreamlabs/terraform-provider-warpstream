@@ -4,11 +4,14 @@ page_title: "warpstream_virtual_cluster Resource - terraform-provider-warpstream
 subcategory: ""
 description: |-
   This resource allows you to create, update and delete virtual clusters.
+  The WarpStream provider must be authenticated with an application key to consume this resource.
 ---
 
 # warpstream_virtual_cluster (Resource)
 
 This resource allows you to create, update and delete virtual clusters.
+
+The WarpStream provider must be authenticated with an application key to consume this resource.
 
 ## Example Usage
 
@@ -66,7 +69,7 @@ resource "warpstream_virtual_cluster" "test_cloud_region" {
 - `created_at` (String) Virtual Cluster Creation Timestamp.
 - `default` (Boolean)
 - `id` (String) Virtual Cluster ID.
-- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key with which the virtual cluster is created. Cannot be changed after creation.
+- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key used to authenticate the WarpStream provider. Cannot be changed after creation.
 
 <a id="nestedatt--cloud"></a>
 ### Nested Schema for `cloud`

@@ -3,12 +3,15 @@
 page_title: "warpstream_topic Resource - terraform-provider-warpstream"
 subcategory: ""
 description: |-
-  This resource allows you to create, update and delete agent keys.
+  This resource allows you to create, update and delete a topic.
+  The WarpStream provider must be authenticated with an application key to consume this resource.
 ---
 
 # warpstream_topic (Resource)
 
-This resource allows you to create, update and delete agent keys.
+This resource allows you to create, update and delete a topic.
+
+The WarpStream provider must be authenticated with an application key to consume this resource.
 
 
 

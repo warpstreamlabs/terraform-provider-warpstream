@@ -59,7 +59,9 @@ func (r *topicResource) Metadata(_ context.Context, req resource.MetadataRequest
 func (r *topicResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: `
-This resource allows you to create, update and delete agent keys.
+This resource allows you to create, update and delete a topic.
+
+The WarpStream provider must be authenticated with an application key to consume this resource.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

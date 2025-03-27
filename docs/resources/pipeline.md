@@ -5,12 +5,15 @@ subcategory: ""
 description: |-
   This resource allows you to create pipelines (Bento, Orbit, and Schema Linking).
   For more details, take a look at: https://docs.warpstream.com/warpstream/configuration/bento, https://docs.warpstream.com/warpstream/byoc/orbit and https://docs.warpstream.com/warpstream/byoc/schema-registry/warpstream-schema-linking.
+  The WarpStream provider must be authenticated with an application key to consume this resource.
 ---
 
 # warpstream_pipeline (Resource)
 
 This resource allows you to create pipelines (Bento, Orbit, and Schema Linking).
 For more details, take a look at: https://docs.warpstream.com/warpstream/configuration/bento, https://docs.warpstream.com/warpstream/byoc/orbit and https://docs.warpstream.com/warpstream/byoc/schema-registry/warpstream-schema-linking.
+
+The WarpStream provider must be authenticated with an application key to consume this resource.
 
 ## Example Usage
 

@@ -3,12 +3,15 @@
 page_title: "warpstream_virtual_cluster Data Source - terraform-provider-warpstream"
 subcategory: ""
 description: |-
-  
+  This data source allows you to look up a virtual cluster and its agent keys.
+  The WarpStream provider must be authenticated with an application key to read this data source.
 ---
 
 # warpstream_virtual_cluster (Data Source)
 
+This data source allows you to look up a virtual cluster and its agent keys.
 
+The WarpStream provider must be authenticated with an application key to read this data source.
 
 ## Example Usage
 
@@ -50,7 +53,7 @@ output "vc_default_id" {
 - `id` (String) The ID of this resource.
 - `tags` (Map of String) Tags associated with the virtual cluster.
 - `type` (String)
-- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key with which the virtual cluster is created. Cannot be changed after creation.
+- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key used to authenticate the WarpStream provider. Cannot be changed after creation.
 
 <a id="nestedatt--agent_keys"></a>
 ### Nested Schema for `agent_keys`
