@@ -22,6 +22,12 @@ func TestAccAccountKeyWorkspaceDataSource(t *testing.T) {
 	_, err = client.CreateApplicationKey(otherAppKeyName, workspaceID)
 	require.NoError(t, err)
 
+	defer func() {
+		// Workspace deletion also revokes associated application keys.
+		err = client.DeleteWorkspace(workspaceID)
+		require.NoError(t, err)
+	}()
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -45,7 +51,7 @@ func testAccWorkspaceDataSourceCheck(workspaceID, workspaceName, appKey1Name, ap
 		resource.TestCheckResourceAttr("data.warpstream_workspace.test", "id", workspaceID),
 		resource.TestCheckResourceAttr("data.warpstream_workspace.test", "name", workspaceName),
 		resource.TestCheckResourceAttrSet("data.warpstream_workspace.test", "application_keys.#"),
-		resource.TestCheckResourceAttr("data.warpstream_workspace.test", "application_keys.0.name", appKey2Name),
-		resource.TestCheckResourceAttr("data.warpstream_workspace.test", "application_keys.1.name", appKey1Name),
+		resource.TestCheckResourceAttr("data.warpstream_workspace.test", "application_keys.0.name", appKey1Name),
+		resource.TestCheckResourceAttr("data.warpstream_workspace.test", "application_keys.1.name", appKey2Name),
 	)
 }
