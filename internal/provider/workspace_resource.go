@@ -103,7 +103,7 @@ func (r *workspaceResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	// Create new workspace
-	newWorkspace, err := r.client.CreateWorkspace(plan.Name.ValueString())
+	newWorkspaceID, err := r.client.CreateWorkspace(plan.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Workspace",
@@ -113,11 +113,11 @@ func (r *workspaceResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	// Describe created workspace
-	workspace, err := r.client.GetWorkspace(newWorkspace.ID)
+	workspace, err := r.client.GetWorkspace(newWorkspaceID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Workspace",
-			"Could not read WarpStream Workspace ID "+newWorkspace.ID+": "+err.Error(),
+			"Could not read WarpStream Workspace ID "+newWorkspaceID+": "+err.Error(),
 		)
 		return
 	}

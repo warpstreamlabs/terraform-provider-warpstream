@@ -7,3 +7,8 @@ type workspaceModel struct {
 	Name      types.String `tfsdk:"name"`
 	CreatedAt types.String `tfsdk:"created_at"`
 }
+
+type workspaceDataSourceModel struct {
+	workspaceModel
+	ApplicationKeys []applicationKeyModel `tfsdk:"application_keys"`
+}

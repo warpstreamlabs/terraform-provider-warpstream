@@ -84,7 +84,3 @@ type Workspace struct {
 	Name      string `json:"name"`
 	CreatedAt string `json:"created_at"`
 }
-
-type NewWorkspace struct {
-	ID string `json:"workspace_id"`
-}
