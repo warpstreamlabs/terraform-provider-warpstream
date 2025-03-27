@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
 
@@ -60,13 +61,23 @@ func (d *workspaceDataSource) Read(ctx context.Context, req datasource.ReadReque
 		return
 	}
 
+	workspaceID := data.ID.ValueString()
+	workspace, err := d.client.GetWorkspace(workspaceID)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Read WarpStream Workspace", err.Error())
+		return
+	}
+
+	data.Name = types.StringValue(workspace.Name)
+	data.CreatedAt = types.StringValue(workspace.CreatedAt)
+
 	apiKeys, err := d.client.GetAPIKeys()
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read WarpStream Application Keys", err.Error())
 		return
 	}
 
-	applicationKeys := filterForWorkspace(filterApplicationKeys(apiKeys), data.ID.ValueString())
+	applicationKeys := filterForWorkspace(filterApplicationKeys(apiKeys), workspaceID)
 
 	mapped := mapToApplicationKeyModels(&applicationKeys)
 	data.ApplicationKeys = *mapped
