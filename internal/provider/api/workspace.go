@@ -21,29 +21,31 @@ type WorkspaceDeleteRequest struct {
 }
 
 // CreateWorkspace - Create new Workspace.
-func (c *Client) CreateWorkspace(name string) (*NewWorkspace, error) {
+func (c *Client) CreateWorkspace(name string) (string, error) {
 	payload, err := json.Marshal(WorkspaceCreateRequest{Name: name})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/create_workspace", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	body, err := c.doRequest(req, nil)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	res := NewWorkspace{}
+	var res struct {
+		ID string `json:"workspace_id"`
+	}
 	err = json.Unmarshal(body, &res)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return &res, nil
+	return res.ID, nil
 }
 
 // DeleteWorkspace - Delete a Workspace.
