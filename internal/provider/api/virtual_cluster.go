@@ -26,6 +26,7 @@ type VirtualClusterCreateResponse struct {
 	Name             string  `json:"virtual_cluster_name"`
 	BootstrapURL     *string `json:"bootstrap_url"`
 	AgentKey         APIKey  `json:"agent_key"`
+	WorkspaceID      string  `json:"workspace_id"`
 }
 
 type VirtualClusterDescribeRequest struct {
@@ -115,6 +116,7 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 		Name:          res.Name,
 		BootstrapURL:  res.BootstrapURL,
 		AgentKeys:     &[]APIKey{res.AgentKey},
+		WorkspaceID:   res.WorkspaceID,
 	}
 	return &vc, nil
 }

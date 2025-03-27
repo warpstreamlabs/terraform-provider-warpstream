@@ -141,6 +141,7 @@ func (d *virtualClusterDataSource) Schema(_ context.Context, _ datasource.Schema
 				Description: "Bootstrap URL to connect to the Virtual Cluster.",
 				Computed:    true,
 			},
+			"workspace_id": virtualClusterWorkspaceIDSchema,
 		},
 	}
 }
@@ -201,6 +202,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		Configuration: data.Configuration,
 		Cloud:         data.Cloud,
 		Tags:          data.Tags,
+		WorkspaceID:   types.StringValue(vc.WorkspaceID),
 	}
 
 	if vc.BootstrapURL != nil {
