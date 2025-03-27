@@ -70,6 +70,7 @@ func (d *schemaRegistryDataSource) Schema(_ context.Context, _ datasource.Schema
 				Description: "Bootstrap URL to connect to the Schema Registry.",
 				Computed:    true,
 			},
+			"workspace_id": virtualClusterWorkspaceIDSchema,
 		},
 	}
 }
@@ -116,11 +117,12 @@ func (d *schemaRegistryDataSource) Read(ctx context.Context, req datasource.Read
 	}
 
 	state := schemaRegistryDataSourceModel{
-		ID:        types.StringValue(vc.ID),
-		Name:      types.StringValue(vc.Name),
-		AgentKeys: agentKeys,
-		CreatedAt: types.StringValue(vc.CreatedAt),
-		Cloud:     data.Cloud,
+		ID:          types.StringValue(vc.ID),
+		Name:        types.StringValue(vc.Name),
+		AgentKeys:   agentKeys,
+		CreatedAt:   types.StringValue(vc.CreatedAt),
+		Cloud:       data.Cloud,
+		WorkspaceID: types.StringValue(vc.WorkspaceID),
 	}
 
 	if vc.BootstrapURL != nil {

@@ -12,6 +12,7 @@ type schemaRegistryDataSourceModel struct {
 	CreatedAt    types.String     `tfsdk:"created_at"`
 	Cloud        types.Object     `tfsdk:"cloud"`
 	BootstrapURL types.String     `tfsdk:"bootstrap_url"`
+	WorkspaceID  types.String     `tfsdk:"workspace_id"`
 }
 
 type schemaRegistryResourceModel struct {

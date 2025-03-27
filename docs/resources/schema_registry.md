@@ -47,7 +47,7 @@ resource "warpstream_schema_registry" "example_schema_registry" {
 - `bootstrap_url` (String) Bootstrap URL to connect to the Schema Registry.
 - `created_at` (String) Virtual Cluster Creation Timestamp.
 - `id` (String) Schema Registry ID.
-- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongsAssigned based on the workspace of the application key with which the virtual cluster is created.Cannot be changed after creation.
+- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key with which the virtual cluster is created. Cannot be changed after creation.
 
 <a id="nestedatt--cloud"></a>
 ### Nested Schema for `cloud`

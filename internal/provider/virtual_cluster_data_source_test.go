@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/types"
-	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 func TestAccVirtualClusterDataSource(t *testing.T) {
@@ -41,6 +40,10 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVirtualClusterDataSourceWithID(vc.ID),
+				Check:  testAccVCDataSourceCheck_byoc(vc),
+			},
+			{
+				Config: testAccVirtualClusterDataSourceWithName(vc.Name),
 				Check:  testAccVCDataSourceCheck_byoc(vc),
 			},
 		},
@@ -89,11 +92,12 @@ func testAccVCDataSourceCheck_byoc(vc *api.VirtualCluster) resource.TestCheckFun
 
 func testAccVCDataSourceCheck(vc *api.VirtualCluster) resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
-		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "id"),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "id", vc.ID),
 		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "agent_pool_id"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "tags.test_tag", "test_value"),
-		utils.TestCheckResourceAttrStartsWith("data.warpstream_virtual_cluster.test", "agent_pool_name", vc.AgentPoolName),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "agent_pool_name", vc.AgentPoolName),
 		resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "created_at"),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "workspace_id", vc.WorkspaceID),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.provider", "aws"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "cloud.region", "us-east-1"),
 	)
