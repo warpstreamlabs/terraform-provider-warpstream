@@ -40,7 +40,7 @@ output "vc_sr_by_name_id" {
 - `cloud` (Attributes) (see [below for nested schema](#nestedatt--cloud))
 - `created_at` (String)
 - `id` (String) The ID of this resource.
-- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongsAssigned based on the workspace of the application key with which the virtual cluster is created. Cannot be changed after creation.
+- `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key with which the virtual cluster is created. Cannot be changed after creation.
 
 <a id="nestedatt--agent_keys"></a>
 ### Nested Schema for `agent_keys`
