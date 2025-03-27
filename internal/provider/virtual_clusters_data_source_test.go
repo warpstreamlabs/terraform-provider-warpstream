@@ -145,6 +145,14 @@ func assertBYOCVC(vcs []map[string]string, expectedVc *api.VirtualCluster) error
 		)
 	}
 
+	workspaceID, ok := vc["workspace_id"]
+	if !ok {
+		return fmt.Errorf("Expected byoc virtual cluster JSON to have a workspace ID field")
+	}
+	if workspaceID != expectedVc.WorkspaceID {
+		return fmt.Errorf("Expected byoc cluster workspace ID to be %s, got %s", expectedVc.WorkspaceID, workspaceID)
+	}
+
 	return nil
 }
 
