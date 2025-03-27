@@ -138,6 +138,16 @@ var (
 				virtualClusterCloudModel{}.DefaultObject(),
 			)),
 	}
+	virtualClusterWorkspaceIDSchema = schema.StringAttribute{
+		Description: "Workspace ID. " +
+			"ID of the workspace to which the virtual cluster belongs" +
+			"Assigned based on the workspace of the application key with which the virtual cluster is created." +
+			"Cannot be changed after creation.",
+		Computed: true,
+		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.UseStateForUnknown(),
+		},
+	}
 )
 
 // Schema defines the schema for the resource.
@@ -268,16 +278,7 @@ This resource allows you to create, update and delete virtual clusters.
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"workspace_id": schema.StringAttribute{
-				Description: "Workspace ID. " +
-					"ID of the workspace to which the virtual cluster belongs" +
-					"Assigned based on the workspace of the application key with which the virtual cluster is created." +
-					"Cannot be changed after creation.",
-				Computed: true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
+			"workspace_id": virtualClusterWorkspaceIDSchema,
 		},
 	}
 }
