@@ -138,6 +138,16 @@ var (
 				virtualClusterCloudModel{}.DefaultObject(),
 			)),
 	}
+	virtualClusterWorkspaceIDSchema = schema.StringAttribute{
+		Description: "Workspace ID. " +
+			"ID of the workspace to which the virtual cluster belongs" +
+			"Assigned based on the workspace of the application key with which the virtual cluster is created." +
+			"Cannot be changed after creation.",
+		Computed: true,
+		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.UseStateForUnknown(),
+		},
+	}
 )
 
 // Schema defines the schema for the resource.
@@ -268,6 +278,7 @@ This resource allows you to create, update and delete virtual clusters.
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"workspace_id": virtualClusterWorkspaceIDSchema,
 		},
 	}
 }
@@ -311,6 +322,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 			Tags:        tagsMap,
 		},
 	)
+
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Virtual Cluster",
@@ -345,6 +357,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		AgentPoolName: types.StringValue(cluster.AgentPoolName),
 		CreatedAt:     types.StringValue(cluster.CreatedAt),
 		Default:       types.BoolValue(cluster.Name == "vcn_default"),
+		WorkspaceID:   types.StringValue(cluster.WorkspaceID),
 		Configuration: plan.Configuration,
 		Cloud:         cloudValue,
 		Tags:          plan.Tags,
@@ -454,6 +467,7 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 	state.AgentPoolName = types.StringValue(cluster.AgentPoolName)
 	state.CreatedAt = types.StringValue(cluster.CreatedAt)
 	state.Default = types.BoolValue(cluster.Name == "vcn_default")
+	state.WorkspaceID = types.StringValue(cluster.WorkspaceID)
 
 	if cluster.BootstrapURL != nil {
 		state.BootstrapURL = types.StringValue(*cluster.BootstrapURL)

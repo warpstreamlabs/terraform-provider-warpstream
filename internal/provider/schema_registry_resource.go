@@ -112,7 +112,7 @@ This resource allows you to create, update and delete schema registries.
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-				Validators: []validator.String{utils.ValidClusterName()},
+				Validators: []validator.String{utils.ValidSchemaRegistryName()},
 			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster.",
@@ -137,6 +137,7 @@ This resource allows you to create, update and delete schema registries.
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"workspace_id": virtualClusterWorkspaceIDSchema,
 		},
 	}
 }
@@ -182,11 +183,12 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 	}
 
 	state := schemaRegistryResourceModel{
-		ID:        types.StringValue(cluster.ID),
-		Name:      types.StringValue(cluster.Name),
-		AgentKeys: plan.AgentKeys,
-		CreatedAt: types.StringValue(cluster.CreatedAt),
-		Cloud:     plan.Cloud,
+		ID:          types.StringValue(cluster.ID),
+		Name:        types.StringValue(cluster.Name),
+		AgentKeys:   plan.AgentKeys,
+		CreatedAt:   types.StringValue(cluster.CreatedAt),
+		Cloud:       plan.Cloud,
+		WorkspaceID: types.StringValue(cluster.WorkspaceID),
 	}
 
 	if cluster.BootstrapURL != nil {
@@ -259,6 +261,7 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 
 	state.ID = types.StringValue(cluster.ID)
 	state.Name = types.StringValue(cluster.Name)
+	state.WorkspaceID = types.StringValue(cluster.WorkspaceID)
 	state.CreatedAt = types.StringValue(cluster.CreatedAt)
 	if cluster.BootstrapURL != nil {
 		state.BootstrapURL = types.StringValue(*cluster.BootstrapURL)

@@ -24,6 +24,13 @@ func ValidClusterName() validator.String {
 	)
 }
 
+func ValidSchemaRegistryName() validator.String {
+	return stringvalidator.All(
+		StartsWithAndAlphanumeric("vcn_sr_"),
+		stringvalidator.LengthBetween(3, 128),
+	)
+}
+
 func ValidWorkspaceName() validator.String {
 	return stringvalidator.All(
 		stringvalidator.LengthBetween(3, 128),

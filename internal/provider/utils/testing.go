@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -27,6 +28,20 @@ func TestCheckResourceAttrEndsWith(pathToAttr, attr, suffix string) resource.Tes
 		func(value string) error {
 			if !strings.HasSuffix(value, suffix) {
 				return fmt.Errorf("expected %s to end with '%s', got: %s", attr, suffix, value)
+			}
+			return nil
+		},
+	)
+}
+
+func TestCheckResourceAttrMatchesRegex(pathToAttr, attr string, regex string) resource.TestCheckFunc {
+	compiled := regexp.MustCompile(regex)
+	return resource.TestCheckResourceAttrWith(
+		pathToAttr,
+		attr,
+		func(value string) error {
+			if !compiled.MatchString(value) {
+				return fmt.Errorf("expected %s to match regex '%s', got: %s", attr, regex, value)
 			}
 			return nil
 		},
