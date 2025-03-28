@@ -52,6 +52,7 @@ output "vc_default_id" {
 - `created_at` (String)
 - `id` (String) The ID of this resource.
 - `tags` (Map of String) Tags associated with the virtual cluster.
+- `tier` (String)
 - `type` (String)
 - `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key used to authenticate the WarpStream provider. Cannot be changed after creation.
 

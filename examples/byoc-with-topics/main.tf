@@ -15,6 +15,7 @@ provider "warpstream" {
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test"
   type = "byoc"
+  tier = "dev"
   configuration = {
     auto_create_topic        = false
     default_num_partitions   = 1
