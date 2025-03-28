@@ -26,6 +26,7 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 		vcNameSuffix,
 		api.ClusterParameters{
 			Type:   types.VirtualClusterTypeBYOC,
+			Tier:   types.VirtualClusterTierPro,
 			Region: &region,
 			Cloud:  "aws",
 		},

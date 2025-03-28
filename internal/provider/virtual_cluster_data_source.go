@@ -86,6 +86,9 @@ The WarpStream provider must be authenticated with an application key to read th
 			"type": schema.StringAttribute{
 				Computed: true,
 			},
+			"tier": schema.StringAttribute{
+				Computed: true,
+			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster.",
 				Computed:     true,
@@ -200,6 +203,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		ID:            types.StringValue(vc.ID),
 		Name:          types.StringValue(vc.Name),
 		Type:          types.StringValue(vc.Type),
+		Tier:          types.StringValue(vc.Tier),
 		AgentKeys:     agentKeys,
 		AgentPoolID:   types.StringValue(vc.AgentPoolID),
 		AgentPoolName: types.StringValue(vc.AgentPoolName),

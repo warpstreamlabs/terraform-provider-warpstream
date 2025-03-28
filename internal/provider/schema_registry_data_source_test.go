@@ -22,6 +22,7 @@ func TestAccSchemaRegistryDataSource(t *testing.T) {
 		vcNameSuffix,
 		api.ClusterParameters{
 			Type:   types.VirtualClusterTypeSchemaRegistry,
+			Tier:   types.VirtualClusterTierPro,
 			Region: &region,
 			Cloud:  "aws",
 		},
@@ -98,6 +99,7 @@ func TestAccSchemaRegistryDatasource_BYOCNotWork(t *testing.T) {
 		vcNameSuffix,
 		api.ClusterParameters{
 			Type:   types.VirtualClusterTypeBYOC,
+			Tier:   types.VirtualClusterTierPro,
 			Region: &region,
 			Cloud:  "aws",
 		},
