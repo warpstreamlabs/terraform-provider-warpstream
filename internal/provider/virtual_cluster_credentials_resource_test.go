@@ -134,6 +134,7 @@ func testAccVirtualClusterCredentialsResource_withSuperuser(su bool) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
 	name = "vcn_%s"
+    tier = "dev"
 }
 
 resource "warpstream_virtual_cluster_credentials" "test" {
@@ -149,6 +150,7 @@ func testAccVirtualClusterCredentialsResource_vcField(vcFieldName string) string
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
 	name = "vcn_%s"
+    tier = "dev"
 }
 
 resource "warpstream_virtual_cluster_credentials" "test" {
@@ -164,6 +166,7 @@ func testAccVirtualClusterCredentialsResource_vcFieldMissing() string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
 	name = "vcn_%s"
+    tier = "dev"
 }
 
 resource "warpstream_virtual_cluster_credentials" "test" {

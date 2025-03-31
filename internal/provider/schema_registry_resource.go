@@ -164,6 +164,7 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 		plan.Name.ValueString(),
 		api.ClusterParameters{
 			Type:   warpstreamtypes.VirtualClusterTypeSchemaRegistry,
+			Tier:   warpstreamtypes.VirtualClusterTierPro,
 			Region: cloudPlan.Region.ValueStringPointer(),
 			Cloud:  cloudPlan.Provider.ValueString(),
 		})

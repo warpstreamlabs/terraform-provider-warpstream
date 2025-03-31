@@ -114,6 +114,7 @@ func TestAccTopicResource(t *testing.T) {
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
 	name = "vcn_%s"
+    tier = "dev"
 }
 
 resource "warpstream_topic" "topic" {
@@ -146,6 +147,7 @@ func testAccTopicAndClusterResource(clusterName string) string {
 	return providerConfig + fmt.Sprintf(`
 	resource "warpstream_virtual_cluster" "default" {
 		name = "vcn_%s"
+        tier = "dev"
 	}
 	resource "warpstream_topic" "topic" {
 	  topic_name         = "test"

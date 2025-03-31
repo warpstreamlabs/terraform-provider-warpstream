@@ -36,6 +36,7 @@ type VirtualClusterDescribeRequest struct {
 type VirtualClusterCreateRequest struct {
 	Name          string            `json:"virtual_cluster_name"`
 	Type          string            `json:"virtual_cluster_type,omitempty"`
+	Tier          string            `json:"virtual_cluster_tier,omitempty"`
 	Region        *string           `json:"virtual_cluster_region,omitempty"`
 	RegionGroup   *string           `json:"virtual_cluster_region_group,omitempty"`
 	CloudProvider string            `json:"virtual_cluster_cloud_provider,omitempty"`
@@ -84,6 +85,7 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 	payload, err := json.Marshal(VirtualClusterCreateRequest{
 		Name:          trimmed,
 		Type:          opts.Type,
+		Tier:          opts.Tier,
 		Region:        opts.Region,
 		RegionGroup:   opts.RegionGroup,
 		CloudProvider: opts.Cloud,

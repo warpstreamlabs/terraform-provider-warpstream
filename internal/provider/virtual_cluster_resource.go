@@ -186,6 +186,21 @@ The WarpStream provider must be authenticated with an application key to consume
 					stringvalidator.OneOf(warpstreamtypes.VirtualClusterTypeBYOC),
 				},
 			},
+			"tier": schema.StringAttribute{
+				Description: "Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, 'pro', 'fundamentals'.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						warpstreamtypes.VirtualClusterTierDev,
+						warpstreamtypes.VirtualClusterTierLegacy,
+						warpstreamtypes.VirtualClusterTierFundamentals,
+						warpstreamtypes.VirtualClusterTierPro,
+					),
+				},
+			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster.",
 				Computed:     true,
@@ -318,6 +333,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		plan.Name.ValueString(),
 		api.ClusterParameters{
 			Type:        plan.Type.ValueString(),
+			Tier:        plan.Tier.ValueString(),
 			RegionGroup: cloudPlan.RegionGroup.ValueStringPointer(),
 			Region:      cloudPlan.Region.ValueStringPointer(),
 			Cloud:       cloudPlan.Provider.ValueString(),
@@ -603,6 +619,10 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	// Set configuration state
 	diags := state.SetAttribute(ctx, path.Root("configuration"), cfgState)
 	respDiags.Append(diags...)
+
+	// Set tier
+	diags = state.SetAttribute(ctx, path.Root("tier"), types.StringValue(cfg.Tier))
+	respDiags.Append(diags...)
 }
 
 func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan virtualClusterResourceModel, state *tfsdk.State, respDiags *diag.Diagnostics) {
@@ -631,6 +651,7 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan vi
 		DefaultRetentionMillis:   cfgPlan.DefaultRetention.ValueInt64(),
 		EnableDeletionProtection: cfgPlan.EnableDeletionProtection.ValueBool(),
 	}
+	cfg.Tier = plan.Tier.ValueString()
 	err := r.client.UpdateConfiguration(*cfg, cluster)
 	if err != nil {
 		respDiags.AddError(

@@ -82,6 +82,7 @@ func testAccVirtualClusterResource_removeDeletionProtection(vcNameSuffix string)
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test_acc_%s"
+  tier = "fundamentals"
   configuration = {
     enable_deletion_protection = false
   }
@@ -92,6 +93,7 @@ func testAccVirtualClusterResource(vcNameSuffix string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test_acc_%s"
+  tier = "fundamentals"
 }`, vcNameSuffix)
 }
 
@@ -102,6 +104,7 @@ func testAccVirtualClusterResource_withPartialConfiguration(
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test_acc_%s"
+  tier = "fundamentals"
   configuration = {
     enable_acls = %t
   }
@@ -117,6 +120,7 @@ func testAccVirtualClusterResource_withConfiguration(
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test_acc_%s"
+  tier = "fundamentals"
   configuration = {
     enable_acls = %t
     default_num_partitions = %d
