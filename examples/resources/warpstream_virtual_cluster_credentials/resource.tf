@@ -1,5 +1,6 @@
 resource "warpstream_virtual_cluster" "xxx" {
   name = "vcn_xxx"
+  tier = "dev"
 }
 
 resource "warpstream_virtual_cluster_credentials" "test" {
