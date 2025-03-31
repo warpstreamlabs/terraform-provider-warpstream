@@ -5,4 +5,7 @@
 *.tfstate
 *.tfstate.*
 
+# idea project files
+.idea/
+
 **/.terraform.lock.hcl
