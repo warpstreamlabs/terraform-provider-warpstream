@@ -350,11 +350,12 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// Describe created virtual cluster
-	cluster, err = r.client.GetVirtualCluster(cluster.ID)
+	clusterID := cluster.ID
+	cluster, err = r.client.GetVirtualCluster(clusterID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Virtual Cluster",
-			"Could not read WarpStream Virtual Cluster ID "+cluster.ID+": "+err.Error(),
+			"Could not read WarpStream Virtual Cluster ID "+clusterID+": "+err.Error(),
 		)
 		return
 	}
