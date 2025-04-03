@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -18,6 +20,10 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/models"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
+)
+
+const (
+	EnableDeletionProtectionConfigKey = "warpstream.deletion.protection.enabled"
 )
 
 var (
@@ -105,6 +111,12 @@ The WarpStream provider must be authenticated with an application key to consume
 					),
 				},
 			},
+			"enable_deletion_protection": schema.BoolAttribute{
+				Description: "If enabled, WarpStream will refuse to delete this topic.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+			},
 		},
 		Blocks: map[string]schema.Block{
 			"config": schema.ListNestedBlock{
@@ -135,15 +147,12 @@ func (r *topicResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	generatedId := fmt.Sprintf("%s/%s", plan.VirtualClusterID.ValueString(), plan.TopicName.ValueString())
 
-	var configs map[string]*string
-
-	if len(plan.Config) > 0 {
-		configs = make(map[string]*string, len(plan.Config))
-	}
+	var configs = make(map[string]*string, len(plan.Config)+1)
 
 	for _, config := range plan.Config {
 		configs[config.Name.ValueString()] = config.Value.ValueStringPointer()
 	}
+	r.addDeletionProtectionInConfigMap(plan, configs)
 
 	err := r.client.CreateTopic(plan.VirtualClusterID.ValueString(), plan.TopicName.ValueString(), int(plan.PartitionCount.ValueInt64()), configs)
 	if err != nil {
@@ -163,12 +172,14 @@ func (r *topicResource) Create(ctx context.Context, req resource.CreateRequest, 
 		)
 		return
 	}
+	deletionProtectionEnabled := r.parseTopicDeletionEnableFromConfigs(topic.Configs)
 
 	state := models.Topic{
-		ID:               types.StringValue(generatedId),
-		VirtualClusterID: plan.VirtualClusterID,
-		TopicName:        plan.TopicName,
-		PartitionCount:   types.Int64Value(int64(topic.PartitionCount)),
+		ID:                        types.StringValue(generatedId),
+		VirtualClusterID:          plan.VirtualClusterID,
+		TopicName:                 plan.TopicName,
+		DeletionProtectionEnabled: types.BoolValue(deletionProtectionEnabled),
+		PartitionCount:            types.Int64Value(int64(topic.PartitionCount)),
 	}
 
 	for configName, configValue := range topic.Configs {
@@ -186,6 +197,29 @@ func (r *topicResource) Create(ctx context.Context, req resource.CreateRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+}
+
+func (r *topicResource) parseTopicDeletionEnableFromConfigs(configs map[string]*string) bool {
+	var (
+		deletionProtectionEnabled = false
+		err                       error
+	)
+	if configs[EnableDeletionProtectionConfigKey] != nil {
+		deletionProtectionEnabled, err = strconv.ParseBool(*configs[EnableDeletionProtectionConfigKey])
+		if err == nil && deletionProtectionEnabled {
+			deletionProtectionEnabled = true
+		}
+		delete(configs, EnableDeletionProtectionConfigKey)
+	}
+	return deletionProtectionEnabled
+}
+
+func (r *topicResource) addDeletionProtectionInConfigMap(plan models.Topic, configs map[string]*string) {
+	var enableDeletionProtectionS = "false"
+	if plan.DeletionProtectionEnabled.ValueBool() {
+		enableDeletionProtectionS = "true"
+	}
+	configs[EnableDeletionProtectionConfigKey] = &enableDeletionProtectionS
 }
 
 func (r *topicResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -216,6 +250,7 @@ func (r *topicResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		TopicName:        state.TopicName,
 		PartitionCount:   types.Int64Value(int64(topic.PartitionCount)),
 	}
+	state.DeletionProtectionEnabled = types.BoolValue(r.parseTopicDeletionEnableFromConfigs(topic.Configs))
 
 	for configName, configValue := range topic.Configs {
 		name := types.StringValue(configName)
@@ -256,11 +291,8 @@ func (r *topicResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		newPartitionCount = &pCount
 	}
 
-	var configs map[string]*string
-
-	if len(plan.Config) > 0 {
-		configs = make(map[string]*string, len(plan.Config))
-	}
+	var configs = make(map[string]*string, len(plan.Config)+1)
+	r.addDeletionProtectionInConfigMap(plan, configs)
 
 	for _, config := range plan.Config {
 		configs[config.Name.ValueString()] = config.Value.ValueStringPointer()
@@ -292,7 +324,7 @@ func (r *topicResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		TopicName:        plan.TopicName,
 		PartitionCount:   types.Int64Value(int64(topic.PartitionCount)),
 	}
-
+	state.DeletionProtectionEnabled = types.BoolValue(r.parseTopicDeletionEnableFromConfigs(topic.Configs))
 	for configName, configValue := range topic.Configs {
 		name := types.StringValue(configName)
 		value := types.StringPointerValue(configValue)

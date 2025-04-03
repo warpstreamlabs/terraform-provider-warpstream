@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -96,11 +97,12 @@ func TestAccTopicResourceDeletePlan(t *testing.T) {
 }
 
 func TestAccTopicResource(t *testing.T) {
+	var cluster = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccTopicAndClusterResource(acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)),
+				Config: testAccTopicAndClusterResource(cluster),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -121,15 +123,17 @@ resource "warpstream_topic" "topic" {
   topic_name         = "test"
   partition_count    = 1
   virtual_cluster_id = warpstream_virtual_cluster.default.id
+  enable_deletion_protection = true
 
   config {
     name = "retention.ms"
 	value = "604800000"
   }
 }
-				`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)),
+				`, cluster),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
+					resource.TestCheckNoResourceAttr("warpstream_topic.topic", "config.1.name"),
 				),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("topic_name"), knownvalue.StringExact("test")),
@@ -137,7 +141,57 @@ resource "warpstream_topic" "topic" {
 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config"), knownvalue.ListSizeExact(1)),
 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("name"), knownvalue.StringExact("retention.ms")),
 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("604800000")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("enable_deletion_protection"), knownvalue.Bool(true)),
 				},
+			},
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+	tier = "dev"
+}
+				`, cluster),
+				ExpectError: regexp.MustCompile("deletion protection enabled"),
+			},
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+	tier = "dev"
+}
+
+resource "warpstream_topic" "topic" {
+  topic_name         = "test"
+  partition_count    = 1
+  virtual_cluster_id = warpstream_virtual_cluster.default.id
+  enable_deletion_protection = false
+
+  config {
+    name = "retention.ms"
+	value = "604800000"
+  }
+}
+				`, cluster),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
+					resource.TestCheckNoResourceAttr("warpstream_topic.topic", "config.1.name"),
+				),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("topic_name"), knownvalue.StringExact("test")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("partition_count"), knownvalue.Int64Exact(1)),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config"), knownvalue.ListSizeExact(1)),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("name"), knownvalue.StringExact("retention.ms")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("604800000")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("enable_deletion_protection"), knownvalue.Bool(false)),
+				},
+			},
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+	tier = "dev"
+}
+				`, cluster),
 			},
 		},
 	})
