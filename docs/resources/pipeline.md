@@ -32,6 +32,7 @@ provider "warpstream" {
 
 resource "warpstream_virtual_cluster" "tf_example_pipelines" {
   name = "vcn_tf_example_pipelines"
+  tier = "dev"
 }
 
 resource "warpstream_pipeline" "example_bento_pipeline" {

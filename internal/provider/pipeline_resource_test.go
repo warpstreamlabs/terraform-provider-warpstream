@@ -120,6 +120,7 @@ func testBentoPipeline(vcNameSuffix string) string {
 	virtualClusterResource := fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
 	name = "vcn_test_acc_%s"
+    tier = "dev"
 }`, vcNameSuffix)
 	return providerConfig + virtualClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {
@@ -160,6 +161,7 @@ func testOrbitPipeline() string {
 	virtualClusterResource := fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
 	name = "vcn_test_acc_kobe_%s"
+    tier = "dev"
 }`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
 	return providerConfig + virtualClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {

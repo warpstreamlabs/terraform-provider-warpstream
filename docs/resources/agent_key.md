@@ -30,6 +30,7 @@ provider "warpstream" {
 
 resource "warpstream_virtual_cluster" "tf_example_agent_keys" {
   name = "vcn_tf_example_agent_keys"
+  tier = "dev"
 }
 
 resource "warpstream_agent_key" "example_agent_key" {

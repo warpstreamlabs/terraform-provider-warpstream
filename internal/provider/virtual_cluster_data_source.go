@@ -86,6 +86,9 @@ The WarpStream provider must be authenticated with an application key to read th
 			"type": schema.StringAttribute{
 				Computed: true,
 			},
+			"tier": schema.StringAttribute{
+				Computed: true,
+			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster.",
 				Computed:     true,
@@ -214,6 +217,28 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		state.BootstrapURL = types.StringValue(*vc.BootstrapURL)
 	}
 
+	// Read virtual cluster configuration
+	cfg, err := d.client.GetConfiguration(*vc)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read configuration of Virtual Cluster with ID="+vc.ID,
+			err.Error(),
+		)
+		return
+	}
+
+	cfgState := virtualClusterConfigurationModel{
+		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
+		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
+		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
+		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
+		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
+	}
+
+	resp.Diagnostics.AddWarning("Virtual Cluster Tier", fmt.Sprintf("Tier: %s", cfg.Tier))
+
+	state.Tier = types.StringValue(cfg.Tier)
+
 	// Set state
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -262,24 +287,6 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
-	}
-
-	// Read virtual cluster configuration
-	cfg, err := d.client.GetConfiguration(*vc)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Unable to Read configuration of Virtual Cluster with ID="+vc.ID,
-			err.Error(),
-		)
-		return
-	}
-
-	cfgState := virtualClusterConfigurationModel{
-		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
-		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
-		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
-		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
-		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
 	}
 
 	// Set configuration state

@@ -24,6 +24,7 @@ func testAccAgentKeyDataSource() string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
 	name = "vcn_%s"
+    tier = "dev"
 }
 
 data "warpstream_agent_keys" "test" {

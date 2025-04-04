@@ -1,9 +1,11 @@
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test"
+  tier = "dev"
 }
 
 resource "warpstream_virtual_cluster" "test_with_acls" {
   name = "vcn_test_acls"
+  tier = "dev"
   configuration = {
     enable_acls = true
   }
@@ -11,6 +13,7 @@ resource "warpstream_virtual_cluster" "test_with_acls" {
 
 resource "warpstream_virtual_cluster" "test_configuration" {
   name = "vcn_test_configuration"
+  tier = "dev"
   configuration = {
     auto_create_topic        = true
     default_num_partitions   = 1
@@ -21,6 +24,7 @@ resource "warpstream_virtual_cluster" "test_configuration" {
 
 resource "warpstream_virtual_cluster" "test_cloud_region" {
   name = "vcn_test_cloud_region"
+  tier = "dev"
   cloud = {
     provider = "aws"
     region   = "ap-southeast-1"
