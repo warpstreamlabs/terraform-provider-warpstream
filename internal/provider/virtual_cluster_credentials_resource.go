@@ -134,9 +134,13 @@ The WarpStream provider must be authenticated with an application key to consume
 				Computed:    true,
 			},
 			"password": schema.StringAttribute{
-				Description: "Password.",
+				Description: "Password. Only available immediately after creation. Not retrievable. If importing, this value will be unset.",
 				Computed:    true,
 				Sensitive:   true,
+				PlanModifiers: []planmodifier.String{
+					utils.IgnoreDiffPlanModifier{},
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cluster_superuser": schema.BoolAttribute{
 				Description: "Whether the user is cluster superuser. If `true`, the credentials will be created with superuser privileges which enables ACL management via the Kafka Admin APIs. If `false`, and cluster ACLs are enabled, and no `ALLOW` ACLs are set, then these credentials will not be able to access the cluster.",
@@ -325,6 +329,15 @@ func (r *virtualClusterCredentialsResource) Delete(ctx context.Context, req reso
 		)
 		return
 	}
+}
+
+// ImportState imports the resource from the state.
+func (r *virtualClusterCredentialsResource) ImportState(
+	ctx context.Context,
+	req resource.ImportStateRequest,
+	resp *resource.ImportStateResponse,
+) {
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
 }
 
 // getVirtualClusterIDWithDeprecation is a helper to read virtual cluster ID from the new or old field,
