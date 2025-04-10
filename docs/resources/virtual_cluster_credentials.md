@@ -56,5 +56,15 @@ output "vcc_test_password" {
 
 - `created_at` (String) Virtual Cluster Credentials Creation Timestamp.
 - `id` (String) Virtual Cluster Credentials ID.
-- `password` (String, Sensitive) Password.
+- `password` (String, Sensitive) Password. Only available immediately after creation. Not retrievable. If importing, this value will be unset.
 - `username` (String) Username.
+
+## Import
+
+Import is supported using the following syntax:
+
+```shell
+# Virtual Cluster Credentials can be imported by specifying the identifier.
+# NOTE: this won't fetch the value of the `password` field when importing.
+terraform import warpstream_virtual_cluster_credentials.example ccn_XXXXXXXXXX
+```
