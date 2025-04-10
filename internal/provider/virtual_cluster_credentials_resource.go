@@ -337,7 +337,7 @@ func (r *virtualClusterCredentialsResource) ImportState(
 	req resource.ImportStateRequest,
 	resp *resource.ImportStateResponse,
 ) {
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 // getVirtualClusterIDWithDeprecation is a helper to read virtual cluster ID from the new or old field,
