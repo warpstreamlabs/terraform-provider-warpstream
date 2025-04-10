@@ -93,8 +93,10 @@ func TestAccVirtualClusterCredentialsResource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true),
-				Check:  testAccVirtualClusterCredentialsResourceCheck(true),
+				Config:            testAccVirtualClusterCredentialsResource_withSuperuser(true),
+				Check:             testAccVirtualClusterCredentialsResourceCheck(true),
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			{
 				Config: testAccVirtualClusterCredentialsResource_withSuperuser(false),
