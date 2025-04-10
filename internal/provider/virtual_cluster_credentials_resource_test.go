@@ -95,6 +95,7 @@ func TestAccVirtualClusterCredentialsResource(t *testing.T) {
 			{
 				Config:            testAccVirtualClusterCredentialsResource_withSuperuser(true),
 				Check:             testAccVirtualClusterCredentialsResourceCheck(true),
+				ResourceName:      "warpstream_virtual_cluster_credentials.test",
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
