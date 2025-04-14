@@ -359,6 +359,13 @@ func (r *virtualClusterCredentialsResource) ImportState(
 	for _, vc := range virtualClusters {
 		creds, err := r.client.GetCredentials(vc)
 		if err != nil {
+
+			// cluster could disappear between getting vcs and getting creds
+			// If it's gone, just continue.
+			if errors.Is(err, api.ErrNotFound) {
+				continue
+			}
+
 			resp.Diagnostics.AddError(
 				"Error Importing WarpStream Virtual Cluster Credential",
 				"Could not list credentials in cluster "+vc.ID+": "+err.Error(),
