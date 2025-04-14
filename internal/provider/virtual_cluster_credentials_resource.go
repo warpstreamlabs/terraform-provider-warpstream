@@ -338,6 +338,49 @@ func (r *virtualClusterCredentialsResource) ImportState(
 	resp *resource.ImportStateResponse,
 ) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+
+	// This is a hacy thing because the read function expects `virtual_cluster_id` to be set.
+	// Ideally the resource id would be in this format `${virtual_cluster_id}.${id}` so the
+	// read function doesn't need to rely on things in the schema to do a lookup. Unfortuantly
+	// the resource id is just `${id}` so we have to set `virtual_cluster_id` ahead of time to
+	// prevent errors.
+
+	var virtualClusterID *string
+
+	virtualClusters, err := r.client.GetVirtualClusters()
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Importing WarpStream Virtual Cluster Credential",
+			"Could not list virtual clusters: "+err.Error(),
+		)
+		return
+	}
+
+	for _, vc := range virtualClusters {
+		creds, err := r.client.GetCredentials(vc)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error Importing WarpStream Virtual Cluster Credential",
+				"Could not list credentials in cluster "+vc.ID+": "+err.Error(),
+			)
+			return
+		}
+
+		if _, ok := creds[req.ID]; ok {
+			virtualClusterID = &vc.ID
+			break
+		}
+	}
+
+	if virtualClusterID == nil {
+		resp.Diagnostics.AddError(
+			"Error Importing WarpStream Virtual Cluster Credential",
+			"Could not find a cluster that this credential belongs to",
+		)
+		return
+	}
+
+	resp.State.SetAttribute(ctx, path.Root("virtual_cluster_id"), *virtualClusterID)
 }
 
 // getVirtualClusterIDWithDeprecation is a helper to read virtual cluster ID from the new or old field,
