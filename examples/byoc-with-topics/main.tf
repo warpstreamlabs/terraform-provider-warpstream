@@ -51,3 +51,10 @@ resource "warpstream_topic" "topic" {
     value = "604800000"
   }
 }
+
+resource "warpstream_virtual_cluster_credentials" "creds" {
+  name = "ccn_test"
+
+  virtual_cluster_id = warpstream_virtual_cluster.test.id
+  agent_pool         = warpstream_virtual_cluster.test.agent_pool_id
+}

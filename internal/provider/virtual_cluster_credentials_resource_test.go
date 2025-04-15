@@ -97,6 +97,13 @@ func TestAccVirtualClusterCredentialsResource(t *testing.T) {
 				Check:  testAccVirtualClusterCredentialsResourceCheck(true),
 			},
 			{
+				ResourceName: "warpstream_virtual_cluster_credentials.test",
+				ImportState:  true,
+				// Normally we would set this to true, however when importing the password becomes
+				// nil. So we cannot actually verify the state.
+				// ImportStateVerify: true,
+			},
+			{
 				Config: testAccVirtualClusterCredentialsResource_withSuperuser(false),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
