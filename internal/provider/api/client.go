@@ -87,6 +87,14 @@ func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error)
 		return nil, ErrNotFound
 	}
 
+	if res.StatusCode == http.StatusUnauthorized {
+		errMsg := fmt.Sprintf("status: 401, body: %s", body)
+		if strings.Contains(string(body), "invalid_api_key") {
+			errMsg = fmt.Sprintf("%s\n\n Did you forget to pass a token to the provider?", errMsg)
+		}
+		return nil, errors.New(errMsg)
+	}
+
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status: %d, body: %s", res.StatusCode, body)
 	}
