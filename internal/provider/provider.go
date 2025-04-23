@@ -77,17 +77,7 @@ func (p *warpstreamProvider) Configure(ctx context.Context, req provider.Configu
 		return
 	}
 
-	// If practitioner provided a configuration value for any of the
-	// attributes, it must be a known value.
-
-	if config.Token.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("token"),
-			"Unknown Warpstream API Token",
-			"The provider cannot create the Warpstream API client as there is an unknown configuration value for the Warpstream API token. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the WARPSTREAM_API_KEY environment variable.",
-		)
-	}
+	// If practitioner provided a configuration value for the base URL, it must be a known value.
 
 	if config.BaseUrl.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
@@ -116,21 +106,14 @@ func (p *warpstreamProvider) Configure(ctx context.Context, req provider.Configu
 		token = config.Token.ValueString()
 	}
 
-	// If any of the expected configurations are missing, return
-	// errors with provider-specific guidance.
-
 	if token == "" {
-		resp.Diagnostics.AddAttributeError(
+		resp.Diagnostics.AddAttributeWarning(
 			path.Root("token"),
-			"Missing Warpstream API Token",
-			"The provider cannot create the WarpStream API client as there is a missing or empty value for the Warpstream API token. "+
-				"Set the token value in the configuration or use the WARPSTREAM_API_KEY environment variable. "+
-				"If either is already set, ensure the value is not empty.",
+			"Missing Provider Token",
+			"The provider token is not set at the start of the Terraform run. This means either:\n\n"+
+				"1. The token is assigned to the output of another Terraform resource or data source and this warning can be ignored, or\n\n"+
+				"2. The token hasn't been set at all and this provider's API calls will fail.\n\n",
 		)
-	}
-
-	if resp.Diagnostics.HasError() {
-		return
 	}
 
 	// Create a new WarpStream client using the configuration values
@@ -143,6 +126,10 @@ func (p *warpstreamProvider) Configure(ctx context.Context, req provider.Configu
 				"If the error is not clear, please contact the provider developers.\n\n"+
 				"Warpstream Client Error: "+err.Error(),
 		)
+		return
+	}
+
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
