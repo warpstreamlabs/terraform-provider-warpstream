@@ -1,0 +1,95 @@
+package models
+
+import (
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+)
+
+type ApplicationKeyModel struct {
+	ID          types.String `tfsdk:"id"`
+	Name        types.String `tfsdk:"name"`
+	Key         types.String `tfsdk:"key"`
+	WorkspaceID types.String `tfsdk:"workspace_id"`
+	CreatedAt   types.String `tfsdk:"created_at"`
+}
+
+// Ideally AgentKeyModel and ApplicationKeyModel would share fields by composing an apiKeyModel struct.
+// But I'm not sure how to make struct composition work with setting state on the TF response object.
+type AgentKeyModel struct {
+	ID        types.String `tfsdk:"id"`
+	Name      types.String `tfsdk:"name"`
+	Key       types.String `tfsdk:"key"`
+	CreatedAt types.String `tfsdk:"created_at"`
+
+	VirtualClusterID types.String `tfsdk:"virtual_cluster_id"`
+}
+
+func MapToApplicationKeyModels(apiKeysPtr *[]api.APIKey) *[]ApplicationKeyModel {
+	apiKeys := *apiKeysPtr
+
+	keyModels := make([]ApplicationKeyModel, 0, len(apiKeys))
+	for _, key := range apiKeys {
+		keyModel := ApplicationKeyModel{
+			ID:          types.StringValue(key.ID),
+			Name:        types.StringValue(key.Name),
+			Key:         types.StringValue(key.Key),
+			WorkspaceID: types.StringValue(ReadWorkspaceIDSafe(key.AccessGrants)),
+			CreatedAt:   types.StringValue(key.CreatedAt),
+		}
+
+		keyModels = append(keyModels, keyModel)
+	}
+
+	return &keyModels
+}
+
+func MapToAgentKeyModels(apiKeysPtr *[]api.APIKey, diags *diag.Diagnostics) (*[]AgentKeyModel, bool) {
+	if apiKeysPtr == nil {
+		// Null for Serverless clusters.
+		return nil, true
+	}
+
+	apiKeys := *apiKeysPtr
+
+	keyModels := make([]AgentKeyModel, 0, len(apiKeys))
+	for _, key := range apiKeys {
+		vcID, ok := GetVirtualClusterID(key, diags)
+		if !ok {
+			return nil, false // Diagnostics handled by helper.
+		}
+		keyModel := AgentKeyModel{
+			ID:               types.StringValue(key.ID),
+			Name:             types.StringValue(key.Name),
+			Key:              types.StringValue(key.Key),
+			VirtualClusterID: types.StringValue(vcID),
+			CreatedAt:        types.StringValue(key.CreatedAt),
+		}
+
+		keyModels = append(keyModels, keyModel)
+	}
+
+	return &keyModels, true
+}
+
+// TODO simon: make this a method of []api.AccessGrant? Maybe in a later PR.
+func ReadWorkspaceIDSafe(grants []api.AccessGrant) string {
+	if len(grants) == 0 {
+		return ""
+	}
+
+	return grants[0].WorkspaceID
+}
+
+// TODO simon: make this a method on the api.APIKey struct? maybe in a later PR.
+func GetVirtualClusterID(apiKey api.APIKey, diags *diag.Diagnostics) (string, bool) {
+	if len(apiKey.AccessGrants) == 0 {
+		diags.AddError(
+			"Error Reading WarpStream Agent Key",
+			"API returned invalid Agent Key with ID "+apiKey.ID+": no access grants found",
+		)
+		return "", false
+	}
+
+	return apiKey.AccessGrants[0].ResourceID, true
+}
