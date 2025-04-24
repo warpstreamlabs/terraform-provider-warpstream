@@ -54,7 +54,7 @@ func MapToAgentKeys(apiKeysPtr *[]api.APIKey, diags *diag.Diagnostics) (*[]Agent
 
 	keyModels := make([]AgentKey, 0, len(apiKeys))
 	for _, key := range apiKeys {
-		vcID, ok := GetVirtualClusterID(key, diags)
+		vcID, ok := key.GetVirtualClusterID(diags)
 		if !ok {
 			return nil, false // Diagnostics handled by helper.
 		}
@@ -70,17 +70,4 @@ func MapToAgentKeys(apiKeysPtr *[]api.APIKey, diags *diag.Diagnostics) (*[]Agent
 	}
 
 	return &keyModels, true
-}
-
-// TODO simon: make this a method on the api.APIKey struct? maybe in a later PR.
-func GetVirtualClusterID(apiKey api.APIKey, diags *diag.Diagnostics) (string, bool) {
-	if len(apiKey.AccessGrants) == 0 {
-		diags.AddError(
-			"Error Reading WarpStream Agent Key",
-			"API returned invalid Agent Key with ID "+apiKey.ID+": no access grants found",
-		)
-		return "", false
-	}
-
-	return apiKey.AccessGrants[0].ResourceID, true
 }

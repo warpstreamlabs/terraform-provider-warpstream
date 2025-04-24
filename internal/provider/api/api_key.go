@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 )
 
 const (
@@ -42,6 +44,18 @@ type APIKey struct {
 	Key          string       `json:"key"`
 	AccessGrants AccessGrants `json:"access_grants"`
 	CreatedAt    string       `json:"created_at"`
+}
+
+func (a APIKey) GetVirtualClusterID(diags *diag.Diagnostics) (string, bool) {
+	if len(a.AccessGrants) == 0 {
+		diags.AddError(
+			"Error Reading WarpStream Agent Key",
+			"API returned invalid Agent Key with ID "+a.ID+": no access grants found",
+		)
+		return "", false
+	}
+
+	return a.AccessGrants[0].ResourceID, true
 }
 
 type APIKeyListResponse struct {

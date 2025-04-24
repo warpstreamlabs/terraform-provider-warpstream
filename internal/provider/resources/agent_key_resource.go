@@ -141,7 +141,7 @@ func (r *agentKeyResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	virtualClusterID, found := models.GetVirtualClusterID(*apiKey, &resp.Diagnostics)
+	virtualClusterID, found := apiKey.GetVirtualClusterID(&resp.Diagnostics)
 	if !found { // Diagnostics handled inside helper.
 		return
 	}
@@ -187,7 +187,7 @@ func (r *agentKeyResource) Read(ctx context.Context, req resource.ReadRequest, r
 	}
 
 	// Overwrite Agent Key with refreshed state
-	virtualClusterID, found := models.GetVirtualClusterID(*apiKey, &resp.Diagnostics)
+	virtualClusterID, found := apiKey.GetVirtualClusterID(&resp.Diagnostics)
 	if !found { // Diagnostics handled inside helper.
 		return
 	}
