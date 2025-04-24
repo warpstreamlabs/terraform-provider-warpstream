@@ -168,7 +168,7 @@ func (d *virtualClusterDataSource) ConfigValidators(ctx context.Context) []datas
 
 // Read refreshes the Terraform state with the latest data.
 func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var data models.VirtualClusterDataSourceModel
+	var data models.VirtualClusterDataSource
 	diags := req.Config.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -195,13 +195,13 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	}
 	tflog.Debug(ctx, fmt.Sprintf("Virtual Cluster: %+v", *vc))
 
-	agentKeys, ok := models.MapToAgentKeyModels(vc.AgentKeys, &diags)
+	agentKeys, ok := models.MapToAgentKeys(vc.AgentKeys, &diags)
 	if !ok {
 		return // Diagnostics handled inside helper.
 	}
 
 	// Map response body to model
-	state := models.VirtualClusterDataSourceModel{
+	state := models.VirtualClusterDataSource{
 		ID:            types.StringValue(vc.ID),
 		Name:          types.StringValue(vc.Name),
 		Type:          types.StringValue(vc.Type),
@@ -229,7 +229,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	cfgState := models.VirtualClusterConfigurationModel{
+	cfgState := models.VirtualClusterConfiguration{
 		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
 		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
 		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
@@ -248,7 +248,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	cldState := models.VirtualClusterCloudModel{
+	cldState := models.VirtualClusterCloud{
 		Provider:    types.StringValue(vc.CloudProvider),
 		Region:      types.StringNull(),
 		RegionGroup: types.StringNull(),

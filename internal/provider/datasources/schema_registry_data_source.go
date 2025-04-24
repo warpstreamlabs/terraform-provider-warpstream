@@ -93,7 +93,7 @@ func (d *schemaRegistryDataSource) ConfigValidators(ctx context.Context) []datas
 
 // Read refreshes the Terraform state with the latest data.
 func (d *schemaRegistryDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var data models.SchemaRegistryDataSourceModel
+	var data models.SchemaRegistryDataSource
 	diags := req.Config.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -118,12 +118,12 @@ func (d *schemaRegistryDataSource) Read(ctx context.Context, req datasource.Read
 	}
 	tflog.Debug(ctx, fmt.Sprintf("Schema Registry: %+v", *vc))
 
-	agentKeys, ok := models.MapToAgentKeyModels(vc.AgentKeys, &diags)
+	agentKeys, ok := models.MapToAgentKeys(vc.AgentKeys, &diags)
 	if !ok {
 		return // Diagnostics handled inside helper.
 	}
 
-	state := models.SchemaRegistryDataSourceModel{
+	state := models.SchemaRegistryDataSource{
 		ID:          types.StringValue(vc.ID),
 		Name:        types.StringValue(vc.Name),
 		AgentKeys:   agentKeys,
@@ -142,7 +142,7 @@ func (d *schemaRegistryDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	cldState := models.VirtualClusterRegistryCloudModel{
+	cldState := models.VirtualClusterRegistryCloud{
 		Provider: types.StringValue(vc.CloudProvider),
 		// schema registry is always single region
 		Region: types.StringValue(vc.ClusterRegion.Region.Name),

@@ -48,7 +48,7 @@ type applicationKeysDataSource struct {
 
 // applicationKeysDataSourceModel maps the data source schema data.
 type applicationKeysDataSourceModel struct {
-	ApplicationKeys []models.ApplicationKeyModel `tfsdk:"application_keys"`
+	ApplicationKeys []models.ApplicationKey `tfsdk:"application_keys"`
 }
 
 // Metadata returns the data source type name.
@@ -83,7 +83,7 @@ func (d *applicationKeysDataSource) Read(ctx context.Context, req datasource.Rea
 	applicationKeys := filterApplicationKeys(apiKeys)
 
 	// Map response body to model
-	mapped := models.MapToApplicationKeyModels(&applicationKeys)
+	mapped := models.MapToApplicationKeys(&applicationKeys)
 	state.ApplicationKeys = *mapped
 
 	diags := resp.State.Set(ctx, &state)

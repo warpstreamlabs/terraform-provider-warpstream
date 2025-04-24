@@ -119,7 +119,7 @@ If the WarpStream provider is authenticated with an account key, it can access a
 // Create a new resource.
 func (r *applicationKeyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
-	var plan models.ApplicationKeyModel
+	var plan models.ApplicationKey
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -162,7 +162,7 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// Map response body to schema and populate Computed attribute values
-	state := models.ApplicationKeyModel{
+	state := models.ApplicationKey{
 		ID:          types.StringValue(apiKey.ID),
 		Name:        types.StringValue(apiKey.Name),
 		Key:         types.StringValue(apiKey.Key),
@@ -180,7 +180,7 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 
 // Read refreshes the Terraform state with the latest data.
 func (r *applicationKeyResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state models.ApplicationKeyModel
+	var state models.ApplicationKey
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -202,7 +202,7 @@ func (r *applicationKeyResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	// Overwrite Application Key with refreshed state
-	state = models.ApplicationKeyModel{
+	state = models.ApplicationKey{
 		ID:          types.StringValue(apiKey.ID),
 		Name:        types.StringValue(apiKey.Name),
 		Key:         types.StringValue(apiKey.Key),
@@ -226,7 +226,7 @@ func (r *applicationKeyResource) Update(ctx context.Context, req resource.Update
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *applicationKeyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Retrieve values from state
-	var state models.ApplicationKeyModel
+	var state models.ApplicationKey
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {

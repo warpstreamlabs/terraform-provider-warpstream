@@ -111,7 +111,7 @@ The WarpStream provider must be authenticated with an application key to consume
 // Create a new resource.
 func (r *agentKeyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
-	var plan models.AgentKeyModel
+	var plan models.AgentKey
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -147,7 +147,7 @@ func (r *agentKeyResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	// Map response body to schema and populate Computed attribute values
-	state := models.AgentKeyModel{
+	state := models.AgentKey{
 		ID:               types.StringValue(apiKey.ID),
 		Name:             types.StringValue(apiKey.Name),
 		VirtualClusterID: types.StringValue(virtualClusterID),
@@ -165,7 +165,7 @@ func (r *agentKeyResource) Create(ctx context.Context, req resource.CreateReques
 
 // Read refreshes the Terraform state with the latest data.
 func (r *agentKeyResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state models.AgentKeyModel
+	var state models.AgentKey
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -192,7 +192,7 @@ func (r *agentKeyResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	state = models.AgentKeyModel{
+	state = models.AgentKey{
 		ID:               types.StringValue(apiKey.ID),
 		Name:             types.StringValue(apiKey.Name),
 		Key:              types.StringValue(apiKey.Key),
@@ -216,7 +216,7 @@ func (r *agentKeyResource) Update(ctx context.Context, req resource.UpdateReques
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *agentKeyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Retrieve values from state
-	var state models.AgentKeyModel
+	var state models.AgentKey
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {

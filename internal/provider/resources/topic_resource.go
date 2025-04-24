@@ -126,7 +126,7 @@ The WarpStream provider must be authenticated with an application key to consume
 
 func (r *topicResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
-	var plan models.TopicModel
+	var plan models.Topic
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -164,7 +164,7 @@ func (r *topicResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	state := models.TopicModel{
+	state := models.Topic{
 		ID:               types.StringValue(generatedId),
 		VirtualClusterID: plan.VirtualClusterID,
 		TopicName:        plan.TopicName,
@@ -189,7 +189,7 @@ func (r *topicResource) Create(ctx context.Context, req resource.CreateRequest, 
 }
 
 func (r *topicResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state models.TopicModel
+	var state models.Topic
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -210,7 +210,7 @@ func (r *topicResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	state = models.TopicModel{
+	state = models.Topic{
 		ID:               state.ID,
 		VirtualClusterID: state.VirtualClusterID,
 		TopicName:        state.TopicName,
@@ -236,14 +236,14 @@ func (r *topicResource) Read(ctx context.Context, req resource.ReadRequest, resp
 
 func (r *topicResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// Retrieve values from plan
-	var plan models.TopicModel
+	var plan models.Topic
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var state models.TopicModel
+	var state models.Topic
 	diags = req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -286,7 +286,7 @@ func (r *topicResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	state = models.TopicModel{
+	state = models.Topic{
 		ID:               plan.ID,
 		VirtualClusterID: plan.VirtualClusterID,
 		TopicName:        plan.TopicName,
@@ -312,7 +312,7 @@ func (r *topicResource) Update(ctx context.Context, req resource.UpdateRequest, 
 
 func (r *topicResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Retrieve values from state
-	var state models.TopicModel
+	var state models.Topic
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {

@@ -6,7 +6,7 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
 
-type ApplicationKeyModel struct {
+type ApplicationKey struct {
 	ID          types.String `tfsdk:"id"`
 	Name        types.String `tfsdk:"name"`
 	Key         types.String `tfsdk:"key"`
@@ -14,9 +14,9 @@ type ApplicationKeyModel struct {
 	CreatedAt   types.String `tfsdk:"created_at"`
 }
 
-// Ideally AgentKeyModel and ApplicationKeyModel would share fields by composing an apiKeyModel struct.
+// Ideally AgentKey and ApplicationKey would share fields by composing an APIKey struct.
 // But I'm not sure how to make struct composition work with setting state on the TF response object.
-type AgentKeyModel struct {
+type AgentKey struct {
 	ID        types.String `tfsdk:"id"`
 	Name      types.String `tfsdk:"name"`
 	Key       types.String `tfsdk:"key"`
@@ -25,12 +25,12 @@ type AgentKeyModel struct {
 	VirtualClusterID types.String `tfsdk:"virtual_cluster_id"`
 }
 
-func MapToApplicationKeyModels(apiKeysPtr *[]api.APIKey) *[]ApplicationKeyModel {
+func MapToApplicationKeys(apiKeysPtr *[]api.APIKey) *[]ApplicationKey {
 	apiKeys := *apiKeysPtr
 
-	keyModels := make([]ApplicationKeyModel, 0, len(apiKeys))
+	keyModels := make([]ApplicationKey, 0, len(apiKeys))
 	for _, key := range apiKeys {
-		keyModel := ApplicationKeyModel{
+		keyModel := ApplicationKey{
 			ID:          types.StringValue(key.ID),
 			Name:        types.StringValue(key.Name),
 			Key:         types.StringValue(key.Key),
@@ -44,7 +44,7 @@ func MapToApplicationKeyModels(apiKeysPtr *[]api.APIKey) *[]ApplicationKeyModel 
 	return &keyModels
 }
 
-func MapToAgentKeyModels(apiKeysPtr *[]api.APIKey, diags *diag.Diagnostics) (*[]AgentKeyModel, bool) {
+func MapToAgentKeys(apiKeysPtr *[]api.APIKey, diags *diag.Diagnostics) (*[]AgentKey, bool) {
 	if apiKeysPtr == nil {
 		// Null for Serverless clusters.
 		return nil, true
@@ -52,13 +52,13 @@ func MapToAgentKeyModels(apiKeysPtr *[]api.APIKey, diags *diag.Diagnostics) (*[]
 
 	apiKeys := *apiKeysPtr
 
-	keyModels := make([]AgentKeyModel, 0, len(apiKeys))
+	keyModels := make([]AgentKey, 0, len(apiKeys))
 	for _, key := range apiKeys {
 		vcID, ok := GetVirtualClusterID(key, diags)
 		if !ok {
 			return nil, false // Diagnostics handled by helper.
 		}
-		keyModel := AgentKeyModel{
+		keyModel := AgentKey{
 			ID:               types.StringValue(key.ID),
 			Name:             types.StringValue(key.Name),
 			Key:              types.StringValue(key.Key),

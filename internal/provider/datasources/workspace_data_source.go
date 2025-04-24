@@ -60,7 +60,7 @@ The WarpStream provider must be authenticated with an account key to read this d
 
 // Read refreshes the Terraform state with the latest data.
 func (d *workspaceDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var data models.WorkspaceDataSourceModel
+	var data models.WorkspaceDataSource
 	diags := req.Config.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -85,7 +85,7 @@ func (d *workspaceDataSource) Read(ctx context.Context, req datasource.ReadReque
 
 	applicationKeys := filterForWorkspace(filterApplicationKeys(apiKeys), workspaceID)
 
-	mapped := models.MapToApplicationKeyModels(&applicationKeys)
+	mapped := models.MapToApplicationKeys(&applicationKeys)
 	data.ApplicationKeys = *mapped
 
 	diags = resp.State.Set(ctx, &data)

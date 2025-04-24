@@ -135,8 +135,8 @@ var (
 		Computed:    true,
 		Default: objectdefault.StaticValue(
 			types.ObjectValueMust(
-				models.VirtualClusterCloudModel{}.AttributeTypes(),
-				models.VirtualClusterCloudModel{}.DefaultObject(),
+				models.VirtualClusterCloud{}.AttributeTypes(),
+				models.VirtualClusterCloud{}.DefaultObject(),
 			)),
 	}
 )
@@ -271,8 +271,8 @@ The WarpStream provider must be authenticated with an application key to consume
 				Computed:    true,
 				Default: objectdefault.StaticValue(
 					types.ObjectValueMust(
-						models.VirtualClusterConfigurationModel{}.AttributeTypes(),
-						models.VirtualClusterConfigurationModel{}.DefaultObject(),
+						models.VirtualClusterConfiguration{}.AttributeTypes(),
+						models.VirtualClusterConfiguration{}.DefaultObject(),
 					)),
 				PlanModifiers: []planmodifier.Object{
 					objectplanmodifier.UseStateForUnknown(),
@@ -294,14 +294,14 @@ The WarpStream provider must be authenticated with an application key to consume
 // Create a new resource.
 func (r *virtualClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
-	var plan models.VirtualClusterResourceModel
+	var plan models.VirtualClusterResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var cloudPlan models.VirtualClusterCloudModel
+	var cloudPlan models.VirtualClusterCloud
 	diags = plan.Cloud.As(ctx, &cloudPlan, basetypes.ObjectAsOptions{})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -358,7 +358,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// Map response body to schema and populate Computed attribute values
-	state := models.VirtualClusterResourceModel{
+	state := models.VirtualClusterResource{
 		ID:            types.StringValue(cluster.ID),
 		Name:          types.StringValue(cluster.Name),
 		Type:          types.StringValue(cluster.Type),
@@ -389,7 +389,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	agentKeysState, ok := models.MapToAgentKeyModels(cluster.AgentKeys, &resp.Diagnostics)
+	agentKeysState, ok := models.MapToAgentKeys(cluster.AgentKeys, &resp.Diagnostics)
 	if !ok { // Diagnostics handled by helper.
 		return
 	}
@@ -413,7 +413,7 @@ func getCloudValue(cluster *api.VirtualCluster) (basetypes.ObjectValue, diag.Dia
 	}
 
 	cloudValue, diagnostics := types.ObjectValue(
-		models.VirtualClusterCloudModel{}.AttributeTypes(),
+		models.VirtualClusterCloud{}.AttributeTypes(),
 		map[string]attr.Value{
 			"provider":     types.StringValue(cluster.CloudProvider),
 			"region":       types.StringPointerValue(region),
@@ -425,7 +425,7 @@ func getCloudValue(cluster *api.VirtualCluster) (basetypes.ObjectValue, diag.Dia
 
 // Read refreshes the Terraform state with the latest data.
 func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state models.VirtualClusterResourceModel
+	var state models.VirtualClusterResource
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -500,7 +500,7 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 	r.readConfiguration(ctx, *cluster, &resp.State, &resp.Diagnostics)
 	r.readTags(ctx, *cluster, &resp.State, &resp.Diagnostics)
 
-	agentKeysState, ok := models.MapToAgentKeyModels(cluster.AgentKeys, &resp.Diagnostics)
+	agentKeysState, ok := models.MapToAgentKeys(cluster.AgentKeys, &resp.Diagnostics)
 	if !ok { // Diagnostics handled by helper.
 		return
 	}
@@ -514,7 +514,7 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *virtualClusterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// Retrieve values from plan
-	var plan models.VirtualClusterResourceModel
+	var plan models.VirtualClusterResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -522,7 +522,7 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 	}
 
 	// Get current state
-	var state models.VirtualClusterResourceModel
+	var state models.VirtualClusterResource
 	diags = req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -543,7 +543,7 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *virtualClusterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Retrieve values from state
-	var state models.VirtualClusterResourceModel
+	var state models.VirtualClusterResource
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -582,7 +582,7 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	}
 	tflog.Debug(ctx, fmt.Sprintf("Configuration: %+v", *cfg))
 
-	cfgState := models.VirtualClusterConfigurationModel{
+	cfgState := models.VirtualClusterConfiguration{
 		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
 		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
 		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
@@ -599,7 +599,7 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	respDiags.Append(diags...)
 }
 
-func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan models.VirtualClusterResourceModel, state *tfsdk.State, respDiags *diag.Diagnostics) {
+func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics) {
 	cluster := plan.Cluster()
 
 	// If configuration plan is empty, just retrieve it from API
@@ -610,7 +610,7 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 	}
 
 	// Retrieve configuration values from plan
-	var cfgPlan models.VirtualClusterConfigurationModel
+	var cfgPlan models.VirtualClusterConfiguration
 	diags := plan.Configuration.As(ctx, &cfgPlan, basetypes.ObjectAsOptions{})
 	respDiags.Append(diags...)
 	if respDiags.HasError() {
@@ -665,7 +665,7 @@ func (r *virtualClusterResource) readTags(ctx context.Context, cluster api.Virtu
 	respDiags.Append(diags...)
 }
 
-func (r *virtualClusterResource) applyTags(ctx context.Context, state models.VirtualClusterResourceModel, respState *tfsdk.State, respDiags *diag.Diagnostics) {
+func (r *virtualClusterResource) applyTags(ctx context.Context, state models.VirtualClusterResource, respState *tfsdk.State, respDiags *diag.Diagnostics) {
 	// Skip if tags are unknown (during import)
 	if state.Tags.IsUnknown() {
 		return

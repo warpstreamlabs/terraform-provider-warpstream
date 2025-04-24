@@ -7,7 +7,7 @@ type TopicConfig struct {
 	Value types.String `tfsdk:"value"`
 }
 
-type TopicModel struct {
+type Topic struct {
 	ID               types.String  `tfsdk:"id"`
 	VirtualClusterID types.String  `tfsdk:"virtual_cluster_id"`
 	TopicName        types.String  `tfsdk:"topic_name"`

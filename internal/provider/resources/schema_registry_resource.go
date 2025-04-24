@@ -86,8 +86,8 @@ var registryCloudSchema = schema.SingleNestedAttribute{
 	Computed:    true,
 	Default: objectdefault.StaticValue(
 		types.ObjectValueMust(
-			models.VirtualClusterRegistryCloudModel{}.AttributeTypes(),
-			models.VirtualClusterRegistryCloudModel{}.DefaultObject(),
+			models.VirtualClusterRegistryCloud{}.AttributeTypes(),
+			models.VirtualClusterRegistryCloud{}.DefaultObject(),
 		)),
 	PlanModifiers: []planmodifier.Object{
 		objectplanmodifier.RequiresReplace(),
@@ -146,14 +146,14 @@ The WarpStream provider must be authenticated with an application key to consume
 }
 
 func (r *schemaRegistryResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan models.SchemaRegistryResourceModel
+	var plan models.SchemaRegistryResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var cloudPlan models.VirtualClusterRegistryCloudModel
+	var cloudPlan models.VirtualClusterRegistryCloud
 	diags = plan.Cloud.As(ctx, &cloudPlan, basetypes.ObjectAsOptions{})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -186,7 +186,7 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	state := models.SchemaRegistryResourceModel{
+	state := models.SchemaRegistryResource{
 		ID:          types.StringValue(cluster.ID),
 		Name:        types.StringValue(cluster.Name),
 		AgentKeys:   plan.AgentKeys,
@@ -206,7 +206,7 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	agentKeysState, ok := models.MapToAgentKeyModels(cluster.AgentKeys, &resp.Diagnostics)
+	agentKeysState, ok := models.MapToAgentKeys(cluster.AgentKeys, &resp.Diagnostics)
 	if !ok { // Diagnostics handled by helper.
 		return
 	}
@@ -219,7 +219,7 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 }
 
 func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state models.SchemaRegistryResourceModel
+	var state models.SchemaRegistryResource
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -272,7 +272,7 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	cloudValue, diagnostics := types.ObjectValue(
-		models.VirtualClusterRegistryCloudModel{}.AttributeTypes(),
+		models.VirtualClusterRegistryCloud{}.AttributeTypes(),
 		map[string]attr.Value{
 			"provider": types.StringValue(cluster.CloudProvider),
 			// schema registry is always single region
@@ -291,7 +291,7 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
-	agentKeysState, ok := models.MapToAgentKeyModels(cluster.AgentKeys, &resp.Diagnostics)
+	agentKeysState, ok := models.MapToAgentKeys(cluster.AgentKeys, &resp.Diagnostics)
 	if !ok { // Diagnostics handled by helper.
 		return
 	}
@@ -303,7 +303,7 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 }
 
 func (r *schemaRegistryResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan models.VirtualClusterResourceModel
+	var plan models.VirtualClusterResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -312,7 +312,7 @@ func (r *schemaRegistryResource) Update(ctx context.Context, req resource.Update
 }
 
 func (r *schemaRegistryResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state models.SchemaRegistryResourceModel
+	var state models.SchemaRegistryResource
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {

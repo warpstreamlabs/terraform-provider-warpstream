@@ -34,15 +34,15 @@ type virtualClustersDataSourceModel struct {
 
 // virtualClustersModel maps virtual clusters schema data.
 type virtualClustersModel struct {
-	ID            types.String            `tfsdk:"id"`
-	Name          types.String            `tfsdk:"name"`
-	Type          types.String            `tfsdk:"type"`
-	AgentKeys     *[]models.AgentKeyModel `tfsdk:"agent_keys"`
-	AgentPoolID   types.String            `tfsdk:"agent_pool_id"`
-	AgentPoolName types.String            `tfsdk:"agent_pool_name"`
-	CreatedAt     types.String            `tfsdk:"created_at"`
-	BootstrapURL  types.String            `tfsdk:"bootstrap_url"`
-	WorkspaceID   types.String            `tfsdk:"workspace_id"`
+	ID            types.String       `tfsdk:"id"`
+	Name          types.String       `tfsdk:"name"`
+	Type          types.String       `tfsdk:"type"`
+	AgentKeys     *[]models.AgentKey `tfsdk:"agent_keys"`
+	AgentPoolID   types.String       `tfsdk:"agent_pool_id"`
+	AgentPoolName types.String       `tfsdk:"agent_pool_name"`
+	CreatedAt     types.String       `tfsdk:"created_at"`
+	BootstrapURL  types.String       `tfsdk:"bootstrap_url"`
+	WorkspaceID   types.String       `tfsdk:"workspace_id"`
 }
 
 // Metadata returns the data source type name.
@@ -116,7 +116,7 @@ func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.Rea
 
 	// Map response body to model
 	for _, vcn := range virtualClusters {
-		agentKeys, ok := models.MapToAgentKeyModels(vcn.AgentKeys, &resp.Diagnostics)
+		agentKeys, ok := models.MapToAgentKeys(vcn.AgentKeys, &resp.Diagnostics)
 		if !ok {
 			return // Diagnostics handled by helper.
 		}

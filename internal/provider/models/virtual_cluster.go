@@ -6,25 +6,25 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
 
-// VirtualClusterDataSourceModel maps virtual cluster schema data.
-type VirtualClusterDataSourceModel struct {
-	ID            types.String     `tfsdk:"id"`
-	Name          types.String     `tfsdk:"name"`
-	Type          types.String     `tfsdk:"type"`
-	Tier          types.String     `tfsdk:"tier"`
-	AgentKeys     *[]AgentKeyModel `tfsdk:"agent_keys"`
-	AgentPoolID   types.String     `tfsdk:"agent_pool_id"`
-	AgentPoolName types.String     `tfsdk:"agent_pool_name"`
-	CreatedAt     types.String     `tfsdk:"created_at"`
-	Default       types.Bool       `tfsdk:"default"`
-	Tags          types.Map        `tfsdk:"tags"`
-	Configuration types.Object     `tfsdk:"configuration"`
-	Cloud         types.Object     `tfsdk:"cloud"`
-	BootstrapURL  types.String     `tfsdk:"bootstrap_url"`
-	WorkspaceID   types.String     `tfsdk:"workspace_id"`
+// VirtualClusterDataSource maps virtual cluster schema data.
+type VirtualClusterDataSource struct {
+	ID            types.String `tfsdk:"id"`
+	Name          types.String `tfsdk:"name"`
+	Type          types.String `tfsdk:"type"`
+	Tier          types.String `tfsdk:"tier"`
+	AgentKeys     *[]AgentKey  `tfsdk:"agent_keys"`
+	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
+	AgentPoolName types.String `tfsdk:"agent_pool_name"`
+	CreatedAt     types.String `tfsdk:"created_at"`
+	Default       types.Bool   `tfsdk:"default"`
+	Tags          types.Map    `tfsdk:"tags"`
+	Configuration types.Object `tfsdk:"configuration"`
+	Cloud         types.Object `tfsdk:"cloud"`
+	BootstrapURL  types.String `tfsdk:"bootstrap_url"`
+	WorkspaceID   types.String `tfsdk:"workspace_id"`
 }
 
-type VirtualClusterResourceModel struct {
+type VirtualClusterResource struct {
 	ID            types.String `tfsdk:"id"`
 	Name          types.String `tfsdk:"name"`
 	Type          types.String `tfsdk:"type"`
@@ -41,7 +41,7 @@ type VirtualClusterResourceModel struct {
 	WorkspaceID   types.String `tfsdk:"workspace_id"`
 }
 
-func (m VirtualClusterResourceModel) Cluster() api.VirtualCluster {
+func (m VirtualClusterResource) Cluster() api.VirtualCluster {
 	var burl *string
 	if m.BootstrapURL.ValueString() != "" {
 		burlStr := m.BootstrapURL.ValueString()
@@ -59,7 +59,7 @@ func (m VirtualClusterResourceModel) Cluster() api.VirtualCluster {
 	}
 }
 
-type VirtualClusterConfigurationModel struct {
+type VirtualClusterConfiguration struct {
 	AclsEnabled              types.Bool  `tfsdk:"enable_acls"`
 	AutoCreateTopic          types.Bool  `tfsdk:"auto_create_topic"`
 	DefaultNumPartitions     types.Int64 `tfsdk:"default_num_partitions"`
@@ -67,7 +67,7 @@ type VirtualClusterConfigurationModel struct {
 	EnableDeletionProtection types.Bool  `tfsdk:"enable_deletion_protection"`
 }
 
-func (m VirtualClusterConfigurationModel) AttributeTypes() map[string]attr.Type {
+func (m VirtualClusterConfiguration) AttributeTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"auto_create_topic":          types.BoolType,
 		"default_num_partitions":     types.Int64Type,
@@ -77,7 +77,7 @@ func (m VirtualClusterConfigurationModel) AttributeTypes() map[string]attr.Type 
 	}
 }
 
-func (m VirtualClusterConfigurationModel) DefaultObject() map[string]attr.Value {
+func (m VirtualClusterConfiguration) DefaultObject() map[string]attr.Value {
 	return map[string]attr.Value{
 		"auto_create_topic":          types.BoolValue(true),
 		"default_num_partitions":     types.Int64Value(1),
@@ -87,13 +87,13 @@ func (m VirtualClusterConfigurationModel) DefaultObject() map[string]attr.Value 
 	}
 }
 
-type VirtualClusterCloudModel struct {
+type VirtualClusterCloud struct {
 	Provider    types.String `tfsdk:"provider"`
 	Region      types.String `tfsdk:"region"`
 	RegionGroup types.String `tfsdk:"region_group"`
 }
 
-func (m VirtualClusterCloudModel) AttributeTypes() map[string]attr.Type {
+func (m VirtualClusterCloud) AttributeTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"provider":     types.StringType,
 		"region":       types.StringType,
@@ -101,7 +101,7 @@ func (m VirtualClusterCloudModel) AttributeTypes() map[string]attr.Type {
 	}
 }
 
-func (m VirtualClusterCloudModel) DefaultObject() map[string]attr.Value {
+func (m VirtualClusterCloud) DefaultObject() map[string]attr.Value {
 	return map[string]attr.Value{
 		"provider":     types.StringValue("aws"),
 		"region":       types.StringValue("us-east-1"),

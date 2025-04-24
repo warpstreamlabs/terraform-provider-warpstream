@@ -28,7 +28,7 @@ type agentKeysDataSource struct {
 
 // agentKeysDataSourceModel maps the data source schema data.
 type agentKeysDataSourceModel struct {
-	AgentKeys []models.AgentKeyModel `tfsdk:"agent_keys"`
+	AgentKeys []models.AgentKey `tfsdk:"agent_keys"`
 }
 
 // Metadata returns the data source type name.
@@ -62,7 +62,7 @@ func (d *agentKeysDataSource) Read(ctx context.Context, req datasource.ReadReque
 	agentKeys := filterAgentKeys(apiKeys)
 
 	// Map response body to model
-	mapped, ok := models.MapToAgentKeyModels(&agentKeys, &resp.Diagnostics)
+	mapped, ok := models.MapToAgentKeys(&agentKeys, &resp.Diagnostics)
 	if !ok {
 		return // Diagnostics handled by helper.
 	}
