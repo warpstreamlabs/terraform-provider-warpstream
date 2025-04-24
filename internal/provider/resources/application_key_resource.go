@@ -166,7 +166,7 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 		ID:          types.StringValue(apiKey.ID),
 		Name:        types.StringValue(apiKey.Name),
 		Key:         types.StringValue(apiKey.Key),
-		WorkspaceID: types.StringValue(models.ReadWorkspaceIDSafe(apiKey.AccessGrants)),
+		WorkspaceID: types.StringValue(apiKey.AccessGrants.ReadWorkspaceIDSafe()),
 		CreatedAt:   types.StringValue(apiKey.CreatedAt),
 	}
 
@@ -206,7 +206,7 @@ func (r *applicationKeyResource) Read(ctx context.Context, req resource.ReadRequ
 		ID:          types.StringValue(apiKey.ID),
 		Name:        types.StringValue(apiKey.Name),
 		Key:         types.StringValue(apiKey.Key),
-		WorkspaceID: types.StringValue(models.ReadWorkspaceIDSafe(apiKey.AccessGrants)),
+		WorkspaceID: types.StringValue(apiKey.AccessGrants.ReadWorkspaceIDSafe()),
 		CreatedAt:   types.StringValue(apiKey.CreatedAt),
 	}
 

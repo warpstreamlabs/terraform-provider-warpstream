@@ -34,7 +34,7 @@ func MapToApplicationKeys(apiKeysPtr *[]api.APIKey) *[]ApplicationKey {
 			ID:          types.StringValue(key.ID),
 			Name:        types.StringValue(key.Name),
 			Key:         types.StringValue(key.Key),
-			WorkspaceID: types.StringValue(ReadWorkspaceIDSafe(key.AccessGrants)),
+			WorkspaceID: types.StringValue((key.AccessGrants.ReadWorkspaceIDSafe())),
 			CreatedAt:   types.StringValue(key.CreatedAt),
 		}
 
@@ -70,15 +70,6 @@ func MapToAgentKeys(apiKeysPtr *[]api.APIKey, diags *diag.Diagnostics) (*[]Agent
 	}
 
 	return &keyModels, true
-}
-
-// TODO simon: make this a method of []api.AccessGrant? Maybe in a later PR.
-func ReadWorkspaceIDSafe(grants []api.AccessGrant) string {
-	if len(grants) == 0 {
-		return ""
-	}
-
-	return grants[0].WorkspaceID
 }
 
 // TODO simon: make this a method on the api.APIKey struct? maybe in a later PR.
