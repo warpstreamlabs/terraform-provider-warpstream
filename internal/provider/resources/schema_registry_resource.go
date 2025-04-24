@@ -22,7 +22,6 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/models"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/shared"
-	warpstreamtypes "github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
@@ -165,8 +164,8 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 	cluster, err := r.client.CreateVirtualCluster(
 		plan.Name.ValueString(),
 		api.ClusterParameters{
-			Type:   warpstreamtypes.VirtualClusterTypeSchemaRegistry,
-			Tier:   warpstreamtypes.VirtualClusterTierPro,
+			Type:   api.VirtualClusterTypeSchemaRegistry,
+			Tier:   api.VirtualClusterTierPro,
 			Region: cloudPlan.Region.ValueStringPointer(),
 			Cloud:  cloudPlan.Provider.ValueString(),
 		})

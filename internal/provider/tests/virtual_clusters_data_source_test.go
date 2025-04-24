@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
-	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/types"
 )
 
 // TestAccVirtualClustersDataSource checks for expected attributes on the virtual_clusters data source.
@@ -25,8 +24,8 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 	vc, err := client.CreateVirtualCluster(
 		vcNameSuffix,
 		api.ClusterParameters{
-			Type:   types.VirtualClusterTypeBYOC,
-			Tier:   types.VirtualClusterTierPro,
+			Type:   api.VirtualClusterTypeBYOC,
+			Tier:   api.VirtualClusterTierPro,
 			Region: &region,
 			Cloud:  "aws",
 		},

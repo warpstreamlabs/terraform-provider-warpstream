@@ -28,7 +28,6 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/models"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/shared"
-	warpstreamtypes "github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
@@ -170,12 +169,12 @@ The WarpStream provider must be authenticated with an application key to consume
 				Description: "Virtual Cluster Type. Currently, the only valid virtual cluster types is `byoc` (default).",
 				Computed:    true,
 				Optional:    true,
-				Default:     stringdefault.StaticString(warpstreamtypes.VirtualClusterTypeBYOC),
+				Default:     stringdefault.StaticString(api.VirtualClusterTypeBYOC),
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf(warpstreamtypes.VirtualClusterTypeBYOC),
+					stringvalidator.OneOf(api.VirtualClusterTypeBYOC),
 				},
 			},
 			"tier": schema.StringAttribute{
@@ -186,10 +185,10 @@ The WarpStream provider must be authenticated with an application key to consume
 				},
 				Validators: []validator.String{
 					stringvalidator.OneOf(
-						warpstreamtypes.VirtualClusterTierDev,
-						warpstreamtypes.VirtualClusterTierLegacy,
-						warpstreamtypes.VirtualClusterTierFundamentals,
-						warpstreamtypes.VirtualClusterTierPro,
+						api.VirtualClusterTierDev,
+						api.VirtualClusterTierLegacy,
+						api.VirtualClusterTierFundamentals,
+						api.VirtualClusterTierPro,
 					),
 				},
 			},

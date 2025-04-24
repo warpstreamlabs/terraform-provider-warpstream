@@ -9,7 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
-	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/types"
 )
 
 func TestAccSchemaRegistryDataSource(t *testing.T) {
@@ -21,8 +20,8 @@ func TestAccSchemaRegistryDataSource(t *testing.T) {
 	vc, err := client.CreateVirtualCluster(
 		vcNameSuffix,
 		api.ClusterParameters{
-			Type:   types.VirtualClusterTypeSchemaRegistry,
-			Tier:   types.VirtualClusterTierPro,
+			Type:   api.VirtualClusterTypeSchemaRegistry,
+			Tier:   api.VirtualClusterTierPro,
 			Region: &region,
 			Cloud:  "aws",
 		},
@@ -98,8 +97,8 @@ func TestAccSchemaRegistryDatasource_BYOCNotWork(t *testing.T) {
 	vc, err := client.CreateVirtualCluster(
 		vcNameSuffix,
 		api.ClusterParameters{
-			Type:   types.VirtualClusterTypeBYOC,
-			Tier:   types.VirtualClusterTierPro,
+			Type:   api.VirtualClusterTypeBYOC,
+			Tier:   api.VirtualClusterTierPro,
 			Region: &region,
 			Cloud:  "aws",
 		},
