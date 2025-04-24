@@ -12,6 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/datasources"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/resources"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -153,26 +155,26 @@ func (p *warpstreamProvider) Configure(ctx context.Context, req provider.Configu
 // DataSources defines the data sources implemented in the provider.
 func (p *warpstreamProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewVirtualClusterDataSource,
-		NewVirtualClustersDataSource,
-		NewAccountDataSource,
-		NewAgentKeysDataSource,
-		NewApplicationKeysDataSource,
-		NewSchemaRegistryDataSource,
-		NewWorkspaceDataSource,
+		datasources.NewVirtualClusterDataSource,
+		datasources.NewVirtualClustersDataSource,
+		datasources.NewAccountDataSource,
+		datasources.NewAgentKeysDataSource,
+		datasources.NewApplicationKeysDataSource,
+		datasources.NewSchemaRegistryDataSource,
+		datasources.NewWorkspaceDataSource,
 	}
 }
 
 // Resources defines the resources implemented in the provider.
 func (p *warpstreamProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewVirtualClusterResource,
-		NewVirtualClusterCredentialsResource,
-		NewPipelineResource,
-		NewAgentKeyResource,
-		NewApplicationKeyResource,
-		NewSchemaRegistryResource,
-		NewTopicResource,
-		NewWorkspaceResource,
+		resources.NewVirtualClusterResource,
+		resources.NewVirtualClusterCredentialsResource,
+		resources.NewPipelineResource,
+		resources.NewAgentKeyResource,
+		resources.NewApplicationKeyResource,
+		resources.NewSchemaRegistryResource,
+		resources.NewTopicResource,
+		resources.NewWorkspaceResource,
 	}
 }

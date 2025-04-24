@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 )
 
 const (
@@ -18,6 +20,43 @@ const (
 	ResourceIDAny              = "*"
 	WorkspaceIDAny             = "*"
 )
+
+type AccessGrant struct {
+	PrincipalKind string `json:"principal_kind"`
+	ResourceKind  string `json:"resource_kind"`
+	ResourceID    string `json:"resource_id"`
+	WorkspaceID   string `json:"workspace_id"`
+}
+
+type AccessGrants []AccessGrant
+
+func (a AccessGrants) ReadWorkspaceIDSafe() string {
+	if len(a) == 0 {
+		return ""
+	}
+
+	return a[0].WorkspaceID
+}
+
+type APIKey struct {
+	ID           string       `json:"id"`
+	Name         string       `json:"name"`
+	Key          string       `json:"key"`
+	AccessGrants AccessGrants `json:"access_grants"`
+	CreatedAt    string       `json:"created_at"`
+}
+
+func (a APIKey) GetVirtualClusterID(diags *diag.Diagnostics) (string, bool) {
+	if len(a.AccessGrants) == 0 {
+		diags.AddError(
+			"Error Reading WarpStream Agent Key",
+			"API returned invalid Agent Key with ID "+a.ID+": no access grants found",
+		)
+		return "", false
+	}
+
+	return a.AccessGrants[0].ResourceID, true
+}
 
 type APIKeyListResponse struct {
 	APIKeys []APIKey `json:"api_keys"`

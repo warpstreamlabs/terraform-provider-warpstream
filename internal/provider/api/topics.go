@@ -7,6 +7,13 @@ import (
 	"net/http"
 )
 
+type Topic struct {
+	VirtualClusterID string             `json:"virtual_cluster_id"`
+	TopicName        string             `json:"topic_name"`
+	PartitionCount   int                `json:"partition_count"`
+	Configs          map[string]*string `json:"configs"`
+}
+
 type TopicCreateRequest struct {
 	VirtualClusterID string             `json:"virtual_cluster_id"`
 	TopicName        string             `json:"topic_name"`

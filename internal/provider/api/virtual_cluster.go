@@ -7,9 +7,48 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-
-	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/types"
 )
+
+const (
+	VirtualClusterTypeBYOC           = "byoc"
+	VirtualClusterTypeSchemaRegistry = "byoc_schema_registry"
+
+	// legacy is only available for certain tenants, this is controlled on the Warpstream side.
+	VirtualClusterTierLegacy       = "legacy"
+	VirtualClusterTierDev          = "dev"
+	VirtualClusterTierFundamentals = "fundamentals"
+	VirtualClusterTierPro          = "pro"
+)
+
+type VirtualCluster struct {
+	ID            string        `json:"id"`
+	Name          string        `json:"name"`
+	Type          string        `json:"type"`
+	AgentKeys     *[]APIKey     `json:"agent_keys"`
+	AgentPoolID   string        `json:"agent_pool_id"`
+	AgentPoolName string        `json:"agent_pool_name"`
+	CreatedAt     string        `json:"created_at"`
+	CloudProvider string        `json:"cloud_provider"`
+	ClusterRegion ClusterRegion `json:"cluster_region"`
+	BootstrapURL  *string       `json:"bootstrap_url"`
+	WorkspaceID   string        `json:"workspace_id"`
+}
+
+type ClusterRegion struct {
+	IsMultiRegion bool         `json:"is_multi_region"`
+	RegionGroup   *RegionGroup `json:"region_group"`
+	Region        *Region      `json:"region"`
+}
+
+type Region struct {
+	Name          string `json:"name"`
+	CloudProvider string `json:"cloud_provider"`
+}
+
+type RegionGroup struct {
+	Name    string   `json:"name"`
+	Regions []Region `json:"regions"`
+}
 
 type VirtualClusterDescribeResponse struct {
 	VirtualCluster VirtualCluster `json:"virtual_cluster"`
@@ -74,10 +113,19 @@ func (c *Client) GetVirtualCluster(id string) (*VirtualCluster, error) {
 	return &res.VirtualCluster, nil
 }
 
+type ClusterParameters struct {
+	Type        string
+	Tier        string
+	Region      *string
+	RegionGroup *string
+	Cloud       string
+	Tags        map[string]string
+}
+
 // CreateVirtualCluster - Create new virtual cluster.
 func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*VirtualCluster, error) {
 	var trimmed string
-	if opts.Type == types.VirtualClusterTypeSchemaRegistry {
+	if opts.Type == VirtualClusterTypeSchemaRegistry {
 		trimmed = strings.TrimPrefix(name, "vcn_sr_")
 	} else {
 		trimmed = strings.TrimPrefix(name, "vcn_")
