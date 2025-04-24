@@ -9,6 +9,17 @@ import (
 	"strings"
 )
 
+type VirtualClusterCredentials struct {
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	UserName         string `json:"username"`
+	Password         string `json:"password"`
+	CreatedAt        string `json:"created_at"`
+	AgentPoolID      string `json:"agent_pool_id"`
+	AgentPoolName    string `json:"agent_pool_name"`
+	ClusterSuperuser bool   `json:"is_cluster_superuser"`
+}
+
 type CredentialsListResponse struct {
 	Credentials []VirtualClusterCredentials `json:"credentials"`
 }

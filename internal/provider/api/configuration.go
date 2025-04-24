@@ -8,6 +8,15 @@ import (
 	"net/http"
 )
 
+type VirtualClusterConfiguration struct {
+	AclsEnabled              bool   `json:"are_acls_enabled"`
+	AutoCreateTopic          bool   `json:"is_auto_create_topic_enabled"`
+	DefaultNumPartitions     int64  `json:"default_num_partitions"`
+	DefaultRetentionMillis   int64  `json:"default_retention_millis"`
+	EnableDeletionProtection bool   `json:"enable_deletion_protection"`
+	Tier                     string `json:"tier,omitempty"`
+}
+
 type ConfigurationDescribeRequest struct {
 	VirtualClusterID string `json:"virtual_cluster_id"`
 }

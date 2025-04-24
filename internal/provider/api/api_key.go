@@ -19,6 +19,21 @@ const (
 	WorkspaceIDAny             = "*"
 )
 
+type AccessGrant struct {
+	PrincipalKind string `json:"principal_kind"`
+	ResourceKind  string `json:"resource_kind"`
+	ResourceID    string `json:"resource_id"`
+	WorkspaceID   string `json:"workspace_id"`
+}
+
+type APIKey struct {
+	ID           string        `json:"id"`
+	Name         string        `json:"name"`
+	Key          string        `json:"key"`
+	AccessGrants []AccessGrant `json:"access_grants"`
+	CreatedAt    string        `json:"created_at"`
+}
+
 type APIKeyListResponse struct {
 	APIKeys []APIKey `json:"api_keys"`
 }
