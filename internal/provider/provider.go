@@ -111,7 +111,7 @@ func (p *warpstreamProvider) Configure(ctx context.Context, req provider.Configu
 			path.Root("token"),
 			"Missing Provider Token",
 			"The provider token is not set at the start of the Terraform run. This means either:\n\n"+
-				"1. The token is assigned to the output of another Terraform resource or data source and this warning can be ignored, or\n\n"+
+				"1. The token is assigned to the output of another Terraform resource or data source and this warning can be ignored, or\n"+
 				"2. The token hasn't been set at all and this provider's API calls will fail.\n\n",
 		)
 	}
