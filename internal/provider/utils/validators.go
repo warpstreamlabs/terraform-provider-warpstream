@@ -33,7 +33,7 @@ func ValidSchemaRegistryName() validator.String {
 
 func alphaNumericSpaceesUnderscoresHyphensOnly() validator.String {
 	return stringvalidator.RegexMatches(
-		regexp.MustCompile(`^[a-z_\-A-Z0-9 ]{3,128}$`),
+		regexp.MustCompile(`^[a-z_\-A-Z0-9 ]*$`),
 		"must contain only alphanumeric characters, spaces, underscores, and hyphens",
 	)
 }
