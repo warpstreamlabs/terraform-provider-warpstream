@@ -104,12 +104,12 @@ The WarpStream provider must be authenticated with an account key to consume thi
 				Description: "User Role Name. " +
 					"Must be unique across WarpStream account. " +
 					"Must contain spaces, hyphens, underscores and alphanumeric characters only. " +
-					"Must be between 3 and 128 characters in length.",
+					"Must be between 3 and 60 characters in length.",
 				Required: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-				Validators: []validator.String{utils.ValidWorkspaceName()}, // Same rule as for workspace names.
+				Validators: []validator.String{utils.ValidUserRoleName()},
 			},
 			"access_grants": schema.ListNestedAttribute{
 				Description:  "List of grants defining the role's access level inside each workspace.",

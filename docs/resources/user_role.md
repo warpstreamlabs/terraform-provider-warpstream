@@ -50,7 +50,7 @@ resource "warpstream_user_role" "example_user_role" {
 ### Required
 
 - `access_grants` (Attributes List) List of grants defining the role's access level inside each workspace. (see [below for nested schema](#nestedatt--access_grants))
-- `name` (String) User Role Name. Must be unique across WarpStream account. Must contain spaces, hyphens, underscores and alphanumeric characters only. Must be between 3 and 128 characters in length.
+- `name` (String) User Role Name. Must be unique across WarpStream account. Must contain spaces, hyphens, underscores and alphanumeric characters only. Must be between 3 and 60 characters in length.
 
 ### Read-Only
 
