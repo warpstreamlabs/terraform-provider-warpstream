@@ -21,15 +21,11 @@ const (
 	WorkspaceIDAny             = "*"
 )
 
-type AccessGrant struct {
-	PrincipalKind string `json:"principal_kind"`
-	ResourceKind  string `json:"resource_kind"`
-	ResourceID    string `json:"resource_id"`
-	WorkspaceID   string `json:"workspace_id"`
-}
-
 type AccessGrants []AccessGrant
 
+// ReadWorkspaceIDSafe returns the workspace ID of the first access grant if the slice isn't empty.
+// This is useful for application keys, which are restricted to a single workspace.
+// Access grants on a role can point to more than one workspace.
 func (a AccessGrants) ReadWorkspaceIDSafe() string {
 	if len(a) == 0 {
 		return ""
