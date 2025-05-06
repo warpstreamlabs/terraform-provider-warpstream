@@ -36,7 +36,7 @@ func (d *workspaceDataSource) Metadata(_ context.Context, req datasource.Metadat
 func (d *workspaceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: `
-This data source lists Workspaces and their respective application keys.
+This data source reads individual Workspaces and their respective application keys.
 
 The WarpStream provider must be authenticated with an account key to read this data source.
 `,
