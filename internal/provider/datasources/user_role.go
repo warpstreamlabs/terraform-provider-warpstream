@@ -53,7 +53,7 @@ var grantSchema = schema.NestedAttributeObject{
 func (d *userRoleDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: `
-This data source lists User Roles and their respective grants.
+This data source reads individual User Roles and their respective grants.
 
 The WarpStream provider must be authenticated with an account key to read this data source.
 `,

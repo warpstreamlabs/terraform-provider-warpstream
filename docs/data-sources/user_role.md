@@ -3,13 +3,13 @@
 page_title: "warpstream_user_role Data Source - terraform-provider-warpstream"
 subcategory: ""
 description: |-
-  This data source lists User Roles and their respective grants.
+  This data source reads individual User Roles and their respective grants.
   The WarpStream provider must be authenticated with an account key to read this data source.
 ---
 
 # warpstream_user_role (Data Source)
 
-This data source lists User Roles and their respective grants.
+This data source reads individual User Roles and their respective grants.
 
 The WarpStream provider must be authenticated with an account key to read this data source.
 
