@@ -62,11 +62,12 @@ The WarpStream provider must be authenticated with an account key to read this d
 				Description: "User Role ID. Exactly one of id or name must be provided.",
 				Computed:    true,
 				Optional:    true,
+				Validators:  []validator.String{utils.StartsWith("pri_")},
 			},
 			"name": schema.StringAttribute{
-				Description: "User Role Name. Exactly one of id or name must be provided." +
+				Description: "User Role Name. Exactly one of id or name must be provided. " +
 					"Unique across WarpStream account. " +
-					"Contain spaces, hyphens, underscores or alphanumeric characters only. " +
+					"Contains spaces, hyphens, underscores or alphanumeric characters only. " +
 					"Between 3 and 60 characters in length.",
 				Computed:   true,
 				Optional:   true,

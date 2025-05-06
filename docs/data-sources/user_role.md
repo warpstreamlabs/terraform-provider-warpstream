@@ -32,7 +32,7 @@ data "warpstream_user_role" "read_only_role" {
 
 - `access_grants` (Attributes List) List of grants defining the role's access level inside each workspace. (see [below for nested schema](#nestedatt--access_grants))
 - `id` (String) User Role ID. Exactly one of id or name must be provided.
-- `name` (String) User Role Name. Exactly one of id or name must be provided.Unique across WarpStream account. Contain spaces, hyphens, underscores or alphanumeric characters only. Between 3 and 60 characters in length.
+- `name` (String) User Role Name. Exactly one of id or name must be provided. Unique across WarpStream account. Contains spaces, hyphens, underscores or alphanumeric characters only. Between 3 and 60 characters in length.
 
 ### Read-Only
 
