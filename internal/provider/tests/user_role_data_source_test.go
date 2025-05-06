@@ -13,7 +13,7 @@ func TestAccAccountKeyUserRoleDataSource(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
 
-	readonlyRoleName := "readonly_test"
+	readonlyRoleName := "readonly_test" + nameSuffix
 	readonlyRoleID, err := client.CreateUserRole(readonlyRoleName, []api.AccessGrant{{ManagedGrantKey: "read_only", WorkspaceID: "*", ResourceID: "*"}})
 	require.NoError(t, err)
 
