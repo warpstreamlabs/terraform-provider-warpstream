@@ -117,3 +117,18 @@ func (c *Client) GetUserRole(roleID string) (*UserRole, error) {
 
 	return nil, ErrNotFound
 }
+
+func (c *Client) FindUserRole(name string) (*UserRole, error) {
+	roles, err := c.getUserRoles()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user roles list: %w", err)
+	}
+
+	for _, role := range roles {
+		if role.Name == name {
+			return &role, nil
+		}
+	}
+
+	return nil, ErrNotFound
+}

@@ -23,7 +23,7 @@ var (
 	_ resource.Resource              = &userRoleResource{}
 	_ resource.ResourceWithConfigure = &userRoleResource{}
 	// Names of the managed grants that can be assigned to a role inside a workspace.
-	managedGrantNames = []string{"admin", "read_only"}
+	ManagedGrantNames = []string{"admin", "read_only"}
 )
 
 // NewUserRoleResource is a helper function to simplify the provider implementation.
@@ -72,8 +72,8 @@ var grantSchema = schema.NestedAttributeObject{
 			Required:      true,
 		},
 		"grant_type": schema.StringAttribute{
-			Description:   "Level of access inside the workspace. Current options are: " + strings.Join(managedGrantNames, " and "),
-			Validators:    []validator.String{stringvalidator.OneOf(managedGrantNames...)},
+			Description:   "Level of access inside the workspace. Current options are: " + strings.Join(ManagedGrantNames, " and "),
+			Validators:    []validator.String{stringvalidator.OneOf(ManagedGrantNames...)},
 			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			// For now a grant is defined using a grant type only.
 			// In the future we may loosen the schema to so that grants can be defined using either a just grant type or more detailed grant attributes.
