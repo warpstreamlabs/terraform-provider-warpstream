@@ -3,13 +3,13 @@
 page_title: "warpstream_workspace Data Source - terraform-provider-warpstream"
 subcategory: ""
 description: |-
-  This data source lists Workspaces and their respective application keys.
+  This data source reads individual Workspaces and their respective application keys.
   The WarpStream provider must be authenticated with an account key to read this data source.
 ---
 
 # warpstream_workspace (Data Source)
 
-This data source lists Workspaces and their respective application keys.
+This data source reads individual Workspaces and their respective application keys.
 
 The WarpStream provider must be authenticated with an account key to read this data source.
 
