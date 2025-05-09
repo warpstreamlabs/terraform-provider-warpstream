@@ -153,8 +153,7 @@ func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int6
 
 	if vcType == "byoc" {
 		checks = append(checks,
-			resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "agent_keys.#", "1"),
-			utils.TestCheckResourceAttrStartsWith("warpstream_virtual_cluster.test", "agent_keys.0.name", "akn_virtual_cluster_test_acc_"),
+			resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "agent_keys.#", "0"),
 			utils.TestCheckResourceAttrMatchesRegex("warpstream_virtual_cluster.test", "bootstrap_url", `kafka\.discoveryv2\..+\.us-east-1\.warpstream\.com:9092`),
 		)
 	}

@@ -73,13 +73,14 @@ type VirtualClusterDescribeRequest struct {
 }
 
 type VirtualClusterCreateRequest struct {
-	Name          string            `json:"virtual_cluster_name"`
-	Type          string            `json:"virtual_cluster_type,omitempty"`
-	Tier          string            `json:"virtual_cluster_tier,omitempty"`
-	Region        *string           `json:"virtual_cluster_region,omitempty"`
-	RegionGroup   *string           `json:"virtual_cluster_region_group,omitempty"`
-	CloudProvider string            `json:"virtual_cluster_cloud_provider,omitempty"`
-	Tags          map[string]string `json:"virtual_cluster_tags,omitempty"`
+	Name                 string            `json:"virtual_cluster_name"`
+	Type                 string            `json:"virtual_cluster_type,omitempty"`
+	Tier                 string            `json:"virtual_cluster_tier,omitempty"`
+	Region               *string           `json:"virtual_cluster_region,omitempty"`
+	RegionGroup          *string           `json:"virtual_cluster_region_group,omitempty"`
+	CloudProvider        string            `json:"virtual_cluster_cloud_provider,omitempty"`
+	Tags                 map[string]string `json:"virtual_cluster_tags,omitempty"`
+	SkipAgentKeyCreation bool              `json:"skip_agent_key_creation,omitempty"`
 }
 
 type VirtualClusterDeleteRequest struct {
@@ -131,13 +132,14 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 		trimmed = strings.TrimPrefix(name, "vcn_")
 	}
 	payload, err := json.Marshal(VirtualClusterCreateRequest{
-		Name:          trimmed,
-		Type:          opts.Type,
-		Tier:          opts.Tier,
-		Region:        opts.Region,
-		RegionGroup:   opts.RegionGroup,
-		CloudProvider: opts.Cloud,
-		Tags:          opts.Tags,
+		Name:                 trimmed,
+		Type:                 opts.Type,
+		Tier:                 opts.Tier,
+		Region:               opts.Region,
+		RegionGroup:          opts.RegionGroup,
+		CloudProvider:        opts.Cloud,
+		Tags:                 opts.Tags,
+		SkipAgentKeyCreation: true,
 	})
 	if err != nil {
 		return nil, err
