@@ -20,10 +20,11 @@ func TestAccSchemaRegistryDataSource(t *testing.T) {
 	vc, err := client.CreateVirtualCluster(
 		vcNameSuffix,
 		api.ClusterParameters{
-			Type:   api.VirtualClusterTypeSchemaRegistry,
-			Tier:   api.VirtualClusterTierPro,
-			Region: &region,
-			Cloud:  "aws",
+			Type:           api.VirtualClusterTypeSchemaRegistry,
+			Tier:           api.VirtualClusterTierPro,
+			Region:         &region,
+			Cloud:          "aws",
+			CreateAgentKey: true,
 		},
 	)
 	require.NoError(t, err)

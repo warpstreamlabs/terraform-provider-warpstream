@@ -24,10 +24,11 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 	vc, err := client.CreateVirtualCluster(
 		vcNameSuffix,
 		api.ClusterParameters{
-			Type:   api.VirtualClusterTypeBYOC,
-			Tier:   api.VirtualClusterTierPro,
-			Region: &region,
-			Cloud:  "aws",
+			Type:           api.VirtualClusterTypeBYOC,
+			Tier:           api.VirtualClusterTierPro,
+			Region:         &region,
+			Cloud:          "aws",
+			CreateAgentKey: true,
 		},
 	)
 	require.NoError(t, err)

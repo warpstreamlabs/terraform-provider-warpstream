@@ -115,12 +115,13 @@ func (c *Client) GetVirtualCluster(id string) (*VirtualCluster, error) {
 }
 
 type ClusterParameters struct {
-	Type        string
-	Tier        string
-	Region      *string
-	RegionGroup *string
-	Cloud       string
-	Tags        map[string]string
+	Type           string
+	Tier           string
+	Region         *string
+	RegionGroup    *string
+	Cloud          string
+	Tags           map[string]string
+	CreateAgentKey bool
 }
 
 // CreateVirtualCluster - Create new virtual cluster.
@@ -139,7 +140,7 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 		RegionGroup:          opts.RegionGroup,
 		CloudProvider:        opts.Cloud,
 		Tags:                 opts.Tags,
-		SkipAgentKeyCreation: true,
+		SkipAgentKeyCreation: !opts.CreateAgentKey,
 	})
 	if err != nil {
 		return nil, err
