@@ -19,7 +19,8 @@ type WorkspaceListResponse struct {
 }
 
 type WorkspaceCreateRequest struct {
-	Name string `json:"workspace_name"`
+	Name                       string `json:"workspace_name"`
+	SkipApplicationKeyCreation bool   `json:"skip_application_key_creation"`
 }
 
 type WorkspaceDeleteRequest struct {
@@ -28,7 +29,7 @@ type WorkspaceDeleteRequest struct {
 
 // CreateWorkspace - Create new Workspace.
 func (c *Client) CreateWorkspace(name string) (string, error) {
-	payload, err := json.Marshal(WorkspaceCreateRequest{Name: name})
+	payload, err := json.Marshal(WorkspaceCreateRequest{Name: name, SkipApplicationKeyCreation: true})
 	if err != nil {
 		return "", err
 	}
