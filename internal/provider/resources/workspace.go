@@ -69,6 +69,8 @@ The WarpStream provider must be authenticated with an account key to consume thi
 			"id": schema.StringAttribute{
 				Description: "Workspace ID.",
 				Computed:    true,
+				Required:    false,
+				Optional:    false,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -78,15 +80,15 @@ The WarpStream provider must be authenticated with an account key to consume thi
 					"Must be unique across WarpStream account. " +
 					"Must contain spaces, hyphens, underscores and alphanumeric characters only. " +
 					"Must be between 3 and 128 characters in length.",
-				Required: true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-				Validators: []validator.String{utils.ValidWorkspaceName()},
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Validators:    []validator.String{utils.ValidWorkspaceName()},
 			},
 			"created_at": schema.StringAttribute{
 				Description: "Workspace Creation Timestamp.",
 				Computed:    true,
+				Required:    false,
+				Optional:    false,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -178,9 +180,48 @@ func (r *workspaceResource) Read(ctx context.Context, req resource.ReadRequest, 
 	}
 }
 
-// Update updates the resource and sets the updated Terraform state on success.
-// Workspaces can't be modified yet but we define this to implement resource.Resource.
+// Update can only modify the workspace's name.
 func (r *workspaceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// Retrieve values from plan.
+	var plan models.Workspace
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Describe the workspace.
+	workspaceID := plan.ID.ValueString()
+	workspace, err := r.client.GetWorkspace(workspaceID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Reading WarpStream Workspace",
+			"Could not read WarpStream Workspace ID "+workspaceID+": "+err.Error(),
+		)
+		return
+	}
+
+	// If the workspace name is the same as in the plan, do nothing.
+	if workspace.Name == plan.Name.ValueString() {
+		return
+	}
+
+	// Update workspace name.
+	err = r.client.RenameWorkspace(plan.ID.ValueString(), plan.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Updating WarpStream Workspace",
+			"Could not update WarpStream Workspace, unexpected error: "+err.Error(),
+		)
+		return
+	}
+
+	// Set state to fully populated data.
+	diags = resp.State.Set(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
