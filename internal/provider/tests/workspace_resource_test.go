@@ -21,6 +21,12 @@ func TestAccAccountKeyWorkspaceResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("warpstream_workspace.test", "created_at"),
 				),
 			},
+			{
+				Config: testAccWorkspaceResource(workspaceNameSuffix + "_renamed"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_workspace.test", "name", fmt.Sprintf("test_acc_%s_renamed", workspaceNameSuffix)),
+				),
+			},
 		},
 	})
 }
