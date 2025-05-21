@@ -27,6 +27,11 @@ type WorkspaceDeleteRequest struct {
 	ID string `json:"workspace_id"`
 }
 
+type WorkspaceRenameRequest struct {
+	ID   string `json:"workspace_id"`
+	Name string `json:"new_workspace_name"`
+}
+
 // CreateWorkspace - Create new Workspace.
 func (c *Client) CreateWorkspace(name string) (string, error) {
 	payload, err := json.Marshal(WorkspaceCreateRequest{Name: name, SkipApplicationKeyCreation: true})
@@ -115,4 +120,24 @@ func (c *Client) GetWorkspace(workspaceID string) (*Workspace, error) {
 	}
 
 	return nil, ErrNotFound
+}
+
+// RenameWorkspace - Rename a Workspace.
+func (c *Client) RenameWorkspace(workspaceID string, newName string) error {
+	payload, err := json.Marshal(WorkspaceRenameRequest{ID: workspaceID, Name: newName})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/rename_workspace", c.HostURL), bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+
+	_, err = c.doRequest(req, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
