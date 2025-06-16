@@ -129,6 +129,8 @@ resource "warpstream_pipeline" "test_pipeline" {
   name               = "test_pipeline"
   state              = "running"
   configuration_yaml = <<EOT
+  error_handling:
+    strategy: reject
   input:
     kafka_franz:
         seed_brokers: ["localhost:9092"]

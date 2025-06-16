@@ -20,6 +20,8 @@ resource "warpstream_pipeline" "example_bento_pipeline" {
   name               = "example_bento_pipeline"
   state              = "running"
   configuration_yaml = <<EOT
+  error_handling:
+    strategy: reject
   input:
     kafka_franz:
         seed_brokers: ["localhost:9092"]
