@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/stretchr/testify/require"
@@ -66,6 +67,43 @@ func TestAccAgentKeyResource(t *testing.T) {
 			{
 				Config: testAccAgentKeyResource(name, vcID),
 				Check:  testAccAgentKeyResourceCheck(name, vcID),
+			},
+		},
+	})
+}
+
+func TestAccAgentKeyResourceSchemaRegistryCluster(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	region := "us-east-1"
+	vc, err := client.CreateVirtualCluster(
+		vcNameSuffix,
+		api.ClusterParameters{
+			Type:           api.VirtualClusterTypeSchemaRegistry,
+			Tier:           api.VirtualClusterTierPro,
+			Region:         &region,
+			Cloud:          "aws",
+			CreateAgentKey: true,
+		},
+	)
+	require.NoError(t, err)
+	defer func() {
+		err := client.DeleteVirtualCluster(vc.ID, vc.Name)
+		if err != nil {
+			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		}
+	}()
+
+	name := "akn_test_agent_key" + acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAgentKeyResource(name, vc.ID),
+				Check:  testAccAgentKeyResourceCheck(name, vc.ID),
 			},
 		},
 	})
