@@ -61,6 +61,8 @@ type APIKeyListResponse struct {
 type APIKeyCreateRequest struct {
 	Name         string              `json:"name"` // No `akn_` prefix.
 	AccessGrants []map[string]string `json:"access_grants"`
+	// Defaults to `byoc` is left empty.
+	VirtualClusterTypeOverride string `json:"virtual_cluster_type"`
 }
 
 type APIKeyDeleteRequest struct {
@@ -69,13 +71,17 @@ type APIKeyDeleteRequest struct {
 
 // CreateAgentKey - Create new Agent Key. Supports creating keys with just one access grant for now.
 func (c *Client) CreateAgentKey(name, virtualClusterID string) (*APIKey, error) {
+	virtualClusterTypeOverride := ""
+	if strings.HasPrefix(virtualClusterID, "vci_sr_") {
+		virtualClusterTypeOverride = VirtualClusterTypeSchemaRegistry
+	}
 	accessGrant := map[string]string{
 		"principal_kind": PrincipalKindAgent,
 		"resource_kind":  ResourceKindVirtualCluster,
 		"resource_id":    virtualClusterID,
 	}
 
-	return c.createAPIKey(name, accessGrant)
+	return c.createAPIKey(name, accessGrant, virtualClusterTypeOverride)
 }
 
 func (c *Client) CreateApplicationKey(name, workspaceID string) (*APIKey, error) {
@@ -86,16 +92,18 @@ func (c *Client) CreateApplicationKey(name, workspaceID string) (*APIKey, error)
 		"workspace_id":   workspaceID, // Can be empty.
 	}
 
-	return c.createAPIKey(name, accessGrant)
+	return c.createAPIKey(name, accessGrant, "")
 }
 
 func (c *Client) createAPIKey(
 	name string,
 	accessGrant map[string]string,
+	virtualClusterTypeOverride string,
 ) (*APIKey, error) {
 	payload, err := json.Marshal(APIKeyCreateRequest{
-		Name:         strings.TrimPrefix(name, "akn_"),
-		AccessGrants: []map[string]string{accessGrant},
+		Name:                       strings.TrimPrefix(name, "akn_"),
+		AccessGrants:               []map[string]string{accessGrant},
+		VirtualClusterTypeOverride: virtualClusterTypeOverride,
 	})
 	if err != nil {
 		return nil, err
