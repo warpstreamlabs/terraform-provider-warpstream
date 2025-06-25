@@ -61,7 +61,7 @@ type APIKeyListResponse struct {
 type APIKeyCreateRequest struct {
 	Name         string              `json:"name"` // No `akn_` prefix.
 	AccessGrants []map[string]string `json:"access_grants"`
-	// Defaults to `byoc` is left empty.
+	// Optional. Defaults to `byoc` if left empty.
 	VirtualClusterTypeOverride string `json:"virtual_cluster_type"`
 }
 
