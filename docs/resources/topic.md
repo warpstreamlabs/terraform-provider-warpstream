@@ -26,7 +26,7 @@ The WarpStream provider must be authenticated with an application key to consume
 
 ### Optional
 
-- `config` (Block List) Configuration of the topic. (see [below for nested schema](#nestedblock--config))
+- `config` (Block Set) Configuration of the topic. (see [below for nested schema](#nestedblock--config))
 - `enable_deletion_protection` (Boolean) If enabled, WarpStream will refuse to delete this topic.
 
 ### Read-Only
