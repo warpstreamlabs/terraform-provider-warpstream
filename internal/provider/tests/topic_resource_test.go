@@ -247,7 +247,7 @@ resource "warpstream_topic" "topic" {
 				),
 				ConfigStateChecks: []statecheck.StateCheck{
 					// The order of the slice is different then defined in terraform hcl
-					// Sets are unordered so the ordering isn't guarenteed to match
+					// Sets are unordered so the ordering isn't guaranteed to match
 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config"), knownvalue.ListSizeExact(3)),
 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("name"), knownvalue.StringExact("cleanup.policy")),
 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("delete")),
