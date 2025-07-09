@@ -119,7 +119,10 @@ The WarpStream provider must be authenticated with an application key to consume
 			},
 		},
 		Blocks: map[string]schema.Block{
-			"config": schema.ListNestedBlock{
+			// Using a set because topic configs don't have any defined order so a list can't be used
+			// Golang will still treat it as a list so nothing changes code wise but terraform will
+			// understand if things change order to not change anything
+			"config": schema.SetNestedBlock{
 				Description: "Configuration of the topic.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
