@@ -68,13 +68,13 @@ var grantSchema = schema.NestedAttributeObject{
 			Validators: []validator.String{
 				stringvalidator.Any(utils.StartsWith("wi_"), stringvalidator.OneOf("*")),
 			},
-			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			Required:      true,
 		},
 		"grant_type": schema.StringAttribute{
 			Description:   "Level of access inside the workspace. Current options are: " + strings.Join(ManagedGrantNames, " and "),
 			Validators:    []validator.String{stringvalidator.OneOf(ManagedGrantNames...)},
-			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			// For now a grant is defined using a grant type only.
 			// In the future we may loosen the schema to so that grants can be defined using either a just grant type or more detailed grant attributes.
 			Required: true,
@@ -107,7 +107,7 @@ The WarpStream provider must be authenticated with an account key to consume thi
 					"Must be between 3 and 60 characters in length.",
 				Required: true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
 				},
 				Validators: []validator.String{utils.ValidUserRoleName()},
 			},
@@ -246,8 +246,66 @@ func (r *userRoleResource) Read(ctx context.Context, req resource.ReadRequest, r
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
-// Roles can't be modified yet but we define this to implement resource.Resource.
 func (r *userRoleResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// Retrieve values from plan
+	var plan models.UserRole
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	grants := make([]api.AccessGrant, 0, len(plan.AccessGrants))
+	for _, grant := range plan.AccessGrants {
+		grants = append(grants, api.AccessGrant{
+			WorkspaceID:     grant.WorkspaceID.ValueString(),
+			ManagedGrantKey: grant.GrantType.ValueString(),
+			ResourceID:      "*", // For now, roles always have access to any resource inside its authorized workspaces.
+		})
+	}
+
+	err := r.client.UpdateUserRole(plan.ID.ValueString(), plan.Name.ValueString(), grants)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Updating WarpStream User Role",
+			"Could not update WarpStream User Role ID "+plan.ID.ValueString()+": "+err.Error(),
+		)
+		return
+	}
+
+	// Describe updated role
+	role, err := r.client.GetUserRole(plan.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Reading WarpStream User Role",
+			"Could not read WarpStream User Role ID "+plan.ID.ValueString()+": "+err.Error(),
+		)
+
+		return
+	}
+
+	// Map response body to schema and populate Computed attribute values
+	state := models.UserRole{
+		ID:        types.StringValue(role.ID),
+		Name:      types.StringValue(role.Name),
+		CreatedAt: types.StringValue(role.CreatedAt),
+	}
+
+	grantModels := make([]models.UserRoleGrant, 0, len(role.AccessGrants))
+	for _, grant := range role.AccessGrants {
+		grantModels = append(grantModels, models.UserRoleGrant{
+			WorkspaceID: types.StringValue(grant.WorkspaceID),
+			GrantType:   types.StringValue(grant.ManagedGrantKey),
+		})
+	}
+	state.AccessGrants = grantModels
+
+	// Set state
+	diags = resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
