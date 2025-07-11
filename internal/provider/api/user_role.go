@@ -24,6 +24,12 @@ type UserRoleCreateRequest struct {
 	AccessGrants []AccessGrant `json:"access_grants"`
 }
 
+type UserRoleUpdateRequest struct {
+	ID           string        `json:"user_role_id"`
+	Name         string        `json:"new_user_role_name"`
+	AccessGrants []AccessGrant `json:"access_grants"`
+}
+
 type UserRoleDeleteRequest struct {
 	ID string `json:"user_role_id"`
 }
@@ -54,6 +60,29 @@ func (c *Client) CreateUserRole(name string, grants []AccessGrant) (string, erro
 	}
 
 	return res.ID, nil
+}
+
+func (c *Client) UpdateUserRole(id string, name string, grants []AccessGrant) error {
+	payload, err := json.Marshal(UserRoleUpdateRequest{ID: id, Name: name, AccessGrants: grants})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/update_user_role", c.HostURL), bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return err
+	}
+
+	if string(body) != "{}" {
+		return errors.New(string(body))
+	}
+
+	return nil
 }
 
 // DeleteUserRole - Delete a User Role.
