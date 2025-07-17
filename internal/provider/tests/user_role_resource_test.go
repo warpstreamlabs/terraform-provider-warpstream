@@ -24,6 +24,19 @@ func TestAccAccountKeyUserRoleResource(t *testing.T) {
 					resource.TestCheckResourceAttr("warpstream_user_role.test", "access_grants.0.grant_type", "admin"),
 				),
 			},
+			{
+				Config: testAccUserRoleResourceUpdate(randSuffix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("warpstream_user_role.test", "id"),
+					resource.TestCheckResourceAttr("warpstream_user_role.test", "name", fmt.Sprintf("test_acc_user_role_updated_%s", randSuffix)),
+					resource.TestCheckResourceAttrSet("warpstream_user_role.test", "created_at"),
+					resource.TestCheckResourceAttr("warpstream_user_role.test", "access_grants.#", "2"),
+					resource.TestCheckResourceAttrSet("warpstream_user_role.test", "access_grants.0.workspace_id"),
+					resource.TestCheckResourceAttr("warpstream_user_role.test", "access_grants.0.grant_type", "read_only"),
+					resource.TestCheckResourceAttrSet("warpstream_user_role.test", "access_grants.1.workspace_id"),
+					resource.TestCheckResourceAttr("warpstream_user_role.test", "access_grants.1.grant_type", "admin"),
+				),
+			},
 		},
 	})
 }
@@ -43,4 +56,29 @@ resource "warpstream_user_role" "test" {
     },
   ]
 }`, randSuffix, randSuffix)
+}
+
+func testAccUserRoleResourceUpdate(randSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_workspace" "test" {
+  name = "test_acc_workspace_%s"
+}
+
+resource "warpstream_workspace" "test2" {
+  name = "test_acc_workspace_2_%s"
+}
+
+resource "warpstream_user_role" "test" {
+  name = "test_acc_user_role_updated_%s"
+  access_grants = [
+    {
+      workspace_id = warpstream_workspace.test.id
+      grant_type   = "read_only"
+    },
+    {
+      workspace_id = warpstream_workspace.test2.id
+      grant_type   = "admin"
+    },
+  ]
+}`, randSuffix, randSuffix, randSuffix)
 }
