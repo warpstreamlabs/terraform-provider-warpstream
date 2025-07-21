@@ -5,6 +5,7 @@ subcategory: ""
 description: |-
   This data source reads individual Workspaces and their respective application keys.
   The WarpStream provider must be authenticated with an account key to read this data source.
+  Not all customers have the Workspaces feature enabled. Please contact Support for details.
 ---
 
 # warpstream_workspace (Data Source)
@@ -12,6 +13,8 @@ description: |-
 This data source reads individual Workspaces and their respective application keys.
 
 The WarpStream provider must be authenticated with an account key to read this data source.
+
+Not all customers have the Workspaces feature enabled. Please contact Support for details.
 
 ## Example Usage
 

@@ -56,6 +56,8 @@ func (d *userRoleDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 This data source reads individual User Roles and their respective grants.
 
 The WarpStream provider must be authenticated with an account key to read this data source.
+
+Not all customers have the User Roles feature enabled. Please contact Support for details.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

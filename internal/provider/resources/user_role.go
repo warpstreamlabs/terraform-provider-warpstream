@@ -89,6 +89,8 @@ func (r *userRoleResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 This resource allows you to create and delete user roles.
 
 The WarpStream provider must be authenticated with an account key to consume this resource.
+
+Not all customers have the user roles feature enabled. Please contact Support for details.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

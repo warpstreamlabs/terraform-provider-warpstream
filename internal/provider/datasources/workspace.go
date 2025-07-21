@@ -39,6 +39,8 @@ func (d *workspaceDataSource) Schema(_ context.Context, _ datasource.SchemaReque
 This data source reads individual Workspaces and their respective application keys.
 
 The WarpStream provider must be authenticated with an account key to read this data source.
+
+Not all customers have the Workspaces feature enabled. Please contact Support for details.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
