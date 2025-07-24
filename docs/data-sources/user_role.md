@@ -5,6 +5,7 @@ subcategory: ""
 description: |-
   This data source reads individual User Roles and their respective grants.
   The WarpStream provider must be authenticated with an account key to read this data source.
+  Not all customers have the User Roles feature enabled. Please contact Support for details.
 ---
 
 # warpstream_user_role (Data Source)
@@ -12,6 +13,8 @@ description: |-
 This data source reads individual User Roles and their respective grants.
 
 The WarpStream provider must be authenticated with an account key to read this data source.
+
+Not all customers have the User Roles feature enabled. Please contact Support for details.
 
 ## Example Usage
 

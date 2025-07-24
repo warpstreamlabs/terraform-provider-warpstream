@@ -64,6 +64,8 @@ func (r *workspaceResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 This resource allows you to create and delete workspaces.
 
 The WarpStream provider must be authenticated with an account key to consume this resource.
+
+Not all customers have the workspaces feature enabled. Please contact Support for details.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
