@@ -45,7 +45,7 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 			{
 				Config: testAccVirtualClustersDataSource_default(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testCheckVirtualClustersState(vc),
+					testCheckVirtualClustersState(t, vc),
 				),
 			},
 		},
@@ -65,7 +65,7 @@ resource test suite creates virtual clusters.
 There must be a better way to deserialize the data source's attributes but I couldn't figure it out from the docs.
 https://developer.hashicorp.com/terraform/plugin/sdkv2/testing/acceptance-tests/teststep#custom-check-functions
 */
-func testCheckVirtualClustersState(vc *api.VirtualCluster) resource.TestCheckFunc {
+func testCheckVirtualClustersState(t *testing.T, vc *api.VirtualCluster) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		resourceName := "data.warpstream_virtual_clusters.test"
 		rs, ok := s.RootModule().Resources[resourceName]
@@ -77,6 +77,10 @@ func testCheckVirtualClustersState(vc *api.VirtualCluster) resource.TestCheckFun
 
 		if err != nil {
 			return err
+		}
+
+		for _, vc := range vcs {
+			t.Logf("Found VC from datalookup: %#v", vc)
 		}
 
 		err = assertBYOCVC(vcs, vc)
