@@ -39,8 +39,6 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 		require.NoError(t, err)
 
 		createdVCs = append(createdVCs, vc)
-
-		t.Logf("Cluster Created: '%s': '%s' from name '%s'", vc.Name, vc.ID, vcNameSuffix)
 	}
 
 	require.NoError(t, err)
@@ -53,12 +51,6 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 			}
 		}
 	}()
-
-	vcs, err := client.GetVirtualClusters()
-	require.NoError(t, err)
-	for _, vc := range vcs {
-		t.Logf("VC from GetVirtualClusters: %#v", vc)
-	}
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -98,10 +90,6 @@ func testCheckVirtualClustersState(t *testing.T, expectedVCs []*api.VirtualClust
 
 		if err != nil {
 			return err
-		}
-
-		for _, vc := range vcs {
-			t.Logf("Found VC from datalookup: %#v", vc)
 		}
 
 		for _, expectedVC := range expectedVCs {
