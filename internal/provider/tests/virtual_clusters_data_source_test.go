@@ -205,7 +205,7 @@ virtual cluster states. TF probably has a better way to do this but I couldn't f
 	Out: []map[string]string{{"agent_pool_name": "apn_default_80hc"}, {"name": "vcn_streambased"}}
 */
 func attributesMapToVCStatesSlice(attrsSlice map[string]string) ([]map[string]string, error) {
-	vcsMap := make(map[byte]map[string]string)
+	vcsMap := make(map[string]map[string]string)
 	for k, v := range attrsSlice { // k = "virtual_clusters.1.name", v = "vcn_streambased"
 		if k == "%" { // "%" added by TF to represent a map's length.
 			continue
@@ -220,8 +220,10 @@ func attributesMapToVCStatesSlice(attrsSlice map[string]string) ([]map[string]st
 			continue
 		}
 
-		vcKey := suffixedAttribute[0]       // Some byte representing "0" to however many VCs we have.
-		vcAttrName := suffixedAttribute[2:] // E.g. "name"
+		listIndex := strings.Split(suffixedAttribute, ".")[0]
+
+		vcKey := listIndex                                 // Some byte representing "0" to however many VCs we have.
+		vcAttrName := suffixedAttribute[len(listIndex)+1:] // E.g. "name"
 		if _, ok := vcsMap[vcKey]; !ok {
 			vcsMap[vcKey] = map[string]string{
 				vcAttrName: v,
