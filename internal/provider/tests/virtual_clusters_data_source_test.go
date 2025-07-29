@@ -39,6 +39,8 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 		}
 	}()
 
+	t.Logf("Cluster Created: '%s': '%s' from name '%s'", vc.Name, vc.ID, vcNameSuffix)
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
