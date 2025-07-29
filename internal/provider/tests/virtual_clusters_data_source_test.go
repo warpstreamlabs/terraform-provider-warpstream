@@ -19,27 +19,46 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
 
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
-	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
-		api.ClusterParameters{
-			Type:           api.VirtualClusterTypeBYOC,
-			Tier:           api.VirtualClusterTierPro,
-			Region:         &region,
-			Cloud:          "aws",
-			CreateAgentKey: true,
-		},
-	)
+
+	createdVCs := make([]*api.VirtualCluster, 0)
+
+	// Create multiple clusters to make sure we can return multiple
+	for range 5 {
+		vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+		vc, err := client.CreateVirtualCluster(
+			vcNameSuffix,
+			api.ClusterParameters{
+				Type:           api.VirtualClusterTypeBYOC,
+				Tier:           api.VirtualClusterTierPro,
+				Region:         &region,
+				Cloud:          "aws",
+				CreateAgentKey: true,
+			},
+		)
+		require.NoError(t, err)
+
+		createdVCs = append(createdVCs, vc)
+
+		t.Logf("Cluster Created: '%s': '%s' from name '%s'", vc.Name, vc.ID, vcNameSuffix)
+	}
+
 	require.NoError(t, err)
 	defer func() {
-		err := client.DeleteVirtualCluster(vc.ID, vc.Name)
-		if err != nil {
-			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		for _, vc := range createdVCs {
+
+			err := client.DeleteVirtualCluster(vc.ID, vc.Name)
+			if err != nil {
+				panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+			}
 		}
 	}()
 
-	t.Logf("Cluster Created: '%s': '%s' from name '%s'", vc.Name, vc.ID, vcNameSuffix)
+	vcs, err := client.GetVirtualClusters()
+	require.NoError(t, err)
+	for _, vc := range vcs {
+		t.Logf("VC from GetVirtualClusters: %#v", vc)
+	}
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -47,7 +66,7 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 			{
 				Config: testAccVirtualClustersDataSource_default(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testCheckVirtualClustersState(t, vc),
+					testCheckVirtualClustersState(t, createdVCs),
 				),
 			},
 		},
@@ -67,7 +86,7 @@ resource test suite creates virtual clusters.
 There must be a better way to deserialize the data source's attributes but I couldn't figure it out from the docs.
 https://developer.hashicorp.com/terraform/plugin/sdkv2/testing/acceptance-tests/teststep#custom-check-functions
 */
-func testCheckVirtualClustersState(t *testing.T, vc *api.VirtualCluster) resource.TestCheckFunc {
+func testCheckVirtualClustersState(t *testing.T, expectedVCs []*api.VirtualCluster) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		resourceName := "data.warpstream_virtual_clusters.test"
 		rs, ok := s.RootModule().Resources[resourceName]
@@ -85,9 +104,11 @@ func testCheckVirtualClustersState(t *testing.T, vc *api.VirtualCluster) resourc
 			t.Logf("Found VC from datalookup: %#v", vc)
 		}
 
-		err = assertBYOCVC(vcs, vc)
-		if err != nil {
-			return err
+		for _, expectedVC := range expectedVCs {
+			err = assertBYOCVC(vcs, expectedVC)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil
