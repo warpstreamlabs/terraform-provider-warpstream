@@ -66,7 +66,7 @@ func (r *schemaRegistryResource) Configure(_ context.Context, req resource.Confi
 var registryCloudSchema = schema.SingleNestedAttribute{
 	Attributes: map[string]schema.Attribute{
 		"provider": schema.StringAttribute{
-			Description: "Cloud Provider. Valid providers are: `aws` (default) and `gcp`.",
+			Description: "Cloud Provider. Valid providers are: `aws` (default), `gcp`, and `azure`.",
 			Computed:    true,
 			Optional:    true,
 			Default:     stringdefault.StaticString("aws"),

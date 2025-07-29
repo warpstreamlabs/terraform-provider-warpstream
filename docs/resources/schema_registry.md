@@ -57,7 +57,7 @@ resource "warpstream_schema_registry" "example_schema_registry" {
 
 Optional:
 
-- `provider` (String) Cloud Provider. Valid providers are: `aws` (default) and `gcp`.
+- `provider` (String) Cloud Provider. Valid providers are: `aws` (default), `gcp`, and `azure`.
 - `region` (String) Cloud Region. Defaults to `us-east-1`.
 
 

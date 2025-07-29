@@ -136,12 +136,12 @@ func (d *virtualClustersDataSource) Read(ctx context.Context, req datasource.Rea
 		}
 
 		state.VirtualClusters = append(state.VirtualClusters, vcnState)
+	}
 
-		diags := resp.State.Set(ctx, &state)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	diags := resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 }
 

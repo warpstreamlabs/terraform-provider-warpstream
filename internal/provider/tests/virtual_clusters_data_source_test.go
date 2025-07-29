@@ -19,23 +19,36 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
 
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
-	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
-		api.ClusterParameters{
-			Type:           api.VirtualClusterTypeBYOC,
-			Tier:           api.VirtualClusterTierPro,
-			Region:         &region,
-			Cloud:          "aws",
-			CreateAgentKey: true,
-		},
-	)
+
+	createdVCs := make([]*api.VirtualCluster, 0)
+
+	// Create multiple clusters to make sure we can return multiple
+	for range 5 {
+		vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+		vc, err := client.CreateVirtualCluster(
+			vcNameSuffix,
+			api.ClusterParameters{
+				Type:           api.VirtualClusterTypeBYOC,
+				Tier:           api.VirtualClusterTierPro,
+				Region:         &region,
+				Cloud:          "aws",
+				CreateAgentKey: true,
+			},
+		)
+		require.NoError(t, err)
+
+		createdVCs = append(createdVCs, vc)
+	}
+
 	require.NoError(t, err)
 	defer func() {
-		err := client.DeleteVirtualCluster(vc.ID, vc.Name)
-		if err != nil {
-			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		for _, vc := range createdVCs {
+
+			err := client.DeleteVirtualCluster(vc.ID, vc.Name)
+			if err != nil {
+				panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+			}
 		}
 	}()
 
@@ -45,7 +58,7 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 			{
 				Config: testAccVirtualClustersDataSource_default(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testCheckVirtualClustersState(vc),
+					testCheckVirtualClustersState(t, createdVCs),
 				),
 			},
 		},
@@ -65,7 +78,7 @@ resource test suite creates virtual clusters.
 There must be a better way to deserialize the data source's attributes but I couldn't figure it out from the docs.
 https://developer.hashicorp.com/terraform/plugin/sdkv2/testing/acceptance-tests/teststep#custom-check-functions
 */
-func testCheckVirtualClustersState(vc *api.VirtualCluster) resource.TestCheckFunc {
+func testCheckVirtualClustersState(t *testing.T, expectedVCs []*api.VirtualCluster) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		resourceName := "data.warpstream_virtual_clusters.test"
 		rs, ok := s.RootModule().Resources[resourceName]
@@ -79,9 +92,11 @@ func testCheckVirtualClustersState(vc *api.VirtualCluster) resource.TestCheckFun
 			return err
 		}
 
-		err = assertBYOCVC(vcs, vc)
-		if err != nil {
-			return err
+		for _, expectedVC := range expectedVCs {
+			err = assertBYOCVC(vcs, expectedVC)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -178,7 +193,7 @@ virtual cluster states. TF probably has a better way to do this but I couldn't f
 	Out: []map[string]string{{"agent_pool_name": "apn_default_80hc"}, {"name": "vcn_streambased"}}
 */
 func attributesMapToVCStatesSlice(attrsSlice map[string]string) ([]map[string]string, error) {
-	vcsMap := make(map[byte]map[string]string)
+	vcsMap := make(map[string]map[string]string)
 	for k, v := range attrsSlice { // k = "virtual_clusters.1.name", v = "vcn_streambased"
 		if k == "%" { // "%" added by TF to represent a map's length.
 			continue
@@ -193,8 +208,10 @@ func attributesMapToVCStatesSlice(attrsSlice map[string]string) ([]map[string]st
 			continue
 		}
 
-		vcKey := suffixedAttribute[0]       // Some byte representing "0" to however many VCs we have.
-		vcAttrName := suffixedAttribute[2:] // E.g. "name"
+		listIndex := strings.Split(suffixedAttribute, ".")[0]
+
+		vcKey := listIndex                                 // Some byte representing "0" to however many VCs we have.
+		vcAttrName := suffixedAttribute[len(listIndex)+1:] // E.g. "name"
 		if _, ok := vcsMap[vcKey]; !ok {
 			vcsMap[vcKey] = map[string]string{
 				vcAttrName: v,
