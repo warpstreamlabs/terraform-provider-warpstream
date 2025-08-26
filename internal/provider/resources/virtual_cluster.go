@@ -109,10 +109,11 @@ var (
 				},
 			},
 			"region": schema.StringAttribute{
-				Description: "Cloud Region. Defaults to `us-east-1`. Can't be set if `region_group` is set.",
-				Computed:    true,
+				Description: "Cloud Region. Defaults to null. Can't be set if `region_group` is set.",
+				Computed:    false,
 				Optional:    true,
-				Default:     stringdefault.StaticString("us-east-1"),
+				Required:    false,
+				Default:     nil,
 				Validators: []validator.String{
 					stringvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName("region_group")),
 				},
@@ -122,11 +123,15 @@ var (
 			},
 			"region_group": schema.StringAttribute{
 				Description: "Cloud Region Group. Defaults to null. Can't be set if `region` is set.",
-				Computed:    true,
+				Computed:    false,
 				Optional:    true,
+				Required:    false,
 				Default:     nil,
 				Validators: []validator.String{
 					stringvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName("region")),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 		},
