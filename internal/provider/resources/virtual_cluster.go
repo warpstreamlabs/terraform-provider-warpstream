@@ -110,11 +110,12 @@ var (
 			},
 			"region": schema.StringAttribute{
 				Description: "Cloud Region. Defaults to null. Can't be set if `region_group` is set.",
-				Computed:    true,
+				Computed:    false,
 				Optional:    true,
+				Required:    false,
 				Default:     nil,
 				Validators: []validator.String{
-					stringvalidator.ConflictsWith(path.MatchRelative().AtName("region_group")),
+					stringvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName("region_group")),
 				},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -122,11 +123,12 @@ var (
 			},
 			"region_group": schema.StringAttribute{
 				Description: "Cloud Region Group. Defaults to null. Can't be set if `region` is set.",
-				Computed:    true,
+				Computed:    false,
 				Optional:    true,
+				Required:    false,
 				Default:     nil,
 				Validators: []validator.String{
-					stringvalidator.ConflictsWith(path.MatchRelative().AtName("region")),
+					stringvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName("region")),
 				},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
