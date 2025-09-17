@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -187,6 +188,14 @@ func (r *pipelineResource) Create(ctx context.Context, req resource.CreateReques
 		)
 		return
 	}
+
+	if len(cc.RemovedKeys) > 0 {
+		resp.Diagnostics.AddWarning(
+			"Warning: Removed some blocks from the pipeline configuration.",
+			removedKeysInPipelineConfigurationWarning(cc.RemovedKeys),
+		)
+	}
+
 	plan.ConfigurationID = types.StringValue(cc.ConfigurationID)
 
 	_, err = r.client.ChangePipelineState(ctx, api.HTTPChangePipelineStateRequest{
@@ -335,4 +344,13 @@ func (r *pipelineResource) Delete(ctx context.Context, req resource.DeleteReques
 		)
 		return
 	}
+}
+
+func removedKeysInPipelineConfigurationWarning(removedKeys []string) string {
+	quotedKeys := make([]string, len(removedKeys))
+	for i, key := range removedKeys {
+		quotedKeys[i] = fmt.Sprintf("%q", key)
+	}
+
+	return fmt.Sprintf("The following keys were removed from the pipeline configuration: %s.", strings.Join(quotedKeys, ", "))
 }
