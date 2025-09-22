@@ -13,3 +13,8 @@ provider "warpstream" {
 resource "warpstream_workspace" "example_workspace" {
   name = "example-workspace"
 }
+
+
+resource "warpstream_workspace" "example_imported_workspace" {
+  name = "example-imported-workspace"
+}
