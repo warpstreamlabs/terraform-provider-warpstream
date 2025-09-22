@@ -31,6 +31,24 @@ func TestAccAccountKeyWorkspaceResource(t *testing.T) {
 	})
 }
 
+func TestAccAccountKeyWorkspaceImport(t *testing.T) {
+	workspaceNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccWorkspaceResource(workspaceNameSuffix),
+			},
+			{
+				ImportState:       true,
+				ImportStateVerify: true,
+				ResourceName:      "warpstream_workspace.test",
+			},
+		},
+		IsUnitTest: true,
+	})
+}
+
 func testAccWorkspaceResource(nameSuffix string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_workspace" "test" {
