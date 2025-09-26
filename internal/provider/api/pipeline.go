@@ -46,8 +46,7 @@ type HTTPCreatePipelineConfigurationRequest struct {
 }
 
 type HTTPCreatePipelineConfigurationResponse struct {
-	ConfigurationID string   `json:"configuration_id"`
-	RemovedKeys     []string `json:"removed_keys"`
+	ConfigurationID string `json:"configuration_id"`
 }
 
 type HTTPChangePipelineStateRequest struct {
