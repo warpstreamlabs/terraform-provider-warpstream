@@ -142,7 +142,7 @@ The WarpStream provider must be authenticated with an application key to consume
 	}
 }
 
-// Creates a new ACL resource
+// Creates a new ACL resource.
 func (a *aclResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
 	var plan models.ACL
