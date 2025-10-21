@@ -30,14 +30,14 @@ func testAccACLResource(name, vcID string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_acl" "%s" {
   virtual_cluster_id = "%s"
-
+  host = "*"
   principal     = "User:alice"
+  operation     = "READ"
+  permission_type    = "ALLOW"
   resource_type = "TOPIC"
   resource_name = "orders"
   pattern_type  = "LITERAL"
-  operation     = "READ"
-  permission    = "ALLOW"
-}
+  }
 `, name, vcID)
 }
 
@@ -143,13 +143,13 @@ func TestAccACLResourceReplaceOnChange(t *testing.T) {
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_acl" "%s" {
   virtual_cluster_id = "%s"
-
+  host = "*"
   principal     = "User:bob"      // changed immutable field
+  operation     = "READ"
+  permission_type    = "ALLOW"
   resource_type = "TOPIC"
   resource_name = "orders"
   pattern_type  = "LITERAL"
-  operation     = "READ"
-  permission    = "ALLOW"
 }
 `, updatedName, vcID),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
