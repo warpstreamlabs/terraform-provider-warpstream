@@ -64,7 +64,7 @@ func (c *Client) CreateACL(vcID string, acl ACLRequest) (*ACL, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v1/virtual_clusters/acls/create", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/virtual_clusters/acls/create", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (c *Client) ListACLs(vcID string) ([]ACL, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/virtual_clusters/acls/list", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/virtual_clusters/acls/list", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func (c *Client) DeleteACL(vcID string, acl ACLRequest) error {
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v1/virtual_clusters/acls/delete", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/virtual_clusters/acls/delete", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
