@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 )
 
 func TestAccACLResource(t *testing.T) {
-	vcName := "vcn_acl_" + nameSuffix
+	vcName := "vcn_acl_" + acctest.RandStringFromCharSet(8, acctest.CharSetAlphaNum)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -57,12 +58,12 @@ func testAccACLResourceCheck() resource.TestCheckFunc {
 		resource.TestCheckResourceAttr("warpstream_acl.test", "resource_name", "orders"),
 		resource.TestCheckResourceAttr("warpstream_acl.test", "pattern_type", "LITERAL"),
 		resource.TestCheckResourceAttr("warpstream_acl.test", "operation", "READ"),
-		resource.TestCheckResourceAttr("warpstream_acl.test", "permission", "ALLOW"),
+		resource.TestCheckResourceAttr("warpstream_acl.test", "permission_type", "ALLOW"),
 	)
 }
 
 func TestAccACLResourceDeletePlan(t *testing.T) {
-	vcName := "vcn_acl_" + nameSuffix
+	vcName := "vcn_acl_" + acctest.RandStringFromCharSet(8, acctest.CharSetAlphaNum)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -117,7 +118,7 @@ func TestAccACLResourceDeletePlan(t *testing.T) {
 }
 
 func TestAccACLResourceReplaceOnChange(t *testing.T) {
-	vcName := "vcn_acl_" + nameSuffix
+	vcName := "vcn_acl_" + acctest.RandStringFromCharSet(8, acctest.CharSetAlphaNum)
 
 	var originalACLID string
 
