@@ -2,24 +2,13 @@ package api
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 )
-
-type ACL struct {
-	ID               string `json:"id"`
-	VirtualClusterID string `json:"virtual_cluster_id"`
-	Host             string `json:"host"`
-	Principal        string `json:"principal"`
-	Operation        string `json:"operation"`
-	PermissionType   string `json:"permission_type"`
-	ResourceType     string `json:"resource_type"`
-	ResourceName     string `json:"resource_name"`
-	PatternType      string `json:"pattern_type"`
-	CreatedAt        string `json:"created_at"`
-}
 
 type ACLRequest struct {
 	ResourceType   string `json:"resource_type"`
@@ -31,13 +20,36 @@ type ACLRequest struct {
 	PermissionType string `json:"permission_type"`
 }
 
+type ACLResponse struct {
+	ResourceType   string `json:"resource_type"`
+	ResourceName   string `json:"resource_name"`
+	PatternType    string `json:"pattern_type"`
+	Principal      string `json:"principal"`
+	Host           string `json:"host"`
+	Operation      string `json:"operation"`
+	PermissionType string `json:"permission_type"`
+}
+
+func (a *ACLResponse) ID() string {
+	rawID := a.ResourceType + "|" +
+		a.ResourceName + "|" +
+		a.PatternType + "|" +
+		a.Principal + "|" +
+		a.Host + "|" +
+		a.Operation + "|" +
+		a.PermissionType
+
+	hash := sha256.Sum256([]byte(rawID))
+	return hex.EncodeToString(hash[:])
+}
+
 type ACLCreateRequest struct {
 	VirtualClusterID string     `json:"virtual_cluster_id"`
 	ACL              ACLRequest `json:"acl"`
 }
 
 type ACLDescribeResponse struct {
-	ACL ACL `json:"acl"`
+	ACL ACLResponse `json:"acl"`
 }
 
 type ACLListRequest struct {
@@ -45,7 +57,7 @@ type ACLListRequest struct {
 }
 
 type ACLListResponse struct {
-	ACLs []ACL `json:"acls"`
+	ACLs []ACLResponse `json:"acls"`
 }
 
 type ACLDeleteRequest struct {
@@ -54,11 +66,11 @@ type ACLDeleteRequest struct {
 }
 
 type ACLDeleteResponse struct {
-	ACLs []ACL `json:"acls"`
+	ACLs []ACLResponse `json:"acls"`
 }
 
 // CreateACL creates a new ACL in the specified virtual cluster.
-func (c *Client) CreateACL(vcID string, acl ACLRequest) (*ACL, error) {
+func (c *Client) CreateACL(vcID string, acl ACLRequest) (*ACLResponse, error) {
 	payload, err := json.Marshal(ACLCreateRequest{VirtualClusterID: vcID, ACL: acl})
 	if err != nil {
 		return nil, err
@@ -84,14 +96,14 @@ func (c *Client) CreateACL(vcID string, acl ACLRequest) (*ACL, error) {
 }
 
 // GetACL retrieves a specific ACL by its ID within the specified virtual cluster.
-func (c *Client) GetACL(vcID, aclID string) (*ACL, error) {
+func (c *Client) GetACL(vcID string, targetACL ACLRequest) (*ACLResponse, error) {
 	acls, err := c.ListACLs(vcID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get ACLs list: %w", err)
+		return nil, fmt.Errorf("failed to get list ACLs: %w", err)
 	}
 
 	for _, acl := range acls {
-		if acl.ID == aclID {
+		if ACLsEqual(targetACL, acl) {
 			return &acl, nil
 		}
 	}
@@ -100,7 +112,7 @@ func (c *Client) GetACL(vcID, aclID string) (*ACL, error) {
 }
 
 // ListACLs retrieves all ACLs for a given virtual cluster.
-func (c *Client) ListACLs(vcID string) ([]ACL, error) {
+func (c *Client) ListACLs(vcID string) ([]ACLResponse, error) {
 	payload, err := json.Marshal(ACLListRequest{VirtualClusterID: vcID})
 	if err != nil {
 		return nil, err
@@ -159,4 +171,15 @@ func (c *Client) DeleteACL(vcID string, acl ACLRequest) error {
 	}
 
 	return nil
+}
+
+// ACLsEqual returns true if all identifying fields of two ACLs are equal.
+func ACLsEqual(a ACLRequest, b ACLResponse) bool {
+	return a.ResourceType == b.ResourceType &&
+		a.ResourceName == b.ResourceName &&
+		a.PatternType == b.PatternType &&
+		a.Principal == b.Principal &&
+		a.Host == b.Host &&
+		a.Operation == b.Operation &&
+		a.PermissionType == b.PermissionType
 }

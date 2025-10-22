@@ -12,5 +12,4 @@ type ACL struct {
 	ResourceType     types.String `tfsdk:"resource_type"`
 	ResourceName     types.String `tfsdk:"resource_name"`
 	PatternType      types.String `tfsdk:"pattern_type"`
-	CreatedAt        types.String `tfsdk:"created_at"`
 }

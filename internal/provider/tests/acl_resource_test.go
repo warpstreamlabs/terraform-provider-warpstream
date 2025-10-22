@@ -51,7 +51,6 @@ resource "warpstream_acl" "test" {
 func testAccACLResourceCheck() resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet("warpstream_acl.test", "id"),
-		resource.TestCheckResourceAttrSet("warpstream_acl.test", "created_at"),
 		resource.TestCheckResourceAttrSet("warpstream_acl.test", "virtual_cluster_id"),
 		resource.TestCheckResourceAttr("warpstream_acl.test", "principal", "User:alice"),
 		resource.TestCheckResourceAttr("warpstream_acl.test", "resource_type", "TOPIC"),
@@ -87,7 +86,7 @@ func TestAccACLResourceDeletePlan(t *testing.T) {
 					var aclToDelete string
 					for _, acl := range acls {
 						if acl.Principal == "User:alice" && acl.ResourceName == "orders" {
-							aclToDelete = acl.ID
+							aclToDelete = acl.ID()
 							break
 						}
 					}

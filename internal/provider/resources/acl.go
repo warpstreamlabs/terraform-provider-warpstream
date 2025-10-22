@@ -131,13 +131,6 @@ The WarpStream provider must be authenticated with an application key to consume
 				Validators:    []validator.String{stringvalidator.OneOf(validACLPatternTypes...)},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"created_at": schema.StringAttribute{
-				Description: "ACL Creation Timestamp.",
-				Computed:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
 		},
 	}
 }
@@ -167,8 +160,18 @@ func (a *aclResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
+	aclToDescribe := api.ACLRequest{
+		ResourceType:   plan.ResourceType.ValueString(),
+		ResourceName:   plan.ResourceName.ValueString(),
+		PatternType:    plan.PatternType.ValueString(),
+		Principal:      plan.Principal.ValueString(),
+		Host:           plan.Host.ValueString(),
+		Operation:      plan.Operation.ValueString(),
+		PermissionType: plan.PermissionType.ValueString(),
+	}
+
 	// Describe the created ACL
-	acl, err = a.client.GetACL(acl.VirtualClusterID, acl.ID)
+	acl, err = a.client.GetACL(plan.VirtualClusterID.String(), aclToDescribe)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading ACL", fmt.Sprintf("Failed to read ACL: %s", err.Error()))
 		return
@@ -176,8 +179,8 @@ func (a *aclResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	// Map response body to schema and populate computed attributes
 	state := models.ACL{
-		ID:               types.StringValue(acl.ID),
-		VirtualClusterID: types.StringValue(acl.VirtualClusterID),
+		ID:               types.StringValue(acl.ID()),
+		VirtualClusterID: plan.VirtualClusterID,
 		Host:             types.StringValue(acl.Host),
 		Principal:        types.StringValue(acl.Principal),
 		Operation:        types.StringValue(acl.Operation),
@@ -185,7 +188,6 @@ func (a *aclResource) Create(ctx context.Context, req resource.CreateRequest, re
 		ResourceType:     types.StringValue(acl.ResourceType),
 		ResourceName:     types.StringValue(acl.ResourceName),
 		PatternType:      types.StringValue(acl.PatternType),
-		CreatedAt:        types.StringValue(acl.CreatedAt),
 	}
 
 	// Set state to fully populated data
@@ -199,14 +201,24 @@ func (a *aclResource) Create(ctx context.Context, req resource.CreateRequest, re
 // Read refreshes the Terraform state with the latest data.
 func (a *aclResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var state models.ACL
-	diags := resp.State.Get(ctx, &state)
+	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	aclToDescribe := api.ACLRequest{
+		ResourceType:   state.ResourceType.ValueString(),
+		ResourceName:   state.ResourceName.ValueString(),
+		PatternType:    state.PatternType.ValueString(),
+		Principal:      state.Principal.ValueString(),
+		Host:           state.Host.ValueString(),
+		Operation:      state.Operation.ValueString(),
+		PermissionType: state.PermissionType.ValueString(),
+	}
+
 	// Get the latest ACL data
-	acl, err := a.client.GetACL(state.VirtualClusterID.ValueString(), state.ID.ValueString())
+	acl, err := a.client.GetACL(state.VirtualClusterID.ValueString(), aclToDescribe)
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
 			resp.State.RemoveResource(ctx)
@@ -219,8 +231,8 @@ func (a *aclResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 
 	// Overwrite ACL with refreshed state
 	state = models.ACL{
-		ID:               types.StringValue(acl.ID),
-		VirtualClusterID: types.StringValue(acl.VirtualClusterID),
+		ID:               types.StringValue(acl.ID()),
+		VirtualClusterID: types.StringValue(state.VirtualClusterID.String()),
 		Host:             types.StringValue(acl.Host),
 		Principal:        types.StringValue(acl.Principal),
 		Operation:        types.StringValue(acl.Operation),
@@ -228,7 +240,6 @@ func (a *aclResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		ResourceType:     types.StringValue(acl.ResourceType),
 		ResourceName:     types.StringValue(acl.ResourceName),
 		PatternType:      types.StringValue(acl.PatternType),
-		CreatedAt:        types.StringValue(acl.CreatedAt),
 	}
 
 	// Set state to fully populated data
