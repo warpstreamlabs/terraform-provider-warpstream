@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -170,10 +171,7 @@ func (a *aclResource) Create(ctx context.Context, req resource.CreateRequest, re
 		PermissionType: acl.PermissionType,
 	}
 
-	tflog.Debug(ctx, "ACL created", map[string]any{
-		"acl_id":             acl.ID(),
-		"virtual_cluster_id": plan.VirtualClusterID.ValueString(),
-	})
+	log.Printf("ACL created with ID: %s, vc: %s", acl.ID(), plan.VirtualClusterID.ValueString())
 
 	// Describe the created ACL
 	acl, err = a.client.GetACL(plan.VirtualClusterID.String(), aclToDescribe)
