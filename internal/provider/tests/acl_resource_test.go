@@ -147,7 +147,7 @@ func TestAccACLResourceReplaceOnChange(t *testing.T) {
 			{
 				Config: providerConfig + `
 resource "warpstream_acl" "test" {
-  virtual_cluster_id = "warpstream_virtual_cluster.acl_vc.id"
+  virtual_cluster_id = warpstream_virtual_cluster.acl_vc.id
   host = "*"
   principal     = "User:bob"      // changed immutable field
   operation     = "READ"
