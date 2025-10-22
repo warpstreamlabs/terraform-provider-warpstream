@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 )
@@ -156,10 +155,6 @@ func (c *Client) DeleteACL(vcID string, acl ACLRequest) error {
 	body, err := c.doRequest(req, nil)
 	if err != nil {
 		return err
-	}
-
-	if string(body) != "{}" {
-		return errors.New(string(body))
 	}
 
 	var deleteResp ACLDeleteResponse
