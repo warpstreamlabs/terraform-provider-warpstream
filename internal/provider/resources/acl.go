@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -171,12 +170,10 @@ func (a *aclResource) Create(ctx context.Context, req resource.CreateRequest, re
 		PermissionType: acl.PermissionType,
 	}
 
-	log.Printf("ACL created with ID: %s, vc: %s", acl.ID(), plan.VirtualClusterID.ValueString())
-
 	// Describe the created ACL
 	acl, err = a.client.GetACL(plan.VirtualClusterID.String(), aclToDescribe)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading ACL", fmt.Sprintf("Failed to read ACL: %s", err.Error()))
+		resp.Diagnostics.AddError("Error reading ACL", fmt.Sprintf("Failed to read ACL with ID %s, vcID: %s %s", acl.ID(), plan.VirtualClusterID.ValueString(), err.Error()))
 		return
 	}
 
