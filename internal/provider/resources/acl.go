@@ -161,13 +161,13 @@ func (a *aclResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	aclToDescribe := api.ACLRequest{
-		ResourceType:   plan.ResourceType.ValueString(),
-		ResourceName:   plan.ResourceName.ValueString(),
-		PatternType:    plan.PatternType.ValueString(),
-		Principal:      plan.Principal.ValueString(),
-		Host:           plan.Host.ValueString(),
-		Operation:      plan.Operation.ValueString(),
-		PermissionType: plan.PermissionType.ValueString(),
+		ResourceType:   acl.ResourceType,
+		ResourceName:   acl.ResourceName,
+		PatternType:    acl.PatternType,
+		Principal:      acl.Principal,
+		Host:           acl.Host,
+		Operation:      acl.Operation,
+		PermissionType: acl.PermissionType,
 	}
 
 	// Describe the created ACL
