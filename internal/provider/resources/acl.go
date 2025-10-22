@@ -171,9 +171,9 @@ func (a *aclResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	// Describe the created ACL
-	acl, err = a.client.GetACL(plan.VirtualClusterID.String(), aclToDescribe)
+	acl, err = a.client.GetACL(plan.VirtualClusterID.ValueString(), aclToDescribe)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading ACL", fmt.Sprintf("Failed to read ACL with ID %s, vcID: %s", plan.VirtualClusterID.ValueString(), err.Error()))
+		resp.Diagnostics.AddError("Error reading ACL", fmt.Sprintf("Failed to read ACL with ID %s, vcID: %s", plan.VirtualClusterID.String(), err.Error()))
 		return
 	}
 
