@@ -232,7 +232,7 @@ func (a *aclResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	// Overwrite ACL with refreshed state
 	state = models.ACL{
 		ID:               types.StringValue(acl.ID()),
-		VirtualClusterID: types.StringValue(state.VirtualClusterID.String()),
+		VirtualClusterID: types.StringValue(state.VirtualClusterID.ValueString()),
 		Host:             types.StringValue(acl.Host),
 		Principal:        types.StringValue(acl.Principal),
 		Operation:        types.StringValue(acl.Operation),
