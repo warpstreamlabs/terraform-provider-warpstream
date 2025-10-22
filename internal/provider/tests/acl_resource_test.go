@@ -49,6 +49,29 @@ resource "warpstream_acl" "test" {
 `, vcName)
 }
 
+func testAccModifiedACLResource(vcName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "acl_vc" {
+  name = "%s"
+  tier = "dev"
+  configuration = {
+    enable_acls = true
+  }
+}
+
+resource "warpstream_acl" "test" {
+  virtual_cluster_id = warpstream_virtual_cluster.acl_vc.id
+  host = "*"
+  principal     = "User:bob"
+  operation     = "READ"
+  permission_type    = "ALLOW"
+  resource_type = "TOPIC"
+  resource_name = "orders"
+  pattern_type  = "LITERAL"
+  }
+`, vcName)
+}
+
 func testAccACLResourceCheck() resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet("warpstream_acl.test", "id"),
@@ -146,18 +169,7 @@ func TestAccACLResourceReplaceOnChange(t *testing.T) {
 			},
 			// Step 3: change principal -> replacement
 			{
-				Config: providerConfig + `
-resource "warpstream_acl" "test" {
-  virtual_cluster_id = warpstream_virtual_cluster.acl_vc.id
-  host = "*"
-  principal     = "User:bob"      // changed immutable field
-  operation     = "READ"
-  permission_type    = "ALLOW"
-  resource_type = "TOPIC"
-  resource_name = "orders"
-  pattern_type  = "LITERAL"
-}
-`,
+				Config: testAccModifiedACLResource(vcName),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction("warpstream_acl.test", plancheck.ResourceActionReplace),
