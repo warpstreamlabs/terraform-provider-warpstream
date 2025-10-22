@@ -102,7 +102,7 @@ func (c *Client) CreateACL(vcID string, acl ACLRequest) (*ACLResponse, error) {
 func (c *Client) GetACL(vcID string, targetACL ACLRequest) (*ACLResponse, error) {
 	acls, err := c.ListACLs(vcID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get list ACLs: %w", err)
+		return nil, fmt.Errorf("failed to list ACLs: %w", err)
 	}
 
 	for _, acl := range acls {
