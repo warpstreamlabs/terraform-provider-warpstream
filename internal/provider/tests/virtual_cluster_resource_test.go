@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
@@ -47,6 +48,7 @@ func TestAccVirtualClusterResourceDeletePlan(t *testing.T) {
 
 func TestAccVirtualClusterResource(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	var clusterID string
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -70,6 +72,38 @@ func TestAccVirtualClusterResource(t *testing.T) {
 				Config: testAccVirtualClusterResource_removeDeletionProtection(vcNameSuffix),
 				Check:  testNoDeletionProtection(),
 			},
+			{
+				Config: testAccVirtualClusterResource_removeDeletionProtection(vcNameSuffix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testNoDeletionProtection(),
+					func(s *terraform.State) error {
+						rs, ok := s.RootModule().Resources["warpstream_virtual_cluster.test"]
+						if !ok {
+							return fmt.Errorf("not found: warpstream_virtual_cluster.test")
+						}
+						// Hold onto the cluster ID to assert that it's the same one being renamed in the next step.
+						clusterID = rs.Primary.ID
+						return nil
+					},
+				),
+			},
+			{
+				Config: testAccVirtualClusterResource_withRenamedCluster(vcNameSuffix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccVirtualClusterResourceCheck(false, true, 1, "byoc", false, false),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "name", fmt.Sprintf("vcn_test_acc_renamed_%s", vcNameSuffix)),
+					func(s *terraform.State) error {
+						rs, ok := s.RootModule().Resources["warpstream_virtual_cluster.test"]
+						if !ok {
+							return fmt.Errorf("not found: warpstream_virtual_cluster.test")
+						}
+						if rs.Primary.ID != clusterID {
+							return fmt.Errorf("expected cluster ID %s, got %s", clusterID, rs.Primary.ID)
+						}
+						return nil
+					},
+				),
+			},
 		},
 	})
 }
@@ -82,6 +116,17 @@ func testAccVirtualClusterResource_removeDeletionProtection(vcNameSuffix string)
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  configuration = {
+    enable_deletion_protection = false
+  }
+}`, vcNameSuffix)
+}
+
+func testAccVirtualClusterResource_withRenamedCluster(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_renamed_%s"
   tier = "fundamentals"
   configuration = {
     enable_deletion_protection = false
