@@ -166,7 +166,7 @@ The WarpStream provider must be authenticated with an application key to consume
 				Description: "Virtual Cluster Name.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
 				},
 				Validators: []validator.String{utils.ValidClusterName()},
 			},
@@ -183,7 +183,7 @@ The WarpStream provider must be authenticated with an application key to consume
 				},
 			},
 			"tier": schema.StringAttribute{
-				Description: "Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, 'pro', 'fundamentals'.",
+				Description: "Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, `pro`, and `fundamentals`.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -532,6 +532,24 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Rename virtual cluster if name has changed.
+	if plan.Name.ValueString() != state.Name.ValueString() {
+		err := r.client.RenameVirtualCluster(state.ID.ValueString(), plan.Name.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error Renaming WarpStream Virtual Cluster",
+				"Could not rename WarpStream Virtual Cluster, unexpected error: "+err.Error(),
+			)
+			return
+		}
+		state.Name = plan.Name
+		diags = resp.State.SetAttribute(ctx, path.Root("name"), state.Name)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	// Update virtual cluster configuration

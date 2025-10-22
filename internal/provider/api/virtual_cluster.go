@@ -83,6 +83,11 @@ type VirtualClusterCreateRequest struct {
 	SkipAgentKeyCreation bool              `json:"skip_agent_key_creation,omitempty"`
 }
 
+type VirtualClusterRenameRequest struct {
+	ID      string `json:"virtual_cluster_id"`
+	NewName string `json:"new_virtual_cluster_name"`
+}
+
 type VirtualClusterDeleteRequest struct {
 	ID   string `json:"virtual_cluster_id"`
 	Name string `json:"virtual_cluster_name"`
@@ -172,6 +177,35 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 		WorkspaceID:   res.WorkspaceID,
 	}
 	return &vc, nil
+}
+
+func (c *Client) RenameVirtualCluster(id string, newName string) error {
+	newNameParts := strings.Split(newName, "vcn_")
+	if len(newNameParts) < 2 {
+		// Should never happen because of schema-level validation.
+		return fmt.Errorf("virtual cluster's new name must start with 'vcn_'")
+	}
+
+	payload, err := json.Marshal(VirtualClusterRenameRequest{ID: id, NewName: newNameParts[1]})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/rename_virtual_cluster", c.HostURL), bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return err
+	}
+
+	if string(body) != "{}" {
+		return errors.New(string(body))
+	}
+
+	return nil
 }
 
 // DeleteVirtualCluster - Delete a virtual cluster.
