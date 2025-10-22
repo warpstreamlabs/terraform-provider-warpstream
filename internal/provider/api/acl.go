@@ -30,6 +30,9 @@ type ACLResponse struct {
 	PermissionType string `json:"permission_type"`
 }
 
+// ID generates a unique identifier for the ACL based on its fields.
+// Note that the ID changes any time a field is changed- this is acceptable
+// for our use case since ACLs are immutable and any change requires deletion and recreation.
 func (a *ACLResponse) ID() string {
 	rawID := a.ResourceType + "|" +
 		a.ResourceName + "|" +
