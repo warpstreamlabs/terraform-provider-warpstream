@@ -30,8 +30,8 @@ type ACLResponse struct {
 }
 
 // ID generates a unique identifier for the ACL based on its fields.
-// Note that the ID changes any time a field is changed- this is acceptable
-// for our use case since ACLs are immutable and any change requires deletion and recreation.
+// Note that the ID changes any time a field is changed, which results in Terraform planning to recreate the resource-
+// this is acceptable for our use case since ACLs are immutable and any change requires deletion and recreation.
 func (a *ACLResponse) ID() string {
 	rawID := a.ResourceType + "|" +
 		a.ResourceName + "|" +
@@ -105,7 +105,7 @@ func (c *Client) GetACL(vcID string, targetACL ACLRequest) (*ACLResponse, error)
 	}
 
 	for _, acl := range acls {
-		if ACLsEqual(targetACL, acl) {
+		if aclsEqual(targetACL, acl) {
 			return &acl, nil
 		}
 	}
@@ -171,8 +171,8 @@ func (c *Client) DeleteACL(vcID string, acl ACLRequest) error {
 	return nil
 }
 
-// ACLsEqual returns true if all identifying fields of two ACLs are equal.
-func ACLsEqual(a ACLRequest, b ACLResponse) bool {
+// aclsEqual returns true if all identifying fields of two ACLs are equal.
+func aclsEqual(a ACLRequest, b ACLResponse) bool {
 	return a.ResourceType == b.ResourceType &&
 		a.ResourceName == b.ResourceName &&
 		a.PatternType == b.PatternType &&
