@@ -31,5 +31,4 @@ The WarpStream provider must be authenticated with an application key to consume
 
 ### Read-Only
 
-- `created_at` (String) ACL Creation Timestamp.
 - `id` (String) ACL ID.
