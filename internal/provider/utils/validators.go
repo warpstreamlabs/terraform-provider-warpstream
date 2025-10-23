@@ -17,6 +17,12 @@ func StartsWithAndAlphanumeric(prefix string) validator.String {
 	)
 }
 
+func ValidClusterID() validator.String {
+	return stringvalidator.All(
+		StartsWithAndAlphanumeric("vci_"),
+	)
+}
+
 func ValidClusterName() validator.String {
 	return stringvalidator.All(
 		StartsWithAndAlphanumeric("vcn_"),
