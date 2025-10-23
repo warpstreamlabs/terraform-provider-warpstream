@@ -67,7 +67,7 @@ func (a *aclResource) Metadata(_ context.Context, req resource.MetadataRequest, 
 func (a *aclResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: `
-This resource allows you to create, read and delete ACLs related to a virtual cluster.
+This resource allows you to create, read and delete ACLs related to a Virtual Cluster.
 
 The WarpStream provider must be authenticated with an application key to consume this resource.
 `,
