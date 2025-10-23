@@ -10,13 +10,16 @@ provider "warpstream" {
   token = "aks_xxx"
 }
 
-resource "warpstream_virtual_cluster" "tf_example_acls" {
-  name = "vcn_tf_example_acls"
+resource "warpstream_virtual_cluster" "acl_example" {
+  name = "vcn_example_acls"
   tier = "dev"
+  configuration = {
+    enable_acls = true
+  }
 }
 
 resource "warpstream_acl" "read_topic" {
-  virtual_cluster_id = warpstream_virtual_cluster.tf_example_acls.id
+  virtual_cluster_id = warpstream_virtual_cluster.acl_example.id
   host               = "*"
   principal          = "User:test-user"
   operation          = "WRITE"
