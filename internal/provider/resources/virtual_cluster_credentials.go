@@ -43,7 +43,7 @@ type virtualClusterCredentialsModel struct {
 	UserName            types.String `tfsdk:"username"`
 	Password            types.String `tfsdk:"password"`
 	CreatedAt           types.String `tfsdk:"created_at"`
-	AgentPoolID         types.String `tfsdk:"agent_pool"`
+	AgentPoolID         types.String `tfsdk:"agent_pool"` // Ignored by the backend, deprecated here.
 	VirtualClusterID    types.String `tfsdk:"virtual_cluster_id"`
 	VirtualClusterIDOld types.String `tfsdk:"virtual_cluster"`
 	ClusterSuperuser    types.Bool   `tfsdk:"cluster_superuser"`
@@ -96,8 +96,9 @@ The WarpStream provider must be authenticated with an application key to consume
 				Validators: []validator.String{utils.StartsWith("ccn_")},
 			},
 			"agent_pool": schema.StringAttribute{
-				Description: "Agent Pool ID.",
-				Required:    true,
+				Description:        "Deprecated.",
+				DeprecationMessage: "This field is deprecated and will be ignored. It can be safely removed from your configuration.",
+				Optional:           true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -196,7 +197,7 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 	newPlan := virtualClusterCredentialsModel{
 		ID:               types.StringValue(c.ID),
 		Name:             types.StringValue(c.Name),
-		AgentPoolID:      types.StringValue(c.AgentPoolID),
+		AgentPoolID:      plan.AgentPoolID,
 		CreatedAt:        types.StringValue(c.CreatedAt), // null
 		UserName:         types.StringValue(c.UserName),
 		Password:         types.StringValue(c.Password),
@@ -266,7 +267,7 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 		Name:             types.StringValue(c.Name),
 		UserName:         types.StringValue(c.UserName),
 		Password:         state.Password,
-		AgentPoolID:      types.StringValue(c.AgentPoolID),
+		AgentPoolID:      state.AgentPoolID,
 		CreatedAt:        types.StringValue(c.CreatedAt),
 		ClusterSuperuser: types.BoolValue(c.ClusterSuperuser),
 	}
