@@ -14,6 +14,8 @@ type VirtualClusterConfiguration struct {
 	DefaultNumPartitions     int64  `json:"default_num_partitions"`
 	DefaultRetentionMillis   int64  `json:"default_retention_millis"`
 	EnableDeletionProtection bool   `json:"enable_deletion_protection"`
+	SoftDeleteTopicEnable    bool   `json:"warpstream.soft.delete.topic.enable"`
+	SoftDeleteTopicTTLHours  int64  `json:"warpstream.soft.delete.topic.ttl.hours"`
 	Tier                     string `json:"tier,omitempty"`
 }
 

@@ -270,6 +270,18 @@ The WarpStream provider must be authenticated with an application key to consume
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
 					},
+					"soft_delete_topic_enable": schema.BoolAttribute{
+						Description: "Enable soft deletion for topics, defaults to `true`. If true, topic deletion will be a soft deletion, and it will be possible to restore the topics. If false, deleting a topic will cause the immediate deletion of all of the associated data, with no way to recover it.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(true),
+					},
+					"soft_delete_topic_ttl_hours": schema.Int64Attribute{
+						Description: "If soft_delete_topic_enable is true, a deleted topic's data will be kept for this many hours before being irrecoverably deleted. Defaults to 24 hours.",
+						Optional:    true,
+						Computed:    true,
+						Default:     int64default.StaticInt64(24),
+					},
 				},
 				Description: "Virtual Cluster Configuration.",
 				Optional:    true,
@@ -611,6 +623,8 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
 		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
 		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
+		SoftDeleteTopicEnable:    types.BoolValue(cfg.SoftDeleteTopicEnable),
+		SoftDeleteTopicTTLHours:  types.Int64Value(cfg.SoftDeleteTopicTTLHours),
 	}
 
 	// Set configuration state
@@ -647,6 +661,8 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 		DefaultNumPartitions:     cfgPlan.DefaultNumPartitions.ValueInt64(),
 		DefaultRetentionMillis:   cfgPlan.DefaultRetention.ValueInt64(),
 		EnableDeletionProtection: cfgPlan.EnableDeletionProtection.ValueBool(),
+		SoftDeleteTopicEnable:    cfgPlan.SoftDeleteTopicEnable.ValueBool(),
+		SoftDeleteTopicTTLHours:  cfgPlan.SoftDeleteTopicTTLHours.ValueInt64(),
 	}
 	cfg.Tier = plan.Tier.ValueString()
 	err := r.client.UpdateConfiguration(*cfg, cluster)
