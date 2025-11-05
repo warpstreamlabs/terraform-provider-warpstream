@@ -105,8 +105,8 @@ Optional:
 - `default_retention_millis` (Number) Default retention for topics that are created automatically using Kafka's topic auto-creation feature.
 - `enable_acls` (Boolean) Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)
 - `enable_deletion_protection` (Boolean) Enable deletion protection, defaults to `false`. If set to true, it is impossible to delete this cluster. enable_deletion_protection needs to be set to false before deleting the cluster.
-- `soft_delete_topic_enable` (Boolean) Enable soft deletion for topics, defaults to `true`. If true, topic deletion will be a soft deletion, and it will be possible to restore the topics. If false, deleting a topic will cause the immediate deletion of all of the associated data, with no way to recover it.
-- `soft_delete_topic_ttl_hours` (Number) If soft_delete_topic_enable is true, a deleted topic's data will be kept for this many hours before being irrecoverably deleted. Defaults to 24 hours.
+- `enable_soft_topic_deletion` (Boolean) Enable soft deletion for topics. Defaults to `true`. If true, topic deletion will be a soft deletion. For clusters with the Fundamentals tier or above, it will be possible to restore topics for some time after deletion. If false, deleting a topic will immediately delete of all of its data, with no way to recover it.
+- `soft_delete_topic_ttl_hours` (Number) If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many hours before being irrecoverably deleted. Defaults to 24 hours.
 
 
 <a id="nestedatt--agent_keys"></a>

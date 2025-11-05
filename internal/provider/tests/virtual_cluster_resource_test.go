@@ -243,14 +243,14 @@ func TestAccVirtualClusterResourceWithSoftDeletion(t *testing.T) {
 			{
 				Config: testAccVirtualClusterResource_withSoftDeletionSettings(vcNameSuffix, false, 48),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.soft_delete_topic_enable", "false"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_soft_topic_deletion", "false"),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.soft_delete_topic_ttl_hours", "48"),
 				),
 			},
 			{
 				Config: testAccVirtualClusterResource_withSoftDeletionSettings(vcNameSuffix, true, 72),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.soft_delete_topic_enable", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_soft_topic_deletion", "true"),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.soft_delete_topic_ttl_hours", "72"),
 				),
 			},
@@ -264,7 +264,7 @@ resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test_acc_%s"
   tier = "fundamentals"
   configuration = {
-    soft_delete_topic_enable     = %t
+    enable_soft_topic_deletion   = %t
     soft_delete_topic_ttl_hours  = %d
   }
 }`, vcNameSuffix, softDeleteEnable, ttlHours)
