@@ -271,14 +271,14 @@ The WarpStream provider must be authenticated with an application key to consume
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
 					},
-					"soft_delete_topic_enable": schema.BoolAttribute{
-						Description: "Enable soft deletion for topics, defaults to `true`. If true, topic deletion will be a soft deletion, and it will be possible to restore the topics. If false, deleting a topic will cause the immediate deletion of all of the associated data, with no way to recover it.",
+					"enable_soft_topic_deletion": schema.BoolAttribute{
+						Description: "Enable soft deletion for topics. Defaults to `true`. If true, topic deletion will be a soft deletion. For clusters with the Fundamentals tier or above, it will be possible to restore topics for some time after deletion. If false, deleting a topic will immediately delete of all of its data, with no way to recover it.",
 						Optional:    true,
 						Computed:    true,
 						Default:     booldefault.StaticBool(true),
 					},
 					"soft_delete_topic_ttl_hours": schema.Int64Attribute{
-						Description: "If soft_delete_topic_enable is true, a deleted topic's data will be kept for this many hours before being irrecoverably deleted. Defaults to 24 hours.",
+						Description: "If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many hours before being irrecoverably deleted. Defaults to 24 hours.",
 						Optional:    true,
 						Computed:    true,
 						Default:     int64default.StaticInt64(24),
@@ -386,7 +386,6 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		CreatedAt:     types.StringValue(cluster.CreatedAt),
 		Default:       types.BoolValue(cluster.Name == "vcn_default"),
 		WorkspaceID:   types.StringValue(cluster.WorkspaceID),
-		Configuration: plan.Configuration,
 		Cloud:         cloudValue,
 		Tags:          plan.Tags,
 	}
@@ -418,7 +417,12 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	r.applyConfiguration(ctx, state, &resp.State, &resp.Diagnostics)
+	// Apply configuration last, which will update the API and read back actual
+	// values. This is critical when the API modifies values (e.g., setting TTL
+	// to 0 when topic soft deletion is disabled).
+	stateWithPlan := state
+	stateWithPlan.Configuration = plan.Configuration
+	r.applyConfiguration(ctx, stateWithPlan, &resp.State, &resp.Diagnostics)
 }
 
 func getCloudValue(cluster *api.VirtualCluster) (basetypes.ObjectValue, diag.Diagnostics) {

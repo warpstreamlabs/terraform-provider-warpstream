@@ -65,19 +65,19 @@ type VirtualClusterConfiguration struct {
 	DefaultNumPartitions     types.Int64 `tfsdk:"default_num_partitions"`
 	DefaultRetention         types.Int64 `tfsdk:"default_retention_millis"`
 	EnableDeletionProtection types.Bool  `tfsdk:"enable_deletion_protection"`
-	SoftDeleteTopicEnable    types.Bool  `tfsdk:"soft_delete_topic_enable"`
+	SoftDeleteTopicEnable    types.Bool  `tfsdk:"enable_soft_topic_deletion"`
 	SoftDeleteTopicTTLHours  types.Int64 `tfsdk:"soft_delete_topic_ttl_hours"`
 }
 
 func (m VirtualClusterConfiguration) AttributeTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"auto_create_topic":            types.BoolType,
-		"default_num_partitions":       types.Int64Type,
-		"default_retention_millis":     types.Int64Type,
-		"enable_acls":                  types.BoolType,
-		"enable_deletion_protection":   types.BoolType,
-		"soft_delete_topic_enable":     types.BoolType,
-		"soft_delete_topic_ttl_hours":  types.Int64Type,
+		"auto_create_topic":           types.BoolType,
+		"default_num_partitions":      types.Int64Type,
+		"default_retention_millis":    types.Int64Type,
+		"enable_acls":                 types.BoolType,
+		"enable_deletion_protection":  types.BoolType,
+		"enable_soft_topic_deletion":  types.BoolType,
+		"soft_delete_topic_ttl_hours": types.Int64Type,
 	}
 }
 
@@ -88,7 +88,7 @@ func (m VirtualClusterConfiguration) DefaultObject() map[string]attr.Value {
 		"default_retention_millis":    types.Int64Value(86400000),
 		"enable_acls":                 types.BoolValue(false),
 		"enable_deletion_protection":  types.BoolValue(false),
-		"soft_delete_topic_enable":    types.BoolValue(true),
+		"enable_soft_topic_deletion":  types.BoolValue(true),
 		"soft_delete_topic_ttl_hours": types.Int64Value(24),
 	}
 }
