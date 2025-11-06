@@ -282,6 +282,9 @@ The WarpStream provider must be authenticated with an application key to consume
 						Optional:    true,
 						Computed:    true,
 						Default:     int64default.StaticInt64(24),
+						PlanModifiers: []planmodifier.Int64{
+							utils.SoftDeleteTTLPlanModifier{},
+						},
 					},
 				},
 				Description: "Virtual Cluster Configuration.",
@@ -386,6 +389,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		CreatedAt:     types.StringValue(cluster.CreatedAt),
 		Default:       types.BoolValue(cluster.Name == "vcn_default"),
 		WorkspaceID:   types.StringValue(cluster.WorkspaceID),
+		Configuration: plan.Configuration,
 		Cloud:         cloudValue,
 		Tags:          plan.Tags,
 	}
@@ -417,12 +421,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	// Apply configuration last, which will update the API and read back actual
-	// values. This is critical when the API modifies values (e.g., setting TTL
-	// to 0 when topic soft deletion is disabled).
-	stateWithPlan := state
-	stateWithPlan.Configuration = plan.Configuration
-	r.applyConfiguration(ctx, stateWithPlan, &resp.State, &resp.Diagnostics)
+	r.applyConfiguration(ctx, state, &resp.State, &resp.Diagnostics)
 }
 
 func getCloudValue(cluster *api.VirtualCluster) (basetypes.ObjectValue, diag.Diagnostics) {
