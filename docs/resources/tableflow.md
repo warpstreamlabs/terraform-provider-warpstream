@@ -30,6 +30,7 @@ provider "warpstream" {
 
 resource "warpstream_tableflow" "example_tableflow" {
   name = "vcn_tf_example_tableflow"
+  tier = "dev"
 }
 ```
 
@@ -39,6 +40,7 @@ resource "warpstream_tableflow" "example_tableflow" {
 ### Required
 
 - `name` (String) TableFlow Name.
+- `tier` (String) Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, `pro`, and `fundamentals`.
 
 ### Optional
 

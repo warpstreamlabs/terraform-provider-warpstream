@@ -12,7 +12,7 @@ import (
 const (
 	VirtualClusterTypeBYOC           = "byoc"
 	VirtualClusterTypeSchemaRegistry = "byoc_schema_registry"
-	VirtualClusterTypeTableFlow      = "byoc_tableflow"
+	VirtualClusterTypeTableFlow      = "byoc_data_lake"
 
 	// legacy is only available for certain tenants, this is controlled on the Warpstream side.
 	VirtualClusterTierLegacy       = "legacy"

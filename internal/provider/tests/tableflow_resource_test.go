@@ -16,6 +16,7 @@ func testTableFlowResource(nameSuffix string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_tableflow" "test" {
   name = "vcn_tf_test_%s"
+  tier = "dev"
 }`, nameSuffix)
 }
 

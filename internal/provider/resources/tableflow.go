@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -17,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
@@ -179,7 +181,7 @@ func (r *tableFlowResource) Create(ctx context.Context, req resource.CreateReque
 		plan.Name.ValueString(),
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeTableFlow,
-			Tier:   api.VirtualClusterTierPro,
+			Tier:   plan.Tier.ValueString(),
 			Region: cloudPlan.Region.ValueStringPointer(),
 			Cloud:  cloudPlan.Provider.ValueString(),
 		})
@@ -203,6 +205,7 @@ func (r *tableFlowResource) Create(ctx context.Context, req resource.CreateReque
 	state := models.TableFlowResource{
 		ID:          types.StringValue(cluster.ID),
 		Name:        types.StringValue(cluster.Name),
+		Tier:        plan.Tier,
 		AgentKeys:   plan.AgentKeys,
 		CreatedAt:   types.StringValue(cluster.CreatedAt),
 		Cloud:       plan.Cloud,
@@ -230,6 +233,8 @@ func (r *tableFlowResource) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	r.readTier(ctx, *cluster, &resp.State, &resp.Diagnostics)
 }
 
 func (r *tableFlowResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -314,14 +319,46 @@ func (r *tableFlowResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	r.readTier(ctx, *cluster, &resp.State, &resp.Diagnostics)
 }
 
 func (r *tableFlowResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan models.VirtualClusterResource
+	var plan models.TableFlowResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	var state models.TableFlowResource
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Update tier if changed
+	if !plan.Tier.Equal(state.Tier) {
+		cluster := api.VirtualCluster{
+			ID:   state.ID.ValueString(),
+			Name: state.Name.ValueString(),
+		}
+
+		cfg := &api.VirtualClusterConfiguration{
+			Tier: plan.Tier.ValueString(),
+		}
+
+		err := r.client.UpdateConfiguration(*cfg, cluster)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error Updating WarpStream TableFlow Tier",
+				"Could not update WarpStream TableFlow Tier, unexpected error: "+err.Error(),
+			)
+			return
+		}
+
+		r.readTier(ctx, cluster, &resp.State, &resp.Diagnostics)
 	}
 }
 
@@ -349,4 +386,20 @@ func (r *tableFlowResource) Delete(ctx context.Context, req resource.DeleteReque
 
 func (r *tableFlowResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+func (r *tableFlowResource) readTier(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {
+	// Get virtual cluster configuration to read tier
+	cfg, err := r.client.GetConfiguration(cluster)
+	if err != nil {
+		respDiags.AddError(
+			"Unable to Read configuration of Virtual Cluster with ID="+cluster.ID,
+			err.Error(),
+		)
+		return
+	}
+
+	// Set tier
+	diags := state.SetAttribute(ctx, path.Root("tier"), types.StringValue(cfg.Tier))
+	respDiags.Append(diags...)
 }

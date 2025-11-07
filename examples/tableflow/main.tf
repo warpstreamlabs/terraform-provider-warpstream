@@ -12,9 +12,8 @@ provider "warpstream" {
 }
 
 # BYOC cluster with configuration.
-resource "warpstream_virtual_cluster" "test_tableflow" {
-  name = "vcn_test_tableflow"
-  type = "byoc"
+resource "warpstream_tableflow_cluster" "example" {
+  name = "vcn_dl_example"
   tier = "dev"
   cloud = {
     # This is the cloud provider and region of the WarpStream control plane,
@@ -27,7 +26,7 @@ resource "warpstream_virtual_cluster" "test_tableflow" {
 }
 
 resource "warpstream_pipeline" "tableflow_pipeline" {
-  virtual_cluster_id = warpstream_virtual_cluster.test_tableflow.id
+  virtual_cluster_id = warpstream_tableflow_cluster.example.id
   name               = "example_tableflow_pipeline"
   state              = "running"
   type               = "tableflow"
