@@ -8,7 +8,7 @@ terraform {
 
 provider "warpstream" {
   # Use a generic WarpStream API key here, not a cluster-specific Agent key.
-  token = "aks_8f59225c130f70fd124143dfd297106e2155a176fecad6768d0dc437f4e7ac97"
+  token = "YOUR_API_KEY"
 }
 
 # BYOC cluster with configuration.
@@ -35,7 +35,7 @@ resource "warpstream_pipeline" "tableflow_pipeline" {
 source_clusters:
   - name: kafka_cluster_1
     bootstrap_brokers:
-      - hostname: $HOSTNAME
+      - hostname: YOUR_KAFKA_HOSTNAME
         port: 9092
 tables:
     - source_cluster_name: kafka_cluster_1
