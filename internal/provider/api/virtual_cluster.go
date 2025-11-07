@@ -12,6 +12,7 @@ import (
 const (
 	VirtualClusterTypeBYOC           = "byoc"
 	VirtualClusterTypeSchemaRegistry = "byoc_schema_registry"
+	VirtualClusterTypeTableFlow      = "byoc_tableflow"
 
 	// legacy is only available for certain tenants, this is controlled on the Warpstream side.
 	VirtualClusterTierLegacy       = "legacy"
@@ -134,6 +135,8 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 	var trimmed string
 	if opts.Type == VirtualClusterTypeSchemaRegistry {
 		trimmed = strings.TrimPrefix(name, "vcn_sr_")
+	} else if opts.Type == VirtualClusterTypeTableFlow {
+		trimmed = strings.TrimPrefix(name, "vcn_tf_")
 	} else {
 		trimmed = strings.TrimPrefix(name, "vcn_")
 	}

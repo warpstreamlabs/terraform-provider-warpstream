@@ -27,24 +27,24 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource                = &schemaRegistryResource{}
-	_ resource.ResourceWithConfigure   = &schemaRegistryResource{}
-	_ resource.ResourceWithImportState = &schemaRegistryResource{}
+	_ resource.Resource                = &tableFlowResource{}
+	_ resource.ResourceWithConfigure   = &tableFlowResource{}
+	_ resource.ResourceWithImportState = &tableFlowResource{}
 )
 
-type schemaRegistryResource struct {
+type tableFlowResource struct {
 	client *api.Client
 }
 
-func NewSchemaRegistryResource() resource.Resource {
-	return &schemaRegistryResource{}
+func NewTableFlowResource() resource.Resource {
+	return &tableFlowResource{}
 }
 
-func (r *schemaRegistryResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_schema_registry"
+func (r *tableFlowResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_tableflow_cluster"
 }
 
-func (r *schemaRegistryResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *tableFlowResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}
@@ -63,7 +63,7 @@ func (r *schemaRegistryResource) Configure(_ context.Context, req resource.Confi
 	r.client = client
 }
 
-var registryCloudSchema = schema.SingleNestedAttribute{
+var tableFlowCloudSchema = schema.SingleNestedAttribute{
 	Attributes: map[string]schema.Attribute{
 		"provider": schema.StringAttribute{
 			Description: "Cloud Provider. Valid providers are: `aws` (default), `gcp`, and `azure`.",
@@ -86,36 +86,50 @@ var registryCloudSchema = schema.SingleNestedAttribute{
 	Computed:    true,
 	Default: objectdefault.StaticValue(
 		types.ObjectValueMust(
-			models.VirtualClusterRegistryCloud{}.AttributeTypes(),
-			models.VirtualClusterRegistryCloud{}.DefaultObject(),
+			models.VirtualClusterTableFlowCloud{}.AttributeTypes(),
+			models.VirtualClusterTableFlowCloud{}.DefaultObject(),
 		)),
 	PlanModifiers: []planmodifier.Object{
 		objectplanmodifier.RequiresReplace(),
 	},
 }
 
-func (r *schemaRegistryResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *tableFlowResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: `
-This resource allows you to create, update and delete schema registries.
+This resource allows you to create, update and delete TableFlow clusters.
 
 The WarpStream provider must be authenticated with an application key to consume this resource.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "Schema Registry ID.",
+				Description: "TableFlow ID.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				Description: "Schema Registry Name.",
+				Description: "TableFlow Cluster Name.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-				Validators: []validator.String{utils.ValidSchemaRegistryName()},
+				Validators: []validator.String{utils.ValidTableFlowName()},
+			},
+			"tier": schema.StringAttribute{
+				Description: "Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, `pro`, and `fundamentals`.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						api.VirtualClusterTierDev,
+						api.VirtualClusterTierFundamentals,
+						api.VirtualClusterTierPro,
+					),
+				},
 			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster.",
@@ -132,21 +146,28 @@ The WarpStream provider must be authenticated with an application key to consume
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"cloud":        registryCloudSchema,
+			"cloud": tableFlowCloudSchema,
+			"bootstrap_url": schema.StringAttribute{
+				Description: "Bootstrap URL to connect to the TableFlow cluster.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"workspace_id": shared.VirtualClusterWorkspaceIDSchema,
 		},
 	}
 }
 
-func (r *schemaRegistryResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan models.SchemaRegistryResource
+func (r *tableFlowResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan models.TableFlowResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var cloudPlan models.VirtualClusterRegistryCloud
+	var cloudPlan models.VirtualClusterTableFlowCloud
 	diags = plan.Cloud.As(ctx, &cloudPlan, basetypes.ObjectAsOptions{})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -157,15 +178,15 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 	cluster, err := r.client.CreateVirtualCluster(
 		plan.Name.ValueString(),
 		api.ClusterParameters{
-			Type:   api.VirtualClusterTypeSchemaRegistry,
+			Type:   api.VirtualClusterTypeTableFlow,
 			Tier:   api.VirtualClusterTierPro,
 			Region: cloudPlan.Region.ValueStringPointer(),
 			Cloud:  cloudPlan.Provider.ValueString(),
 		})
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error creating WarpStream Schema Registry",
-			fmt.Sprintf("Could not create WarpStream Schema Registry Virtual Cluster, unexpected error: %v", err),
+			"Error creating WarpStream TableFlow",
+			fmt.Sprintf("Could not create WarpStream TableFlow Virtual Cluster, unexpected error: %v", err),
 		)
 		return
 	}
@@ -179,7 +200,7 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	state := models.SchemaRegistryResource{
+	state := models.TableFlowResource{
 		ID:          types.StringValue(cluster.ID),
 		Name:        types.StringValue(cluster.Name),
 		AgentKeys:   plan.AgentKeys,
@@ -211,8 +232,8 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 	}
 }
 
-func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state models.SchemaRegistryResource
+func (r *tableFlowResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state models.TableFlowResource
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -265,10 +286,10 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	cloudValue, diagnostics := types.ObjectValue(
-		models.VirtualClusterRegistryCloud{}.AttributeTypes(),
+		models.VirtualClusterTableFlowCloud{}.AttributeTypes(),
 		map[string]attr.Value{
 			"provider": types.StringValue(cluster.CloudProvider),
-			// schema registry is always single region
+			// tableflow is always single region
 			"region": types.StringValue(cluster.ClusterRegion.Region.Name),
 		},
 	)
@@ -295,7 +316,7 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 }
 
-func (r *schemaRegistryResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *tableFlowResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan models.VirtualClusterResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -304,8 +325,8 @@ func (r *schemaRegistryResource) Update(ctx context.Context, req resource.Update
 	}
 }
 
-func (r *schemaRegistryResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state models.SchemaRegistryResource
+func (r *tableFlowResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state models.TableFlowResource
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -319,13 +340,13 @@ func (r *schemaRegistryResource) Delete(ctx context.Context, req resource.Delete
 		}
 
 		resp.Diagnostics.AddError(
-			"Error Deleting WarpStream Schema Registry",
-			fmt.Sprintf("Could not delete WarpStream Schema Registry %s: %v", state.Name, err),
+			"Error Deleting WarpStream TableFlow",
+			fmt.Sprintf("Could not delete WarpStream TableFlow %s: %v", state.Name, err),
 		)
 		return
 	}
 }
 
-func (r *schemaRegistryResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *tableFlowResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }

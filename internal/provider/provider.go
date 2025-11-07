@@ -149,6 +149,7 @@ func (p *warpstreamProvider) DataSources(_ context.Context) []func() datasource.
 		datasources.NewApplicationKeysDataSource,
 		datasources.NewUserRoleDataSource,
 		datasources.NewSchemaRegistryDataSource,
+		datasources.NewTableFlowDataSource,
 		datasources.NewWorkspaceDataSource,
 	}
 }
@@ -163,6 +164,7 @@ func (p *warpstreamProvider) Resources(_ context.Context) []func() resource.Reso
 		resources.NewApplicationKeyResource,
 		resources.NewUserRoleResource,
 		resources.NewSchemaRegistryResource,
+		resources.NewTableFlowResource,
 		resources.NewTopicResource,
 		resources.NewWorkspaceResource,
 		resources.NewACLResource,
