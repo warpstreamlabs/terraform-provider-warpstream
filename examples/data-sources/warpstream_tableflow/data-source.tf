@@ -10,11 +10,11 @@ provider "warpstream" {
   token = "aks_xxx"
 }
 
-data "warpstream_tableflow" "by_id" {
+data "warpstream_tableflow_cluster" "by_id" {
   id = "vci_dl_XXXXXXXXXX"
 }
 
-data "warpstream_tableflow" "by_name" {
+data "warpstream_tableflow_cluster" "by_name" {
   name = "vcn_dl_example_tableflow"
 }
 
