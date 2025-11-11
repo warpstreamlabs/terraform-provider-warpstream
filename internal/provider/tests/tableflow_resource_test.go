@@ -15,7 +15,7 @@ import (
 func testTableFlowResource(nameSuffix string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_tableflow" "test" {
-  name = "vcn_tf_test_%s"
+  name = "vcn_dl_test_%s"
   tier = "dev"
 }`, nameSuffix)
 }
@@ -35,7 +35,7 @@ func TestAccTableFlowResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
-					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_tf_test_%s", vcNameSuffix))
+					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_dl_test_%s", vcNameSuffix))
 					require.NoError(t, err)
 
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
@@ -72,9 +72,10 @@ func testCheckTableFlow(resourceName string) resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet(resourceName, "id"),
 		resource.TestCheckResourceAttrSet(resourceName, "created_at"),
+		resource.TestCheckResourceAttrSet(resourceName, "tier"),
 		resource.TestCheckResourceAttr(resourceName, "cloud.provider", "aws"),
 		resource.TestCheckResourceAttr(resourceName, "cloud.region", "us-east-1"),
-		utils.TestCheckResourceAttrStartsWith(resourceName, "id", "vci_tf_"),
+		utils.TestCheckResourceAttrStartsWith(resourceName, "id", "vci_dl_"),
 	)
 }
 

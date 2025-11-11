@@ -11,7 +11,7 @@ provider "warpstream" {
 }
 
 resource "warpstream_tableflow" "example_tableflow" {
-  name = "vcn_tf_example_tableflow"
+  name = "vcn_dl_example_tableflow"
   tier = "dev"
 }
 

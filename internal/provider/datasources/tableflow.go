@@ -47,12 +47,16 @@ The WarpStream provider must be authenticated with an application key to read th
 			"id": schema.StringAttribute{
 				Computed:   true,
 				Optional:   true,
-				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vci_tf_")},
+				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vci_dl_")},
 			},
 			"name": schema.StringAttribute{
 				Computed:   true,
 				Optional:   true,
-				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vcn_tf_")},
+				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vcn_dl_")},
+			},
+			"tier": schema.StringAttribute{
+				Description: "Virtual Cluster Tier.",
+				Computed:    true,
 			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster.",
@@ -126,6 +130,7 @@ func (d *tableFlowDataSource) Read(ctx context.Context, req datasource.ReadReque
 	state := models.TableFlowDataSource{
 		ID:          types.StringValue(vc.ID),
 		Name:        types.StringValue(vc.Name),
+		Tier:        types.StringValue(vc.Tier),
 		AgentKeys:   agentKeys,
 		CreatedAt:   types.StringValue(vc.CreatedAt),
 		Cloud:       data.Cloud,

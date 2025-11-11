@@ -29,7 +29,7 @@ provider "warpstream" {
 }
 
 data "warpstream_tableflow" "example_tableflow" {
-  name = "vcn_tf_example_tableflow"
+  name = "vcn_dl_example_tableflow"
 }
 ```
 
@@ -47,6 +47,7 @@ data "warpstream_tableflow" "example_tableflow" {
 - `bootstrap_url` (String) Bootstrap URL to connect to the TableFlow cluster.
 - `cloud` (Attributes) (see [below for nested schema](#nestedatt--cloud))
 - `created_at` (String)
+- `tier` (String) Virtual Cluster Tier.
 - `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key used to authenticate the WarpStream provider. Cannot be changed after creation.
 
 <a id="nestedatt--agent_keys"></a>

@@ -33,6 +33,7 @@ type VirtualCluster struct {
 	ClusterRegion ClusterRegion `json:"cluster_region"`
 	BootstrapURL  *string       `json:"bootstrap_url"`
 	WorkspaceID   string        `json:"workspace_id"`
+	Tier          string        `json:"tier"`
 }
 
 type ClusterRegion struct {
@@ -136,7 +137,7 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 	if opts.Type == VirtualClusterTypeSchemaRegistry {
 		trimmed = strings.TrimPrefix(name, "vcn_sr_")
 	} else if opts.Type == VirtualClusterTypeTableFlow {
-		trimmed = strings.TrimPrefix(name, "vcn_tf_")
+		trimmed = strings.TrimPrefix(name, "vcn_dl_")
 	} else {
 		trimmed = strings.TrimPrefix(name, "vcn_")
 	}
@@ -275,4 +276,36 @@ func (c *Client) FindVirtualCluster(name string) (*VirtualCluster, error) {
 // GetDefaultCluster - Return the default virtual cluster.
 func (c *Client) GetDefaultCluster() (*VirtualCluster, error) {
 	return c.FindVirtualCluster("vcn_default")
+}
+
+type VirtualClusterUpdateTierRequest struct {
+	VirtualClusterID string `json:"virtual_cluster_id"`
+	Tier             string `json:"tier"`
+}
+
+// UpdateVirtualClusterTier - Update the tier of a virtual cluster.
+func (c *Client) UpdateVirtualClusterTier(id string, tier string) error {
+	payload, err := json.Marshal(VirtualClusterUpdateTierRequest{
+		VirtualClusterID: id,
+		Tier:             tier,
+	})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/update_virtual_cluster_tier", c.HostURL), bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return err
+	}
+
+	if string(body) != "{}" {
+		return errors.New(string(body))
+	}
+
+	return nil
 }

@@ -7,7 +7,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -18,7 +17,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
@@ -205,7 +203,7 @@ func (r *tableFlowResource) Create(ctx context.Context, req resource.CreateReque
 	state := models.TableFlowResource{
 		ID:          types.StringValue(cluster.ID),
 		Name:        types.StringValue(cluster.Name),
-		Tier:        plan.Tier,
+		Tier:        types.StringValue(cluster.Tier),
 		AgentKeys:   plan.AgentKeys,
 		CreatedAt:   types.StringValue(cluster.CreatedAt),
 		Cloud:       plan.Cloud,
@@ -233,8 +231,6 @@ func (r *tableFlowResource) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	r.readTier(ctx, *cluster, &resp.State, &resp.Diagnostics)
 }
 
 func (r *tableFlowResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -284,6 +280,7 @@ func (r *tableFlowResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 	state.ID = types.StringValue(cluster.ID)
 	state.Name = types.StringValue(cluster.Name)
+	state.Tier = types.StringValue(cluster.Tier)
 	state.WorkspaceID = types.StringValue(cluster.WorkspaceID)
 	state.CreatedAt = types.StringValue(cluster.CreatedAt)
 	if cluster.BootstrapURL != nil {
@@ -319,8 +316,6 @@ func (r *tableFlowResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	r.readTier(ctx, *cluster, &resp.State, &resp.Diagnostics)
 }
 
 func (r *tableFlowResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -340,16 +335,7 @@ func (r *tableFlowResource) Update(ctx context.Context, req resource.UpdateReque
 
 	// Update tier if changed
 	if !plan.Tier.Equal(state.Tier) {
-		cluster := api.VirtualCluster{
-			ID:   state.ID.ValueString(),
-			Name: state.Name.ValueString(),
-		}
-
-		cfg := &api.VirtualClusterConfiguration{
-			Tier: plan.Tier.ValueString(),
-		}
-
-		err := r.client.UpdateConfiguration(*cfg, cluster)
+		err := r.client.UpdateVirtualClusterTier(state.ID.ValueString(), plan.Tier.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error Updating WarpStream TableFlow Tier",
@@ -358,7 +344,18 @@ func (r *tableFlowResource) Update(ctx context.Context, req resource.UpdateReque
 			return
 		}
 
-		r.readTier(ctx, cluster, &resp.State, &resp.Diagnostics)
+		// Read back the updated cluster to get the new tier
+		cluster, err := r.client.GetVirtualCluster(state.ID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error Reading WarpStream Virtual Cluster after tier update",
+				"Could not read WarpStream Virtual Cluster ID "+state.ID.ValueString()+": "+err.Error(),
+			)
+			return
+		}
+
+		diags = resp.State.SetAttribute(ctx, path.Root("tier"), types.StringValue(cluster.Tier))
+		resp.Diagnostics.Append(diags...)
 	}
 }
 
@@ -386,20 +383,4 @@ func (r *tableFlowResource) Delete(ctx context.Context, req resource.DeleteReque
 
 func (r *tableFlowResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
-}
-
-func (r *tableFlowResource) readTier(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {
-	// Get virtual cluster configuration to read tier
-	cfg, err := r.client.GetConfiguration(cluster)
-	if err != nil {
-		respDiags.AddError(
-			"Unable to Read configuration of Virtual Cluster with ID="+cluster.ID,
-			err.Error(),
-		)
-		return
-	}
-
-	// Set tier
-	diags := state.SetAttribute(ctx, path.Root("tier"), types.StringValue(cfg.Tier))
-	respDiags.Append(diags...)
 }

@@ -117,11 +117,11 @@ func TestAccTableFlowDatasource_BYOCNotWork(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testTableFlowDataSourceWithID(vc.ID),
-				ExpectError: regexp.MustCompile("must start with 'vci_tf_'"),
+				ExpectError: regexp.MustCompile("must start with 'vci_dl_'"),
 			},
 			{
 				Config:      testTableFlowDataSourceWithName(vc.Name),
-				ExpectError: regexp.MustCompile(" must start with 'vcn_tf_'"),
+				ExpectError: regexp.MustCompile(" must start with 'vcn_dl_'"),
 			},
 		},
 	})
