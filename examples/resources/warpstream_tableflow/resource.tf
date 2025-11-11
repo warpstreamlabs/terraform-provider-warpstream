@@ -10,7 +10,7 @@ provider "warpstream" {
   token = "aks_xxx"
 }
 
-resource "warpstream_tableflow" "dev_cluster" {
+resource "warpstream_tableflow_cluster" "dev_cluster" {
   name = "vcn_dl_dev_tableflow"
   tier = "dev"
   cloud = {
@@ -19,7 +19,7 @@ resource "warpstream_tableflow" "dev_cluster" {
   }
 }
 
-resource "warpstream_tableflow" "fundamentals_cluster" {
+resource "warpstream_tableflow_cluster" "fundamentals_cluster" {
   name = "vcn_dl_fundamentals_tableflow"
   tier = "fundamentals"
   cloud = {
@@ -28,7 +28,7 @@ resource "warpstream_tableflow" "fundamentals_cluster" {
   }
 }
 
-resource "warpstream_tableflow" "enterprise_cluster" {
+resource "warpstream_tableflow_cluster" "enterprise_cluster" {
   name = "vcn_dl_pro_tableflow"
   tier = "enterprise"
   cloud = {

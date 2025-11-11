@@ -14,7 +14,7 @@ import (
 
 func testTableFlowResource(nameSuffix string) string {
 	return providerConfig + fmt.Sprintf(`
-resource "warpstream_tableflow" "test" {
+resource "warpstream_tableflow_cluster" "test" {
   name = "vcn_dl_test_%s"
   tier = "dev"
 }`, nameSuffix)
