@@ -139,7 +139,7 @@ func (d *tableFlowDataSource) Read(ctx context.Context, req datasource.ReadReque
 		return
 	}
 
-	cldState := models.VirtualClusterCloud{
+	cldState := models.VirtualClusterSingleRegionCloud{
 		Provider: types.StringValue(vc.CloudProvider),
 		// tableflow is always single region
 		Region: types.StringValue(vc.ClusterRegion.Region.Name),

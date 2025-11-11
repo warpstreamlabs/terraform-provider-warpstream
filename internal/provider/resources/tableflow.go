@@ -112,7 +112,7 @@ The WarpStream provider must be authenticated with an application key to consume
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"cloud":        cloudSchema,
+			"cloud":        singleRegionCloudSchema,
 			"workspace_id": shared.VirtualClusterWorkspaceIDSchema,
 		},
 	}
@@ -126,7 +126,7 @@ func (r *tableFlowResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	var cloudPlan models.VirtualClusterCloud
+	var cloudPlan models.VirtualClusterSingleRegionCloud
 	diags = plan.Cloud.As(ctx, &cloudPlan, basetypes.ObjectAsOptions{})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -240,7 +240,7 @@ func (r *tableFlowResource) Read(ctx context.Context, req resource.ReadRequest, 
 	state.CreatedAt = types.StringValue(cluster.CreatedAt)
 
 	cloudValue, diagnostics := types.ObjectValue(
-		models.VirtualClusterCloud{}.AttributeTypes(),
+		models.VirtualClusterSingleRegionCloud{}.AttributeTypes(),
 		map[string]attr.Value{
 			"provider": types.StringValue(cluster.CloudProvider),
 			// tableflow is always single region

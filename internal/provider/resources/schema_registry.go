@@ -63,7 +63,7 @@ func (r *schemaRegistryResource) Configure(_ context.Context, req resource.Confi
 	r.client = client
 }
 
-var registryCloudSchema = schema.SingleNestedAttribute{
+var singleRegionCloudSchema = schema.SingleNestedAttribute{
 	Attributes: map[string]schema.Attribute{
 		"provider": schema.StringAttribute{
 			Description: "Cloud Provider. Valid providers are: `aws` (default), `gcp`, and `azure`.",
@@ -86,8 +86,8 @@ var registryCloudSchema = schema.SingleNestedAttribute{
 	Computed:    true,
 	Default: objectdefault.StaticValue(
 		types.ObjectValueMust(
-			models.VirtualClusterRegistryCloud{}.AttributeTypes(),
-			models.VirtualClusterRegistryCloud{}.DefaultObject(),
+			models.VirtualClusterSingleRegionCloud{}.AttributeTypes(),
+			models.VirtualClusterSingleRegionCloud{}.DefaultObject(),
 		)),
 	PlanModifiers: []planmodifier.Object{
 		objectplanmodifier.RequiresReplace(),
@@ -132,7 +132,7 @@ The WarpStream provider must be authenticated with an application key to consume
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"cloud": registryCloudSchema,
+			"cloud": singleRegionCloudSchema,
 			"bootstrap_url": schema.StringAttribute{
 				Description: "Bootstrap URL to connect to the Schema Registry.",
 				Computed:    true,
@@ -153,7 +153,7 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	var cloudPlan models.VirtualClusterRegistryCloud
+	var cloudPlan models.VirtualClusterSingleRegionCloud
 	diags = plan.Cloud.As(ctx, &cloudPlan, basetypes.ObjectAsOptions{})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -272,7 +272,7 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	cloudValue, diagnostics := types.ObjectValue(
-		models.VirtualClusterRegistryCloud{}.AttributeTypes(),
+		models.VirtualClusterSingleRegionCloud{}.AttributeTypes(),
 		map[string]attr.Value{
 			"provider": types.StringValue(cluster.CloudProvider),
 			// schema registry is always single region

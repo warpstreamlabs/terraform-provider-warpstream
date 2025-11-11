@@ -142,7 +142,7 @@ func (d *schemaRegistryDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	cldState := models.VirtualClusterRegistryCloud{
+	cldState := models.VirtualClusterSingleRegionCloud{
 		Provider: types.StringValue(vc.CloudProvider),
 		// schema registry is always single region
 		Region: types.StringValue(vc.ClusterRegion.Region.Name),

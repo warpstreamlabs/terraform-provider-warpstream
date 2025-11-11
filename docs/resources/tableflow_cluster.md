@@ -40,8 +40,7 @@ The WarpStream provider must be authenticated with an application key to consume
 Optional:
 
 - `provider` (String) Cloud Provider. Valid providers are: `aws` (default), `gcp`, and `azure`.
-- `region` (String) Cloud Region. Defaults to null. Can't be set if `region_group` is set.
-- `region_group` (String) Cloud Region Group. Defaults to null. Can't be set if `region` is set.
+- `region` (String) Cloud Region. Defaults to `us-east-1`.
 
 
 <a id="nestedatt--agent_keys"></a>
