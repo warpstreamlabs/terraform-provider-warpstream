@@ -8,13 +8,13 @@ terraform {
 
 provider "warpstream" {
   # Use a generic WarpStream API key here, not a cluster-specific Agent key.
-  token = "aks_dbc98866e6509087e08ed0a9a7de16aa41042853ce66324da55cbb6eff2ffe18"
+  token = "YOUR_API_KEY"
 }
 
 # BYOC cluster with configuration.
 resource "warpstream_tableflow_cluster" "example" {
   name = "vcn_dl_example"
-  tier = "pro"
+  tier = "dev"
   cloud = {
     # This is the cloud provider and region of the WarpStream control plane,
     # *not* the region where the WarpStream Agents are deployed. Agents can
@@ -47,6 +47,6 @@ tables:
           - { name: service, type: string, id: 2}
           - { name: status, type: string, id: 3}
           - { name: message, type: string, id: 4}
-destination_bucket_url: s3://tableflow-bucket2
+destination_bucket_url: s3://tableflow-bucket
   EOT
 }

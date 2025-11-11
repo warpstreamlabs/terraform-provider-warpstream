@@ -12,8 +12,6 @@ import (
 )
 
 func TestAccTableFlowDataSource(t *testing.T) {
-	t.Skip("Skipping tableflow data source test until tableflow is GA since this doesn't work unless a FF is set")
-
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
 
