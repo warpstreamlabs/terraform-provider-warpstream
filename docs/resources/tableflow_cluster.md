@@ -21,7 +21,7 @@ The WarpStream provider must be authenticated with an application key to consume
 ### Required
 
 - `name` (String) TableFlow Cluster Name.
-- `tier` (String) Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, `pro`, and `fundamentals`.
+- `tier` (String) Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, `pro`, `fundamentals`, and `enterprise`.
 
 ### Optional
 
