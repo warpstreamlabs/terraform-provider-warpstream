@@ -112,7 +112,7 @@ resource "warpstream_pipeline" "example_schema_linking_pipeline" {
 
 ### Optional
 
-- `type` (String) Pipeline type. Valid types are: `bento` (default), `orbit`, `schema_linking`
+- `type` (String) Pipeline type. Valid types are: `bento` (default), `orbit`, `schema_linking`, `tableflow`
 
 ### Read-Only
 

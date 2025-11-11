@@ -38,7 +38,6 @@ data "warpstream_tableflow" "example_tableflow" {
 
 ### Optional
 
-- `id` (String)
 - `name` (String)
 
 ### Read-Only
@@ -47,6 +46,7 @@ data "warpstream_tableflow" "example_tableflow" {
 - `bootstrap_url` (String) Bootstrap URL to connect to the TableFlow cluster.
 - `cloud` (Attributes) (see [below for nested schema](#nestedatt--cloud))
 - `created_at` (String)
+- `id` (String) The ID of this resource.
 - `tier` (String) Virtual Cluster Tier.
 - `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key used to authenticate the WarpStream provider. Cannot be changed after creation.
 
@@ -69,4 +69,3 @@ Read-Only:
 
 - `provider` (String)
 - `region` (String)
-
