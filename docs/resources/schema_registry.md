@@ -47,6 +47,7 @@ resource "warpstream_schema_registry" "example_schema_registry" {
 ### Read-Only
 
 - `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. (see [below for nested schema](#nestedatt--agent_keys))
+- `bootstrap_url` (String) Bootstrap URL to connect to the Schema Registry.
 - `created_at` (String) Virtual Cluster Creation Timestamp.
 - `id` (String) Schema Registry ID.
 - `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key used to authenticate the WarpStream provider. Cannot be changed after creation.

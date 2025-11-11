@@ -132,7 +132,14 @@ The WarpStream provider must be authenticated with an application key to consume
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"cloud":        registryCloudSchema,
+			"cloud": registryCloudSchema,
+			"bootstrap_url": schema.StringAttribute{
+				Description: "Bootstrap URL to connect to the Schema Registry.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"workspace_id": shared.VirtualClusterWorkspaceIDSchema,
 		},
 	}

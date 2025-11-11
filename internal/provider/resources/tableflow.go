@@ -11,10 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -61,37 +58,6 @@ func (r *tableFlowResource) Configure(_ context.Context, req resource.ConfigureR
 	}
 
 	r.client = client
-}
-
-var tableFlowCloudSchema = schema.SingleNestedAttribute{
-	Attributes: map[string]schema.Attribute{
-		"provider": schema.StringAttribute{
-			Description: "Cloud Provider. Valid providers are: `aws` (default), `gcp`, and `azure`.",
-			Computed:    true,
-			Optional:    true,
-			Default:     stringdefault.StaticString("aws"),
-			Validators: []validator.String{
-				stringvalidator.OneOf("aws", "gcp", "azure"),
-			},
-		},
-		"region": schema.StringAttribute{
-			Description: "Cloud Region. Defaults to `us-east-1`.",
-			Computed:    true,
-			Optional:    true,
-			Default:     stringdefault.StaticString("us-east-1"),
-		},
-	},
-	Description: "Virtual Cluster Cloud Location.",
-	Optional:    true,
-	Computed:    true,
-	Default: objectdefault.StaticValue(
-		types.ObjectValueMust(
-			models.VirtualClusterTableFlowCloud{}.AttributeTypes(),
-			models.VirtualClusterTableFlowCloud{}.DefaultObject(),
-		)),
-	PlanModifiers: []planmodifier.Object{
-		objectplanmodifier.RequiresReplace(),
-	},
 }
 
 func (r *tableFlowResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -146,14 +112,7 @@ The WarpStream provider must be authenticated with an application key to consume
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"cloud": tableFlowCloudSchema,
-			"bootstrap_url": schema.StringAttribute{
-				Description: "Bootstrap URL to connect to the TableFlow cluster.",
-				Computed:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
+			"cloud":        cloudSchema,
 			"workspace_id": shared.VirtualClusterWorkspaceIDSchema,
 		},
 	}
@@ -167,7 +126,7 @@ func (r *tableFlowResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	var cloudPlan models.VirtualClusterTableFlowCloud
+	var cloudPlan models.VirtualClusterCloud
 	diags = plan.Cloud.As(ctx, &cloudPlan, basetypes.ObjectAsOptions{})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -208,10 +167,6 @@ func (r *tableFlowResource) Create(ctx context.Context, req resource.CreateReque
 		CreatedAt:   types.StringValue(cluster.CreatedAt),
 		Cloud:       plan.Cloud,
 		WorkspaceID: types.StringValue(cluster.WorkspaceID),
-	}
-
-	if cluster.BootstrapURL != nil {
-		state.BootstrapURL = types.StringValue(*cluster.BootstrapURL)
 	}
 
 	// Set state to fully populated data
@@ -283,12 +238,9 @@ func (r *tableFlowResource) Read(ctx context.Context, req resource.ReadRequest, 
 	state.Tier = types.StringValue(cluster.Tier)
 	state.WorkspaceID = types.StringValue(cluster.WorkspaceID)
 	state.CreatedAt = types.StringValue(cluster.CreatedAt)
-	if cluster.BootstrapURL != nil {
-		state.BootstrapURL = types.StringValue(*cluster.BootstrapURL)
-	}
 
 	cloudValue, diagnostics := types.ObjectValue(
-		models.VirtualClusterTableFlowCloud{}.AttributeTypes(),
+		models.VirtualClusterCloud{}.AttributeTypes(),
 		map[string]attr.Value{
 			"provider": types.StringValue(cluster.CloudProvider),
 			// tableflow is always single region

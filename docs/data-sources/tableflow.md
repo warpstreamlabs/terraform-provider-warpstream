@@ -28,8 +28,16 @@ provider "warpstream" {
   token = "aks_xxx"
 }
 
-data "warpstream_tableflow" "example_tableflow" {
+data "warpstream_tableflow" "by_id" {
+  id = "vci_dl_XXXXXXXXXX"
+}
+
+data "warpstream_tableflow" "by_name" {
   name = "vcn_dl_example_tableflow"
+}
+
+output "tableflow_tier" {
+  value = data.warpstream_tableflow.by_name.tier
 }
 ```
 
@@ -43,7 +51,6 @@ data "warpstream_tableflow" "example_tableflow" {
 ### Read-Only
 
 - `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. (see [below for nested schema](#nestedatt--agent_keys))
-- `bootstrap_url` (String) Bootstrap URL to connect to the TableFlow cluster.
 - `cloud` (Attributes) (see [below for nested schema](#nestedatt--cloud))
 - `created_at` (String)
 - `id` (String) The ID of this resource.

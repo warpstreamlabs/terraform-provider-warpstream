@@ -30,7 +30,6 @@ The WarpStream provider must be authenticated with an application key to consume
 ### Read-Only
 
 - `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. (see [below for nested schema](#nestedatt--agent_keys))
-- `bootstrap_url` (String) Bootstrap URL to connect to the TableFlow cluster.
 - `created_at` (String) Virtual Cluster Creation Timestamp.
 - `id` (String) TableFlow ID.
 - `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key used to authenticate the WarpStream provider. Cannot be changed after creation.
@@ -41,7 +40,8 @@ The WarpStream provider must be authenticated with an application key to consume
 Optional:
 
 - `provider` (String) Cloud Provider. Valid providers are: `aws` (default), `gcp`, and `azure`.
-- `region` (String) Cloud Region. Defaults to `us-east-1`.
+- `region` (String) Cloud Region. Defaults to null. Can't be set if `region_group` is set.
+- `region_group` (String) Cloud Region Group. Defaults to null. Can't be set if `region` is set.
 
 
 <a id="nestedatt--agent_keys"></a>

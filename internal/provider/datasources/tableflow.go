@@ -77,10 +77,6 @@ The WarpStream provider must be authenticated with an application key to read th
 				},
 				Computed: true,
 			},
-			"bootstrap_url": schema.StringAttribute{
-				Description: "Bootstrap URL to connect to the TableFlow cluster.",
-				Computed:    true,
-			},
 			"workspace_id": shared.VirtualClusterWorkspaceIDSchema,
 		},
 	}
@@ -137,17 +133,13 @@ func (d *tableFlowDataSource) Read(ctx context.Context, req datasource.ReadReque
 		WorkspaceID: types.StringValue(vc.WorkspaceID),
 	}
 
-	if vc.BootstrapURL != nil {
-		state.BootstrapURL = types.StringValue(*vc.BootstrapURL)
-	}
-
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	cldState := models.VirtualClusterTableFlowCloud{
+	cldState := models.VirtualClusterCloud{
 		Provider: types.StringValue(vc.CloudProvider),
 		// tableflow is always single region
 		Region: types.StringValue(vc.ClusterRegion.Region.Name),

@@ -284,7 +284,6 @@ type VirtualClusterUpdateTierRequest struct {
 	Tier             string `json:"tier"`
 }
 
-// UpdateVirtualClusterTier - Update the tier of a virtual cluster.
 func (c *Client) UpdateVirtualClusterTier(id string, tier string) error {
 	payload, err := json.Marshal(VirtualClusterUpdateTierRequest{
 		VirtualClusterID: id,
@@ -299,13 +298,9 @@ func (c *Client) UpdateVirtualClusterTier(id string, tier string) error {
 		return err
 	}
 
-	body, err := c.doRequest(req, nil)
+	_, err = c.doRequest(req, nil)
 	if err != nil {
 		return err
-	}
-
-	if string(body) != "{}" {
-		return errors.New(string(body))
 	}
 
 	return nil
