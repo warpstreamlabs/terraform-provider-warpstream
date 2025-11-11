@@ -183,7 +183,7 @@ The WarpStream provider must be authenticated with an application key to consume
 				},
 			},
 			"tier": schema.StringAttribute{
-				Description: "Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, `pro`, and `fundamentals`.",
+				Description: "Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, `pro`, `fundamentals`, and `enterprise`.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -194,6 +194,7 @@ The WarpStream provider must be authenticated with an application key to consume
 						api.VirtualClusterTierLegacy,
 						api.VirtualClusterTierFundamentals,
 						api.VirtualClusterTierPro,
+						api.VirtualClusterTierEnterprise,
 					),
 				},
 			},
