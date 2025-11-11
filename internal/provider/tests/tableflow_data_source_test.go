@@ -50,14 +50,14 @@ func TestAccTableFlowDataSource(t *testing.T) {
 
 func testTableFlowDataSourceWithID(id string) string {
 	return providerConfig + fmt.Sprintf(`
-data "warpstream_tableflow" "test" {
+data "warpstream_tableflow_cluster" "test" {
   id = "%s"
 }`, id)
 }
 
 func testTableFlowDataSourceWithName(name string) string {
 	return providerConfig + fmt.Sprintf(`
-data "warpstream_tableflow" "test" {
+data "warpstream_tableflow_cluster" "test" {
   name = "%s"
 }`, name)
 }
