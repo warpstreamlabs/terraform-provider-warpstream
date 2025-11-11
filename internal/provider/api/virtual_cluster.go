@@ -18,6 +18,7 @@ const (
 	VirtualClusterTierDev          = "dev"
 	VirtualClusterTierFundamentals = "fundamentals"
 	VirtualClusterTierPro          = "pro"
+	VirtualClusterTierEnterprise   = "enterprise"
 )
 
 type VirtualCluster struct {

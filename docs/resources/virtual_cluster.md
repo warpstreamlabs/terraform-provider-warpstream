@@ -56,7 +56,7 @@ resource "warpstream_virtual_cluster" "test_cloud_region" {
 ### Required
 
 - `name` (String) Virtual Cluster Name.
-- `tier` (String) Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, `pro`, and `fundamentals`.
+- `tier` (String) Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, `pro`, `fundamentals`, and `enterprise`.
 
 ### Optional
 
