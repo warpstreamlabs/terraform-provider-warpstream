@@ -87,10 +87,12 @@ func (c *Client) CreatePipeline(
 	ctx context.Context,
 	req HTTPCreatePipelineRequest,
 ) (HTTPCreatePipelineResponse, error) {
+	req.Type = remapPipelineTypeRequest(req.Type)
 	resp := &HTTPCreatePipelineResponse{}
 	if err := c.doJSONHTTP(ctx, req, "create_pipeline", resp); err != nil {
 		return HTTPCreatePipelineResponse{}, fmt.Errorf("error creating pipeline: %w", err)
 	}
+	resp.PipelineType = remapPipelineTypeResponse(resp.PipelineType)
 	return *resp, nil
 }
 
@@ -101,6 +103,9 @@ func (c *Client) ListPipelines(
 	resp := &HTTPListPipelinesResponse{}
 	if err := c.doJSONHTTP(ctx, req, "list_pipelines", resp); err != nil {
 		return HTTPListPipelinesResponse{}, fmt.Errorf("error listing pipelines: %w", err)
+	}
+	for _, pipeline := range resp.Pipelines {
+		pipeline.Type = remapPipelineTypeResponse(pipeline.Type)
 	}
 	return *resp, nil
 }
@@ -135,6 +140,7 @@ func (c *Client) DescribePipeline(
 	if err := c.doJSONHTTP(ctx, req, "describe_pipeline", resp); err != nil {
 		return HTTPDescribePipelineResponse{}, fmt.Errorf("error describing pipeline state: %w", err)
 	}
+	resp.PipelineOverview.Type = remapPipelineTypeResponse(resp.PipelineOverview.Type)
 	return *resp, nil
 }
 
@@ -182,4 +188,22 @@ func (c *Client) doJSONHTTP(
 	}
 
 	return nil
+}
+
+func remapPipelineTypeRequest(pipelineType string) string {
+	switch pipelineType {
+	case "tableflow":
+		return "data_lake"
+	default:
+		return pipelineType
+	}
+}
+
+func remapPipelineTypeResponse(pipelineType string) string {
+	switch pipelineType {
+	case "data_lake":
+		return "tableflow"
+	default:
+		return pipelineType
+	}
 }

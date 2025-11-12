@@ -29,6 +29,7 @@ const (
 	BentoPipelineType         pipelineType = "bento"
 	OrbitPipelineType         pipelineType = "orbit"
 	SchemaLinkingPipelineType pipelineType = "schema_linking"
+	TableflowPipelineType     pipelineType = "tableflow"
 )
 
 // NewPipelineResource is a helper function to simplify the provider implementation.
@@ -126,7 +127,7 @@ The WarpStream provider must be authenticated with an application key to consume
 				Computed:    true,
 			},
 			"type": schema.StringAttribute{
-				Description: "Pipeline type. Valid types are: `bento` (default), `orbit`, `schema_linking`",
+				Description: "Pipeline type. Valid types are: `bento` (default), `orbit`, `schema_linking`, `tableflow`",
 				Optional:    true,
 				Computed:    true,
 				Default:     stringdefault.StaticString(BentoPipelineType),
@@ -134,7 +135,7 @@ The WarpStream provider must be authenticated with an application key to consume
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf(BentoPipelineType, OrbitPipelineType, SchemaLinkingPipelineType),
+					stringvalidator.OneOf(BentoPipelineType, OrbitPipelineType, SchemaLinkingPipelineType, TableflowPipelineType),
 				},
 			},
 		},

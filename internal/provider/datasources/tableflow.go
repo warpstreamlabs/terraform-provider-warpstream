@@ -18,28 +18,28 @@ import (
 )
 
 var (
-	_ datasource.DataSource              = &schemaRegistryDataSource{}
-	_ datasource.DataSourceWithConfigure = &schemaRegistryDataSource{}
+	_ datasource.DataSource              = &tableFlowDataSource{}
+	_ datasource.DataSourceWithConfigure = &tableFlowDataSource{}
 )
 
-func NewSchemaRegistryDataSource() datasource.DataSource {
-	return &schemaRegistryDataSource{}
+func NewTableFlowDataSource() datasource.DataSource {
+	return &tableFlowDataSource{}
 }
 
-type schemaRegistryDataSource struct {
+type tableFlowDataSource struct {
 	client *api.Client
 }
 
 // Metadata returns the data source type name.
-func (d *schemaRegistryDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_schema_registry"
+func (d *tableFlowDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_tableflow_cluster"
 }
 
 // Schema defines the schema for the data source.
-func (d *schemaRegistryDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *tableFlowDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: `
-This data source lists schema registries and their respective agent keys.
+This data source lists TableFlow clusters and their respective agent keys.
 
 The WarpStream provider must be authenticated with an application key to read this data source.
 `,
@@ -47,12 +47,16 @@ The WarpStream provider must be authenticated with an application key to read th
 			"id": schema.StringAttribute{
 				Computed:   true,
 				Optional:   true,
-				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vci_sr_")},
+				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vci_dl_")},
 			},
 			"name": schema.StringAttribute{
 				Computed:   true,
 				Optional:   true,
-				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vcn_sr_")},
+				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vcn_dl_")},
+			},
+			"tier": schema.StringAttribute{
+				Description: "Virtual Cluster Tier.",
+				Computed:    true,
 			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster.",
@@ -73,16 +77,12 @@ The WarpStream provider must be authenticated with an application key to read th
 				},
 				Computed: true,
 			},
-			"bootstrap_url": schema.StringAttribute{
-				Description: "Bootstrap URL to connect to the Schema Registry.",
-				Computed:    true,
-			},
 			"workspace_id": shared.VirtualClusterWorkspaceIDSchema,
 		},
 	}
 }
 
-func (d *schemaRegistryDataSource) ConfigValidators(ctx context.Context) []datasource.ConfigValidator {
+func (d *tableFlowDataSource) ConfigValidators(ctx context.Context) []datasource.ConfigValidator {
 	return []datasource.ConfigValidator{
 		datasourcevalidator.ExactlyOneOf(
 			path.MatchRoot("id"),
@@ -92,8 +92,8 @@ func (d *schemaRegistryDataSource) ConfigValidators(ctx context.Context) []datas
 }
 
 // Read refreshes the Terraform state with the latest data.
-func (d *schemaRegistryDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var data models.SchemaRegistryDataSource
+func (d *tableFlowDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var data models.TableFlowDataSource
 	diags := req.Config.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -116,24 +116,21 @@ func (d *schemaRegistryDataSource) Read(ctx context.Context, req datasource.Read
 		)
 		return
 	}
-	tflog.Debug(ctx, fmt.Sprintf("Schema Registry: %+v", *vc))
+	tflog.Debug(ctx, fmt.Sprintf("TableFlow: %+v", *vc))
 
 	agentKeys, ok := models.MapToAgentKeys(vc.AgentKeys, &diags)
 	if !ok {
 		return // Diagnostics handled inside helper.
 	}
 
-	state := models.SchemaRegistryDataSource{
+	state := models.TableFlowDataSource{
 		ID:          types.StringValue(vc.ID),
 		Name:        types.StringValue(vc.Name),
+		Tier:        types.StringValue(vc.Tier),
 		AgentKeys:   agentKeys,
 		CreatedAt:   types.StringValue(vc.CreatedAt),
 		Cloud:       data.Cloud,
 		WorkspaceID: types.StringValue(vc.WorkspaceID),
-	}
-
-	if vc.BootstrapURL != nil {
-		state.BootstrapURL = types.StringValue(*vc.BootstrapURL)
 	}
 
 	diags = resp.State.Set(ctx, &state)
@@ -144,7 +141,7 @@ func (d *schemaRegistryDataSource) Read(ctx context.Context, req datasource.Read
 
 	cldState := models.VirtualClusterSingleRegionCloud{
 		Provider: types.StringValue(vc.CloudProvider),
-		// schema registry is always single region
+		// tableflow is always single region
 		Region: types.StringValue(vc.ClusterRegion.Region.Name),
 	}
 
@@ -155,7 +152,7 @@ func (d *schemaRegistryDataSource) Read(ctx context.Context, req datasource.Read
 	}
 }
 
-func (d *schemaRegistryDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+func (d *tableFlowDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}

@@ -37,6 +37,13 @@ func ValidSchemaRegistryName() validator.String {
 	)
 }
 
+func ValidTableFlowName() validator.String {
+	return stringvalidator.All(
+		StartsWithAndAlphanumeric("vcn_dl_"),
+		stringvalidator.LengthBetween(3, 128),
+	)
+}
+
 func alphaNumericSpaceesUnderscoresHyphensOnly() validator.String {
 	return stringvalidator.RegexMatches(
 		regexp.MustCompile(`^[a-z_\-A-Z0-9 ]*$`),
