@@ -28,9 +28,9 @@ resource "warpstream_tableflow_cluster" "fundamentals_cluster" {
   }
 }
 
-resource "warpstream_tableflow_cluster" "enterprise_cluster" {
+resource "warpstream_tableflow_cluster" "pro_cluster" {
   name = "vcn_dl_pro_tableflow"
-  tier = "enterprise"
+  tier = "pro"
   cloud = {
     provider = "gcp"
     region   = "us-central1"
