@@ -22,7 +22,7 @@ resource "warpstream_tableflow_cluster" "test" {
 
 func TestAccTableFlowResourceDeletePlan(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	resourceName := "warpstream_tableflow.test"
+	resourceName := "warpstream_tableflow_cluster.test"
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -46,7 +46,7 @@ func TestAccTableFlowResourceDeletePlan(t *testing.T) {
 				RefreshState:       true,
 				RefreshPlanChecks: resource.RefreshPlanChecks{
 					PostRefresh: []plancheck.PlanCheck{
-						plancheck.ExpectResourceAction("warpstream_tableflow.test", plancheck.ResourceActionCreate),
+						plancheck.ExpectResourceAction("warpstream_tableflow_cluster.test", plancheck.ResourceActionCreate),
 					},
 				},
 			},
@@ -56,7 +56,7 @@ func TestAccTableFlowResourceDeletePlan(t *testing.T) {
 
 func TestAccTableFlowResource(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	resourceName := "warpstream_tableflow.test"
+	resourceName := "warpstream_tableflow_cluster.test"
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -90,7 +90,7 @@ func TestAccTableFlowImport(t *testing.T) {
 			{
 				ImportState:       true,
 				ImportStateVerify: true,
-				ResourceName:      "warpstream_tableflow.test",
+				ResourceName:      "warpstream_tableflow_cluster.test",
 			},
 		},
 	})

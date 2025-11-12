@@ -238,3 +238,53 @@ context_type: "DEFAULT"
 EOT
 }`
 }
+
+func TestTableflowPipelineResource(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testTableflowPipeline(),
+				Check:  testPipelineCheck(resources.TableflowPipelineType),
+			},
+		},
+	})
+}
+
+func testTableflowPipeline() string {
+	tableflowClusterResource := fmt.Sprintf(`
+resource "warpstream_tableflow_cluster" "test" {
+  name = "vcn_dl_test_%s"
+  tier = "dev"
+  cloud = {
+    provider = "aws"
+    region   = "us-east-1"
+  }
+}`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+	return providerConfig + tableflowClusterResource + `
+resource "warpstream_pipeline" "test_pipeline" {
+  virtual_cluster_id = warpstream_tableflow_cluster.test.id
+  name               = "test_pipeline"
+  state              = "running"
+  type               = "tableflow"
+  configuration_yaml = <<EOT
+source_clusters:
+  - name: kafka_cluster_1
+    bootstrap_brokers:
+      - hostname: localhost
+        port: 9092
+tables:
+  - source_cluster_name: kafka_cluster_1
+    source_topic: logs
+    source_format: json
+    schema_mode: inline
+    schema:
+      fields:
+        - { name: environment, type: string, id: 1}
+        - { name: service, type: string, id: 2}
+        - { name: status, type: string, id: 3}
+        - { name: message, type: string, id: 4}
+destination_bucket_url: s3://test-tableflow-bucket
+EOT
+}`
+}
