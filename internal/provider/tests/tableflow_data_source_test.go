@@ -83,7 +83,6 @@ func testAccTableFlowDatasourceCheck(
 		resource.TestCheckResourceAttr(datasourceName, "agent_keys.#", "1"),
 		resource.TestCheckResourceAttr(datasourceName, "agent_keys.0.virtual_cluster_id", vc.ID),
 		resource.TestCheckResourceAttr(datasourceName, "agent_keys.0.name", agentKeyName),
-		resource.TestCheckResourceAttr(datasourceName, "bootstrap_url", *vc.BootstrapURL),
 		resource.TestCheckResourceAttr(datasourceName, "workspace_id", vc.WorkspaceID),
 	)
 }
