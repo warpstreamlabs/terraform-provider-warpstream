@@ -35,7 +35,7 @@ func TestAccTableFlowDataSource(t *testing.T) {
 		}
 	}()
 
-	datasourceName := "data.warpstream_tableflow.test"
+	datasourceName := "data.warpstream_tableflow_cluster.test"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
