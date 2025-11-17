@@ -44,7 +44,7 @@ resource "warpstream_topic" "topic" {
 
 ### Optional
 
-- `config` (Block Set) Configuration of the topic. (see [below for nested schema](#nestedblock--config))
+- `config` (Block Set) Configuration of the topic. See [WarpStream Topic Configuration](https://docs.warpstream.com/docs/topics/topic-configuration) for a list of supported configurations. (see [below for nested schema](#nestedblock--config))
 - `enable_deletion_protection` (Boolean) If enabled, WarpStream will refuse to delete this topic.
 
 ### Read-Only
