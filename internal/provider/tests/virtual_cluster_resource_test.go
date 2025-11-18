@@ -234,3 +234,38 @@ func TestAccVirtualClusterImport(t *testing.T) {
 		IsUnitTest: true,
 	})
 }
+
+func TestAccVirtualClusterResourceWithSoftDeletion(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterResource_withSoftDeletionSettings(vcNameSuffix, false, 48),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_soft_topic_deletion", "false"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.soft_delete_topic_ttl_hours", "48"),
+				),
+			},
+			{
+				Config: testAccVirtualClusterResource_withSoftDeletionSettings(vcNameSuffix, true, 72),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_soft_topic_deletion", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.soft_delete_topic_ttl_hours", "72"),
+				),
+			},
+		},
+	})
+}
+
+func testAccVirtualClusterResource_withSoftDeletionSettings(vcNameSuffix string, softDeleteEnable bool, ttlHours int64) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  configuration = {
+    enable_soft_topic_deletion   = %t
+    soft_delete_topic_ttl_hours  = %d
+  }
+}`, vcNameSuffix, softDeleteEnable, ttlHours)
+}
