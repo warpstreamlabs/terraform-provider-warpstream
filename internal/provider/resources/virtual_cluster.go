@@ -277,11 +277,11 @@ The WarpStream provider must be authenticated with an application key to consume
 						Computed:    true,
 						Default:     booldefault.StaticBool(true),
 					},
-					"soft_delete_topic_ttl_hours": schema.Int64Attribute{
-						Description: "If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many hours before being irrecoverably deleted. Defaults to 24 hours.",
+					"soft_topic_deletion_ttl_millis": schema.Int64Attribute{
+						Description: "If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many milliseconds before being irrecoverably deleted. Defaults to 24 hours.",
 						Optional:    true,
 						Computed:    true,
-						Default:     int64default.StaticInt64(24),
+						Default:     int64default.StaticInt64(86400000),
 						PlanModifiers: []planmodifier.Int64{
 							utils.SoftDeleteTTLPlanModifier{},
 						},
@@ -627,8 +627,12 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
 		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
 		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
-		SoftDeleteTopicEnable:    types.BoolValue(cfg.SoftDeleteTopicEnable),
-		SoftDeleteTopicTTLHours:  types.Int64Value(cfg.SoftDeleteTopicTTLHours),
+		EnableSoftTopicDeletion:  types.BoolValue(cfg.EnableSoftTopicDeletion),
+	}
+	if cfg.SoftTopicDeletionTTLMillis != nil {
+		cfgState.SoftTopicDeletionTTL = types.Int64Value(*cfg.SoftTopicDeletionTTLMillis)
+	} else {
+		cfgState.SoftTopicDeletionTTL = types.Int64Value(86400000)
 	}
 
 	// Set configuration state
@@ -665,9 +669,13 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 		DefaultNumPartitions:     cfgPlan.DefaultNumPartitions.ValueInt64(),
 		DefaultRetentionMillis:   cfgPlan.DefaultRetention.ValueInt64(),
 		EnableDeletionProtection: cfgPlan.EnableDeletionProtection.ValueBool(),
-		SoftDeleteTopicEnable:    cfgPlan.SoftDeleteTopicEnable.ValueBool(),
-		SoftDeleteTopicTTLHours:  cfgPlan.SoftDeleteTopicTTLHours.ValueInt64(),
+		EnableSoftTopicDeletion:  cfgPlan.EnableSoftTopicDeletion.ValueBool(),
 	}
+	if !cfgPlan.SoftTopicDeletionTTL.IsNull() && !cfgPlan.SoftTopicDeletionTTL.IsUnknown() {
+		ttlValue := cfgPlan.SoftTopicDeletionTTL.ValueInt64()
+		cfg.SoftTopicDeletionTTLMillis = &ttlValue
+	}
+
 	cfg.Tier = plan.Tier.ValueString()
 	err := r.client.UpdateConfiguration(*cfg, cluster)
 	if err != nil {

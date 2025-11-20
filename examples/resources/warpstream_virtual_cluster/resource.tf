@@ -26,8 +26,8 @@ resource "warpstream_virtual_cluster" "test_soft_deletion" {
   name = "vcn_test_soft_deletion"
   tier = "dev"
   configuration = {
-    soft_delete_topic_enable    = true
-    soft_delete_topic_ttl_hours = 48
+    enable_soft_topic_deletion     = true
+    soft_topic_deletion_ttl_millis = 172800000
   }
 }
 

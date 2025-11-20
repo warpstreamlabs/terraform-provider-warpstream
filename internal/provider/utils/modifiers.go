@@ -27,7 +27,7 @@ func (m IgnoreDiffPlanModifier) MarkdownDescription(ctx context.Context) string 
 	return m.Description(ctx)
 }
 
-// SoftDeleteTTLPlanModifier sets soft_delete_topic_ttl_hours to 0 when
+// SoftDeleteTTLPlanModifier sets soft_topic_deletion_ttl_millis to 0 when
 // enable_soft_topic_deletion is false, matching the API behavior.
 type SoftDeleteTTLPlanModifier struct{}
 
@@ -52,7 +52,7 @@ func (m SoftDeleteTTLPlanModifier) PlanModifyInt64(ctx context.Context, req plan
 }
 
 func (m SoftDeleteTTLPlanModifier) Description(ctx context.Context) string {
-	return "Sets soft_delete_topic_ttl_hours to 0 when enable_soft_topic_deletion is false."
+	return "Sets soft_topic_deletion_ttl_millis to 0 when enable_soft_topic_deletion is false."
 }
 
 func (m SoftDeleteTTLPlanModifier) MarkdownDescription(ctx context.Context) string {

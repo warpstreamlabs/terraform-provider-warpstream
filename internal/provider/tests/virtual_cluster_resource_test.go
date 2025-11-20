@@ -244,14 +244,14 @@ func TestAccVirtualClusterResourceWithSoftDeletion(t *testing.T) {
 				Config: testAccVirtualClusterResource_withSoftDeletionSettings(vcNameSuffix, false, 48),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_soft_topic_deletion", "false"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.soft_delete_topic_ttl_hours", "48"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.soft_topic_deletion_ttl_millis", "172800000"),
 				),
 			},
 			{
 				Config: testAccVirtualClusterResource_withSoftDeletionSettings(vcNameSuffix, true, 72),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_soft_topic_deletion", "true"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.soft_delete_topic_ttl_hours", "72"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.soft_topic_deletion_ttl_millis", "259200000"),
 				),
 			},
 		},
@@ -259,13 +259,15 @@ func TestAccVirtualClusterResourceWithSoftDeletion(t *testing.T) {
 }
 
 func testAccVirtualClusterResource_withSoftDeletionSettings(vcNameSuffix string, softDeleteEnable bool, ttlHours int64) string {
+	// Convert hours to milliseconds
+	ttlMillis := ttlHours * 3600 * 1000
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test_acc_%s"
   tier = "fundamentals"
   configuration = {
     enable_soft_topic_deletion   = %t
-    soft_delete_topic_ttl_hours  = %d
+    soft_topic_deletion_ttl_millis  = %d
   }
-}`, vcNameSuffix, softDeleteEnable, ttlHours)
+}`, vcNameSuffix, softDeleteEnable, ttlMillis)
 }

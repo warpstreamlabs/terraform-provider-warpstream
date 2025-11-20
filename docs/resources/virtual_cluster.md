@@ -44,8 +44,8 @@ resource "warpstream_virtual_cluster" "test_soft_deletion" {
   name = "vcn_test_soft_deletion"
   tier = "dev"
   configuration = {
-    soft_delete_topic_enable    = true
-    soft_delete_topic_ttl_hours = 48
+    enable_soft_topic_deletion     = true
+    soft_topic_deletion_ttl_millis = 172800000
   }
 }
 
@@ -106,7 +106,7 @@ Optional:
 - `enable_acls` (Boolean) Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)
 - `enable_deletion_protection` (Boolean) Enable deletion protection, defaults to `false`. If set to true, it is impossible to delete this cluster. enable_deletion_protection needs to be set to false before deleting the cluster.
 - `enable_soft_topic_deletion` (Boolean) Enable soft deletion for topics. Defaults to `true`. If true, topic deletion will be a soft deletion. For clusters with the Fundamentals tier or above, it will be possible to restore topics for some time after deletion. If false, deleting a topic will immediately delete of all of its data, with no way to recover it.
-- `soft_delete_topic_ttl_hours` (Number) If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many hours before being irrecoverably deleted. Defaults to 24 hours.
+- `soft_topic_deletion_ttl_millis` (Number) If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many milliseconds before being irrecoverably deleted. Defaults to 24 hours.
 
 
 <a id="nestedatt--agent_keys"></a>
