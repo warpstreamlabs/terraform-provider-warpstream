@@ -36,16 +36,19 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 		}
 	}()
 
+	cfg, err := client.GetConfiguration(*vc)
+	require.NoError(t, err)
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVirtualClusterDataSourceWithID(vc.ID),
-				Check:  testAccVCDataSourceCheck_byoc(vc),
+				Check:  testAccVCDataSourceCheck_byoc(vc, cfg),
 			},
 			{
 				Config: testAccVirtualClusterDataSourceWithName(vc.Name),
-				Check:  testAccVCDataSourceCheck_byoc(vc),
+				Check:  testAccVCDataSourceCheck_byoc(vc, cfg),
 			},
 		},
 	})
@@ -65,13 +68,18 @@ data "warpstream_virtual_cluster" "test" {
 }`, name)
 }
 
-func testAccVCDataSourceCheck_byoc(vc *api.VirtualCluster) resource.TestCheckFunc {
+func testAccVCDataSourceCheck_byoc(vc *api.VirtualCluster, cfg *api.VirtualClusterConfiguration) resource.TestCheckFunc {
 	agentKeyName := ""
 	if vc.AgentKeys != nil {
 		agentKeys := *vc.AgentKeys
 		if len(agentKeys) > 0 {
 			agentKeyName = agentKeys[0].Name
 		}
+	}
+
+	softTopicDeletionTTL := int64(86400000)
+	if cfg.SoftTopicDeletionTTLMillis != nil {
+		softTopicDeletionTTL = *cfg.SoftTopicDeletionTTLMillis
 	}
 
 	return resource.ComposeAggregateTestCheckFunc(
@@ -86,6 +94,14 @@ func testAccVCDataSourceCheck_byoc(vc *api.VirtualCluster) resource.TestCheckFun
 		),
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_cluster.test", "bootstrap_url", *vc.BootstrapURL,
+		),
+		resource.TestCheckResourceAttr(
+			"data.warpstream_virtual_cluster.test", "configuration.enable_soft_topic_deletion",
+			fmt.Sprintf("%t", cfg.EnableSoftTopicDeletion),
+		),
+		resource.TestCheckResourceAttr(
+			"data.warpstream_virtual_cluster.test", "configuration.soft_topic_deletion_ttl_millis",
+			fmt.Sprintf("%d", softTopicDeletionTTL),
 		),
 		testAccVCDataSourceCheck(vc),
 	)
