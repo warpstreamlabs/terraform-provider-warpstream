@@ -282,9 +282,6 @@ The WarpStream provider must be authenticated with an application key to consume
 						Optional:    true,
 						Computed:    true,
 						Default:     int64default.StaticInt64(86400000),
-						PlanModifiers: []planmodifier.Int64{
-							utils.SoftDeleteTTLPlanModifier{},
-						},
 					},
 				},
 				Description: "Virtual Cluster Configuration.",
