@@ -130,6 +130,12 @@ The WarpStream provider must be authenticated with an application key to read th
 					"enable_deletion_protection": schema.BoolAttribute{
 						Computed: true,
 					},
+					"enable_soft_topic_deletion": schema.BoolAttribute{
+						Computed: true,
+					},
+					"soft_topic_deletion_ttl_millis": schema.Int64Attribute{
+						Computed: true,
+					},
 				},
 				Computed: true,
 			},
@@ -235,6 +241,12 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
 		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
 		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
+		EnableSoftTopicDeletion:  types.BoolValue(cfg.EnableSoftTopicDeletion),
+	}
+	if cfg.SoftTopicDeletionTTLMillis != nil {
+		cfgState.SoftTopicDeletionTTL = types.Int64Value(*cfg.SoftTopicDeletionTTLMillis)
+	} else {
+		cfgState.SoftTopicDeletionTTL = types.Int64Value(86400000)
 	}
 
 	resp.Diagnostics.AddWarning("Virtual Cluster Tier", fmt.Sprintf("Tier: %s", cfg.Tier))

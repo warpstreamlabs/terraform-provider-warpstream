@@ -9,12 +9,14 @@ import (
 )
 
 type VirtualClusterConfiguration struct {
-	AclsEnabled              bool   `json:"are_acls_enabled"`
-	AutoCreateTopic          bool   `json:"is_auto_create_topic_enabled"`
-	DefaultNumPartitions     int64  `json:"default_num_partitions"`
-	DefaultRetentionMillis   int64  `json:"default_retention_millis"`
-	EnableDeletionProtection bool   `json:"enable_deletion_protection"`
-	Tier                     string `json:"tier,omitempty"`
+	AclsEnabled                bool   `json:"are_acls_enabled"`
+	AutoCreateTopic            bool   `json:"is_auto_create_topic_enabled"`
+	DefaultNumPartitions       int64  `json:"default_num_partitions"`
+	DefaultRetentionMillis     int64  `json:"default_retention_millis"`
+	EnableDeletionProtection   bool   `json:"enable_deletion_protection"`
+	EnableSoftTopicDeletion    bool   `json:"soft_delete_topics_enabled"`
+	SoftTopicDeletionTTLMillis *int64 `json:"inactive_topics_ttl,omitempty"`
+	Tier                       string `json:"tier,omitempty"`
 }
 
 type ConfigurationDescribeRequest struct {

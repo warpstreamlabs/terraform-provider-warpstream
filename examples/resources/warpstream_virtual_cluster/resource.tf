@@ -22,6 +22,15 @@ resource "warpstream_virtual_cluster" "test_configuration" {
   }
 }
 
+resource "warpstream_virtual_cluster" "test_soft_deletion" {
+  name = "vcn_test_soft_deletion"
+  tier = "dev"
+  configuration = {
+    enable_soft_topic_deletion     = true
+    soft_topic_deletion_ttl_millis = 172800000
+  }
+}
+
 resource "warpstream_virtual_cluster" "test_cloud_region" {
   name = "vcn_test_cloud_region"
   tier = "dev"

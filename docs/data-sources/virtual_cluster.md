@@ -88,3 +88,5 @@ Read-Only:
 - `default_retention_millis` (Number)
 - `enable_acls` (Boolean)
 - `enable_deletion_protection` (Boolean)
+- `enable_soft_topic_deletion` (Boolean)
+- `soft_topic_deletion_ttl_millis` (Number)
