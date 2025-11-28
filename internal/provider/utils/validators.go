@@ -139,19 +139,18 @@ func (v aclsExclusionValidator) ValidateObject(ctx context.Context, req validato
 	acl := enableACLs.ValueBool()
 	shadow := enableShadowing.ValueBool()
 
-	// Validation rule: exactly one must be true
-	if (acl && !shadow) || (!acl && shadow) {
+	// INVALID: both true
+	if acl && shadow {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid ACL Configuration",
+			fmt.Sprintf(
+				"enable_acls and enable_acl_shadowing cannot both be true. Received enable_acls=%t and enable_acl_shadowing=%t.",
+				acl, shadow,
+			),
+		)
 		return
 	}
-
-	resp.Diagnostics.AddAttributeError(
-		req.Path,
-		"Invalid ACL Configuration",
-		fmt.Sprintf(
-			"Exactly one of enable_acls or enable_acl_shadowing must be true, but got enable_acls=%t and enable_acl_shadowing=%t.",
-			acl, shadow,
-		),
-	)
 }
 
 func ACLModeMutualExclusion() validator.Object {
