@@ -65,7 +65,7 @@ func TestAccVirtualClusterResource(t *testing.T) {
 				},
 			},
 			{
-				Config: testAccVirtualClusterResource_withConfiguration(true, false, 2, vcNameSuffix),
+				Config: testAccVirtualClusterResource_withConfiguration(true, false, false, 2, vcNameSuffix),
 				Check:  testAccVirtualClusterResourceCheck(true, false, 2, "byoc", true, true),
 			},
 			{
@@ -158,6 +158,7 @@ resource "warpstream_virtual_cluster" "test" {
 
 func testAccVirtualClusterResource_withConfiguration(
 	acls bool,
+	aclShadowing bool,
 	autoTopic bool,
 	numParts int64,
 	vcNameSuffix string,
@@ -168,6 +169,7 @@ resource "warpstream_virtual_cluster" "test" {
   tier = "fundamentals"
   configuration = {
     enable_acls = %t
+	enable_acl_shadowing = %t
     default_num_partitions = %d
     auto_create_topic = %t
     enable_deletion_protection = true
@@ -175,7 +177,7 @@ resource "warpstream_virtual_cluster" "test" {
   tags = {
     "test_tag" = "test_value"
   }
-}`, vcNameSuffix, acls, numParts, autoTopic)
+}`, vcNameSuffix, acls, aclShadowing, numParts, autoTopic)
 }
 
 func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int64, vcType string, tags bool, deletionProtection bool) resource.TestCheckFunc {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 func StartsWithAndAlphanumeric(prefix string) validator.String {
@@ -93,4 +94,59 @@ func (v notStartWithValidator) ValidateString(ctx context.Context, request valid
 
 func NotStartWith(prefix string) validator.String {
 	return notStartWithValidator{prefix: prefix}
+}
+
+type aclsExclusionValidator struct{}
+
+func (v aclsExclusionValidator) Description(ctx context.Context) string {
+	return "Ensures that exactly one of enable_acls or enable_acl_shadowing is true."
+}
+
+func (v aclsExclusionValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v aclsExclusionValidator) ValidateObject(ctx context.Context, req validator.ObjectRequest, resp *validator.ObjectResponse) {
+	var enableACLs types.Bool
+	var enableShadowing types.Bool
+
+	// Fetch the two attributes relative to the current object (configuration)
+	diags := req.Config.GetAttribute(ctx, req.Path.AtName("enable_acls"), &enableACLs)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	diags = req.Config.GetAttribute(ctx, req.Path.AtName("enable_acl_shadowing"), &enableShadowing)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// If values are unknown, defer validation.
+	if enableACLs.IsUnknown() || enableShadowing.IsUnknown() {
+		return
+	}
+
+	// Convert to bool
+	acl := enableACLs.ValueBool()
+	shadow := enableShadowing.ValueBool()
+
+	// Validation rule: exactly one must be true
+	if (acl && !shadow) || (!acl && shadow) {
+		return
+	}
+
+	resp.Diagnostics.AddAttributeError(
+		req.Path,
+		"Invalid ACL Configuration",
+		fmt.Sprintf(
+			"Exactly one of enable_acls or enable_acl_shadowing must be true, but got enable_acls=%t and enable_acl_shadowing=%t.",
+			acl, shadow,
+		),
+	)
+}
+
+func ACLModeMutualExclusion() validator.Object {
+	return aclsExclusionValidator{}
 }

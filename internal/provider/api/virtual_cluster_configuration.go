@@ -10,6 +10,7 @@ import (
 
 type VirtualClusterConfiguration struct {
 	AclsEnabled              bool   `json:"are_acls_enabled"`
+	ACLShadowingEnabled      bool   `json:"acl_shadowing_enabled"`
 	AutoCreateTopic          bool   `json:"is_auto_create_topic_enabled"`
 	DefaultNumPartitions     int64  `json:"default_num_partitions"`
 	DefaultRetentionMillis   int64  `json:"default_retention_millis"`

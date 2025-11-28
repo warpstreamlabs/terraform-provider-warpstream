@@ -61,6 +61,7 @@ func (m VirtualClusterResource) Cluster() api.VirtualCluster {
 
 type VirtualClusterConfiguration struct {
 	AclsEnabled              types.Bool  `tfsdk:"enable_acls"`
+	ACLShadowingEnabled      types.Bool  `tfsdk:"enable_acl_shadowing"`
 	AutoCreateTopic          types.Bool  `tfsdk:"auto_create_topic"`
 	DefaultNumPartitions     types.Int64 `tfsdk:"default_num_partitions"`
 	DefaultRetention         types.Int64 `tfsdk:"default_retention_millis"`
@@ -73,6 +74,7 @@ func (m VirtualClusterConfiguration) AttributeTypes() map[string]attr.Type {
 		"default_num_partitions":     types.Int64Type,
 		"default_retention_millis":   types.Int64Type,
 		"enable_acls":                types.BoolType,
+		"enable_acl_shadowing":       types.BoolType,
 		"enable_deletion_protection": types.BoolType,
 	}
 }
@@ -83,6 +85,7 @@ func (m VirtualClusterConfiguration) DefaultObject() map[string]attr.Value {
 		"default_num_partitions":     types.Int64Value(1),
 		"default_retention_millis":   types.Int64Value(86400000),
 		"enable_acls":                types.BoolValue(false),
+		"enable_acl_shadowing":       types.BoolValue(false),
 		"enable_deletion_protection": types.BoolValue(false),
 	}
 }

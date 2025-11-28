@@ -127,6 +127,9 @@ The WarpStream provider must be authenticated with an application key to read th
 					"enable_acls": schema.BoolAttribute{
 						Computed: true,
 					},
+					"enable_acl_shadowing": schema.BoolAttribute{
+						Computed: true,
+					},
 					"enable_deletion_protection": schema.BoolAttribute{
 						Computed: true,
 					},
@@ -231,6 +234,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 
 	cfgState := models.VirtualClusterConfiguration{
 		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
+		ACLShadowingEnabled:      types.BoolValue(cfg.ACLShadowingEnabled),
 		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
 		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
 		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
