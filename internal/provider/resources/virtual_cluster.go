@@ -265,6 +265,12 @@ The WarpStream provider must be authenticated with an application key to consume
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
 					},
+					"enable_acl_shadowing": schema.BoolAttribute{
+						Description: "Enable ACL shadowing, defaults to `false`. See [ACL Shadowing](https://docs.warpstream.com/warpstream/kafka/manage-security/configure-acls#acl-shadowing)",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
 					"enable_deletion_protection": schema.BoolAttribute{
 						Description: "Enable deletion protection, defaults to `false`. If set to true, it is impossible to delete this cluster. enable_deletion_protection needs to be set to false before deleting the cluster.",
 						Optional:    true,
@@ -294,6 +300,9 @@ The WarpStream provider must be authenticated with an application key to consume
 					)),
 				PlanModifiers: []planmodifier.Object{
 					objectplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.Object{
+					utils.ACLModeMutualExclusion(),
 				},
 			},
 			"cloud": cloudSchema,
@@ -620,6 +629,7 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 
 	cfgState := models.VirtualClusterConfiguration{
 		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
+		ACLShadowingEnabled:      types.BoolValue(cfg.ACLShadowingEnabled),
 		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
 		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
 		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
@@ -662,6 +672,7 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 	// Update virtual cluster configuration
 	cfg := &api.VirtualClusterConfiguration{
 		AclsEnabled:              cfgPlan.AclsEnabled.ValueBool(),
+		ACLShadowingEnabled:      cfgPlan.ACLShadowingEnabled.ValueBool(),
 		AutoCreateTopic:          cfgPlan.AutoCreateTopic.ValueBool(),
 		DefaultNumPartitions:     cfgPlan.DefaultNumPartitions.ValueInt64(),
 		DefaultRetentionMillis:   cfgPlan.DefaultRetention.ValueInt64(),

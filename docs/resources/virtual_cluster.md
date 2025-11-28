@@ -21,6 +21,14 @@ resource "warpstream_virtual_cluster" "test" {
   tier = "dev"
 }
 
+resource "warpstream_virtual_cluster" "test_with_acl_shadowing" {
+  name = "vcn_test_acl_shadowing"
+  tier = "dev"
+  configuration = {
+    enable_acl_shadowing = true
+  }
+}
+
 resource "warpstream_virtual_cluster" "test_with_acls" {
   name = "vcn_test_acls"
   tier = "dev"
@@ -103,6 +111,7 @@ Optional:
 - `auto_create_topic` (Boolean) Enable topic autocreation feature, defaults to `true`.
 - `default_num_partitions` (Number) Number of partitions created by default.
 - `default_retention_millis` (Number) Default retention for topics that are created automatically using Kafka's topic auto-creation feature.
+- `enable_acl_shadowing` (Boolean) Enable ACL shadowing, defaults to `false`. See [ACL Shadowing](https://docs.warpstream.com/warpstream/kafka/manage-security/configure-acls#acl-shadowing)
 - `enable_acls` (Boolean) Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)
 - `enable_deletion_protection` (Boolean) Enable deletion protection, defaults to `false`. If set to true, it is impossible to delete this cluster. enable_deletion_protection needs to be set to false before deleting the cluster.
 - `enable_soft_topic_deletion` (Boolean) Enable soft deletion for topics. Defaults to `true`. If true, topic deletion will be a soft deletion. For clusters with the Fundamentals tier or above, it will be possible to restore topics for some time after deletion. If false, deleting a topic will immediately delete of all of its data, with no way to recover it.

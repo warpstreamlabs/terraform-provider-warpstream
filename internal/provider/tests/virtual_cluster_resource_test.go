@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -20,7 +21,7 @@ func TestAccVirtualClusterResourceDeletePlan(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVirtualClusterResource_withPartialConfiguration(false, vcNameSuffix),
-				Check:  testAccVirtualClusterResourceCheck(false, true, 1, "byoc", false, false),
+				Check:  testAccVirtualClusterResourceCheck(false, false, true, 1, "byoc", false, false),
 			},
 			{
 				PreConfig: func() {
@@ -54,7 +55,7 @@ func TestAccVirtualClusterResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVirtualClusterResource_withPartialConfiguration(false, vcNameSuffix),
-				Check:  testAccVirtualClusterResourceCheck(false, true, 1, "byoc", false, false),
+				Check:  testAccVirtualClusterResourceCheck(false, false, true, 1, "byoc", false, false),
 			},
 			{
 				Config: testAccVirtualClusterResource(vcNameSuffix),
@@ -65,8 +66,18 @@ func TestAccVirtualClusterResource(t *testing.T) {
 				},
 			},
 			{
-				Config: testAccVirtualClusterResource_withConfiguration(true, false, 2, vcNameSuffix),
-				Check:  testAccVirtualClusterResourceCheck(true, false, 2, "byoc", true, true),
+				Config: testAccVirtualClusterResource_withConfiguration(true, false, false, 2, vcNameSuffix),
+				Check:  testAccVirtualClusterResourceCheck(true, false, false, 2, "byoc", true, true),
+			},
+			// Enable ACL shadowing
+			{
+				Config: testAccVirtualClusterResource_withConfiguration(false, true, false, 2, vcNameSuffix),
+				Check:  testAccVirtualClusterResourceCheck(false, true, false, 2, "byoc", true, true),
+			},
+			// ACL shadowing and ACLs enabled should be mutually exclusive
+			{
+				Config:      testAccVirtualClusterResource_withConfiguration(true, true, false, 2, vcNameSuffix),
+				ExpectError: regexp.MustCompile("enable_acls and enable_acl_shadowing cannot both be true"),
 			},
 			{
 				Config: testAccVirtualClusterResource_removeDeletionProtection(vcNameSuffix),
@@ -90,7 +101,7 @@ func TestAccVirtualClusterResource(t *testing.T) {
 			{
 				Config: testAccVirtualClusterResource_withRenamedCluster(vcNameSuffix),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccVirtualClusterResourceCheck(false, true, 1, "byoc", false, false),
+					testAccVirtualClusterResourceCheck(false, false, true, 1, "byoc", false, false),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "name", fmt.Sprintf("vcn_test_acc_renamed_%s", vcNameSuffix)),
 					func(s *terraform.State) error {
 						rs, ok := s.RootModule().Resources["warpstream_virtual_cluster.test"]
@@ -158,6 +169,7 @@ resource "warpstream_virtual_cluster" "test" {
 
 func testAccVirtualClusterResource_withConfiguration(
 	acls bool,
+	aclShadowing bool,
 	autoTopic bool,
 	numParts int64,
 	vcNameSuffix string,
@@ -168,6 +180,7 @@ resource "warpstream_virtual_cluster" "test" {
   tier = "fundamentals"
   configuration = {
     enable_acls = %t
+	enable_acl_shadowing = %t
     default_num_partitions = %d
     auto_create_topic = %t
     enable_deletion_protection = true
@@ -175,10 +188,10 @@ resource "warpstream_virtual_cluster" "test" {
   tags = {
     "test_tag" = "test_value"
   }
-}`, vcNameSuffix, acls, numParts, autoTopic)
+}`, vcNameSuffix, acls, aclShadowing, numParts, autoTopic)
 }
 
-func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int64, vcType string, tags bool, deletionProtection bool) resource.TestCheckFunc {
+func testAccVirtualClusterResourceCheck(acls bool, aclShadowing bool, autoTopic bool, numParts int64, vcType string, tags bool, deletionProtection bool) resource.TestCheckFunc {
 	var checks = []resource.TestCheckFunc{
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "id"),
 		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster.test", "agent_pool_id"),
@@ -186,6 +199,7 @@ func testAccVirtualClusterResourceCheck(acls bool, autoTopic bool, numParts int6
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "default", "false"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "type", vcType),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acls", fmt.Sprintf("%t", acls)),
+		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acl_shadowing", fmt.Sprintf("%t", aclShadowing)),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.auto_create_topic", fmt.Sprintf("%t", autoTopic)),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_num_partitions", fmt.Sprintf("%d", numParts)),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", fmt.Sprintf("%d", 86400000)),

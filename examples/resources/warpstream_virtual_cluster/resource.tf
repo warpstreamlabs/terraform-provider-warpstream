@@ -3,6 +3,14 @@ resource "warpstream_virtual_cluster" "test" {
   tier = "dev"
 }
 
+resource "warpstream_virtual_cluster" "test_with_acl_shadowing" {
+  name = "vcn_test_acl_shadowing"
+  tier = "dev"
+  configuration = {
+    enable_acl_shadowing = true
+  }
+}
+
 resource "warpstream_virtual_cluster" "test_with_acls" {
   name = "vcn_test_acls"
   tier = "dev"
