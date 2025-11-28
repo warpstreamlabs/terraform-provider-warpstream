@@ -3,13 +3,13 @@
 page_title: "warpstream_acl Resource - terraform-provider-warpstream"
 subcategory: ""
 description: |-
-  This resource allows you to create, read and delete ACLs related to a virtual cluster.
+  This resource allows you to create, read and delete ACLs related to a Virtual Cluster.
   The WarpStream provider must be authenticated with an application key to consume this resource.
 ---
 
 # warpstream_acl (Resource)
 
-This resource allows you to create, read and delete ACLs related to a virtual cluster.
+This resource allows you to create, read and delete ACLs related to a Virtual Cluster.
 
 The WarpStream provider must be authenticated with an application key to consume this resource.
 

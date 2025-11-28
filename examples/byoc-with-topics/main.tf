@@ -34,13 +34,6 @@ resource "warpstream_virtual_cluster" "test" {
   }
 }
 
-# Create an Agent key that is dedicated to this terraform module for creating
-# and configuring topics for this WarpStream cluster.
-resource "warpstream_agent_key" "terraform_cluster_key" {
-  virtual_cluster_id = warpstream_virtual_cluster.test.id
-  name               = "akn_terraform_topics"
-}
-
 resource "warpstream_topic" "topic" {
   topic_name         = "logs"
   partition_count    = 1
@@ -56,5 +49,4 @@ resource "warpstream_virtual_cluster_credentials" "creds" {
   name = "ccn_test"
 
   virtual_cluster_id = warpstream_virtual_cluster.test.id
-  agent_pool         = warpstream_virtual_cluster.test.agent_pool_id
 }

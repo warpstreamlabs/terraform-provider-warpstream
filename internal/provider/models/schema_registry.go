@@ -25,19 +25,19 @@ type SchemaRegistryResource struct {
 	WorkspaceID  types.String `tfsdk:"workspace_id"`
 }
 
-type VirtualClusterRegistryCloud struct {
+type VirtualClusterSingleRegionCloud struct {
 	Provider types.String `tfsdk:"provider"`
 	Region   types.String `tfsdk:"region"`
 }
 
-func (m VirtualClusterRegistryCloud) AttributeTypes() map[string]attr.Type {
+func (m VirtualClusterSingleRegionCloud) AttributeTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"provider": types.StringType,
 		"region":   types.StringType,
 	}
 }
 
-func (m VirtualClusterRegistryCloud) DefaultObject() map[string]attr.Value {
+func (m VirtualClusterSingleRegionCloud) DefaultObject() map[string]attr.Value {
 	return map[string]attr.Value{
 		"provider": types.StringValue("aws"),
 		"region":   types.StringValue("us-east-1"),

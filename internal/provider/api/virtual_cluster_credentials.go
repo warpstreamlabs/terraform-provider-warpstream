@@ -15,8 +15,6 @@ type VirtualClusterCredentials struct {
 	UserName         string `json:"username"`
 	Password         string `json:"password"`
 	CreatedAt        string `json:"created_at"`
-	AgentPoolID      string `json:"agent_pool_id"`
-	AgentPoolName    string `json:"agent_pool_name"`
 	ClusterSuperuser bool   `json:"is_cluster_superuser"`
 }
 
@@ -36,7 +34,6 @@ type CredentialsCreateResponse struct {
 
 type CredentialsCreateRequest struct {
 	Name             string `json:"credentials_name"`
-	AgentPoolID      string `json:"agent_pool_id"`
 	VirtualClusterID string `json:"virtual_cluster_id"`
 	ClusterSuperuser bool   `json:"is_cluster_superuser"`
 }
@@ -50,7 +47,6 @@ type CredentialsDeleteRequest struct {
 func (c *Client) CreateCredentials(name string, su bool, vc VirtualCluster) (*VirtualClusterCredentials, error) {
 	payload, err := json.Marshal(CredentialsCreateRequest{
 		Name:             strings.TrimPrefix(name, "ccn_"),
-		AgentPoolID:      vc.AgentPoolID,
 		VirtualClusterID: vc.ID,
 		ClusterSuperuser: su,
 	})
@@ -77,8 +73,6 @@ func (c *Client) CreateCredentials(name string, su bool, vc VirtualCluster) (*Vi
 	vcc := VirtualClusterCredentials{
 		ID:               res.ID,
 		Name:             name,
-		AgentPoolID:      vc.AgentPoolID,
-		AgentPoolName:    vc.AgentPoolName,
 		UserName:         res.UserName,
 		Password:         res.Password,
 		ClusterSuperuser: su,

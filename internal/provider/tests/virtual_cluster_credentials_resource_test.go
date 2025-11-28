@@ -146,7 +146,6 @@ resource "warpstream_virtual_cluster" "default" {
 
 resource "warpstream_virtual_cluster_credentials" "test" {
 	name            = "ccn_test_%s"
-	agent_pool      = warpstream_virtual_cluster.default.agent_pool_id
 	virtual_cluster_id = warpstream_virtual_cluster.default.id
 	cluster_superuser = %t
   }
@@ -162,7 +161,6 @@ resource "warpstream_virtual_cluster" "default" {
 
 resource "warpstream_virtual_cluster_credentials" "test" {
 	name            = "ccn_test_%s"
-	agent_pool      = warpstream_virtual_cluster.default.agent_pool_id
 	%s = warpstream_virtual_cluster.default.id
 	cluster_superuser = false
   }
@@ -178,7 +176,6 @@ resource "warpstream_virtual_cluster" "default" {
 
 resource "warpstream_virtual_cluster_credentials" "test" {
 	name            = "ccn_test_%s"
-	agent_pool      = warpstream_virtual_cluster.default.agent_pool_id
 	cluster_superuser = false
   }
 `, nameSuffix, nameSuffix)
