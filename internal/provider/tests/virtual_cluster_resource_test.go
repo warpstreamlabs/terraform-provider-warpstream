@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -72,6 +73,11 @@ func TestAccVirtualClusterResource(t *testing.T) {
 			{
 				Config: testAccVirtualClusterResource_withConfiguration(false, true, false, 2, vcNameSuffix),
 				Check:  testAccVirtualClusterResourceCheck(false, true, false, 2, "byoc", true, true),
+			},
+			// ACL shadowing and ACLs enabled should be mutually exclusive
+			{
+				Config:      testAccVirtualClusterResource_withConfiguration(true, true, false, 2, vcNameSuffix),
+				ExpectError: regexp.MustCompile("enable_acls and enable_acl_shadowing cannot both be true"),
 			},
 			{
 				Config: testAccVirtualClusterResource_removeDeletionProtection(vcNameSuffix),
