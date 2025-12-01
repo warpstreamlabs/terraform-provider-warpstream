@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -43,12 +42,12 @@ func TestBentoPipelineResourceDeletePlan(t *testing.T) {
 					}
 					require.NotEmpty(t, virtualCluster.ID)
 
-					pipelineListResp, err := client.ListPipelines(context.TODO(), api.HTTPListPipelinesRequest{
+					pipelineListResp, err := client.ListPipelines(t.Context(), api.HTTPListPipelinesRequest{
 						VirtualClusterID: virtualCluster.ID,
 					})
 					require.NoError(t, err)
 
-					_, err = client.DeletePipeline(context.TODO(), api.HTTPDeletePipelineRequest{
+					_, err = client.DeletePipeline(t.Context(), api.HTTPDeletePipelineRequest{
 						VirtualClusterID: virtualCluster.ID,
 						PipelineID:       pipelineListResp.Pipelines[0].ID,
 					})
