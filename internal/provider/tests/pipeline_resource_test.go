@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -116,6 +117,56 @@ func TestBentoPipelineResource(t *testing.T) {
 	})
 }
 
+func TestBentoPipelineResourceInvalidYamlUpdate(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create Pipeline with valid config
+			{
+				Config: testBentoPipeline(vcNameSuffix),
+				Check:  testPipelineCheck(resources.BentoPipelineType),
+			},
+			// Try to update with invalid YAML - should error without deleting pipeline
+			{
+				Config:      testBentoPipelineInvalidYaml(vcNameSuffix),
+				ExpectError: regexp.MustCompile(".*"),
+			},
+			// Verify pipeline still exists with original config
+			{
+				Config:             testBentoPipeline(vcNameSuffix),
+				Check:              testPipelineCheck(resources.BentoPipelineType),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+		},
+	})
+}
+
+func TestBentoPipelineResourceValidYamlUpdate(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create Pipeline with initial config
+			{
+				Config: testBentoPipeline(vcNameSuffix),
+				Check:  testPipelineCheck(resources.BentoPipelineType),
+			},
+			// Update with valid modified YAML - should update in place, not recreate
+			{
+				Config: testBentoPipelineUpdated(vcNameSuffix),
+				Check:  testPipelineCheck(resources.BentoPipelineType),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_pipeline.test_pipeline", plancheck.ResourceActionUpdate),
+					},
+				},
+			},
+		},
+	})
+}
+
 func testBentoPipeline(vcNameSuffix string) string {
 	virtualClusterResource := fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
@@ -141,6 +192,65 @@ resource "warpstream_pipeline" "test_pipeline" {
       kafka_franz:
           seed_brokers: ["localhost:9092"]
           topic: "test_topic_capitalized"
+  EOT
+}`
+}
+
+func testBentoPipelineInvalidYaml(vcNameSuffix string) string {
+	virtualClusterResource := fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+	name = "vcn_test_acc_%s"
+    tier = "dev"
+}`, vcNameSuffix)
+	return providerConfig + virtualClusterResource + `
+resource "warpstream_pipeline" "test_pipeline" {
+  virtual_cluster_id = warpstream_virtual_cluster.test.id
+  name               = "test_pipeline"
+  state              = "running"
+  configuration_yaml = <<EOT
+  input:
+    kafka_franz:
+        seed_brokers: ["localhost:9092"]
+        topics: ["test_topic"]
+        consumer_group: "test_topic_cap"
+        invalid_field_that_should_cause_error: true
+
+    processors:
+        - mapping: "root = content().capitalize()"
+
+  output:
+      this_is_invalid_output_type:
+          seed_brokers: ["localhost:9092"]
+          topic: "test_topic_capitalized"
+  EOT
+}`
+}
+
+func testBentoPipelineUpdated(vcNameSuffix string) string {
+	virtualClusterResource := fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+	name = "vcn_test_acc_%s"
+    tier = "dev"
+}`, vcNameSuffix)
+	return providerConfig + virtualClusterResource + `
+resource "warpstream_pipeline" "test_pipeline" {
+  virtual_cluster_id = warpstream_virtual_cluster.test.id
+  name               = "test_pipeline"
+  state              = "running"
+  configuration_yaml = <<EOT
+  input:
+    kafka_franz:
+        seed_brokers: ["localhost:9092"]
+        topics: ["test_topic_updated"]
+        consumer_group: "test_topic_cap_updated"
+
+    processors:
+        - mapping: "root = content().uppercase()"
+
+  output:
+      kafka_franz:
+          seed_brokers: ["localhost:9092"]
+          topic: "test_topic_uppercased"
   EOT
 }`
 }
