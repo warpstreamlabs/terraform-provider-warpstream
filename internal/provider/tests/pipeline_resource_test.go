@@ -363,7 +363,7 @@ func TestTableflowPipelineResource(t *testing.T) {
 }
 
 func testTableflowPipeline() string {
-	vcName := utils.CreateTestKafkaVcNameWithNamespace("dl")
+	vcName := utils.CreateTestTableFlowVcName()
 	tableflowClusterResource := fmt.Sprintf(`
 resource "warpstream_tableflow_cluster" "test" {
   name = "%s"

@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/stretchr/testify/require"
@@ -77,7 +76,7 @@ func TestAccAgentKeyResourceSchemaRegistryCluster(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
 
-	vcName := utils.CreateTestKafkaVcNameWithNamespace("schema_registry")
+	vcName := utils.CreateTestSchemaRegistryVcName()
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
 		vcName,
@@ -97,7 +96,7 @@ func TestAccAgentKeyResourceSchemaRegistryCluster(t *testing.T) {
 		}
 	}()
 
-	name := "akn_test_agent_key" + acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	name := "akn_test_agent_key_" + nameSuffix
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
