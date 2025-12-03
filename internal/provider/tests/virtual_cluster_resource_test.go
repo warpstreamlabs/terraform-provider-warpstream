@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -15,12 +14,12 @@ import (
 )
 
 func TestAccVirtualClusterResourceDeletePlan(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestKafkaVcName()
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVirtualClusterResource_withPartialConfiguration(false, vcNameSuffix),
+				Config: testAccVirtualClusterResource_withPartialConfiguration(false, vcName),
 				Check:  testAccVirtualClusterResourceCheck(false, false, true, 1, "byoc", false, false),
 			},
 			{
@@ -28,7 +27,7 @@ func TestAccVirtualClusterResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
-					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_test_acc_%s", vcNameSuffix))
+					virtualCluster, err := client.FindVirtualCluster(vcName)
 					require.NoError(t, err)
 
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
@@ -48,17 +47,17 @@ func TestAccVirtualClusterResourceDeletePlan(t *testing.T) {
 }
 
 func TestAccVirtualClusterResource(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestKafkaVcName()
 	var clusterID string
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVirtualClusterResource_withPartialConfiguration(false, vcNameSuffix),
+				Config: testAccVirtualClusterResource_withPartialConfiguration(false, vcName),
 				Check:  testAccVirtualClusterResourceCheck(false, false, true, 1, "byoc", false, false),
 			},
 			{
-				Config: testAccVirtualClusterResource(vcNameSuffix),
+				Config: testAccVirtualClusterResource(vcName),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectEmptyPlan(),
@@ -66,25 +65,25 @@ func TestAccVirtualClusterResource(t *testing.T) {
 				},
 			},
 			{
-				Config: testAccVirtualClusterResource_withConfiguration(true, false, false, 2, vcNameSuffix),
+				Config: testAccVirtualClusterResource_withConfiguration(true, false, false, 2, vcName),
 				Check:  testAccVirtualClusterResourceCheck(true, false, false, 2, "byoc", true, true),
 			},
 			// Enable ACL shadowing
 			{
-				Config: testAccVirtualClusterResource_withConfiguration(false, true, false, 2, vcNameSuffix),
+				Config: testAccVirtualClusterResource_withConfiguration(false, true, false, 2, vcName),
 				Check:  testAccVirtualClusterResourceCheck(false, true, false, 2, "byoc", true, true),
 			},
 			// ACL shadowing and ACLs enabled should be mutually exclusive
 			{
-				Config:      testAccVirtualClusterResource_withConfiguration(true, true, false, 2, vcNameSuffix),
+				Config:      testAccVirtualClusterResource_withConfiguration(true, true, false, 2, vcName),
 				ExpectError: regexp.MustCompile("enable_acls and enable_acl_shadowing cannot both be true"),
 			},
 			{
-				Config: testAccVirtualClusterResource_removeDeletionProtection(vcNameSuffix),
+				Config: testAccVirtualClusterResource_removeDeletionProtection(vcName),
 				Check:  testNoDeletionProtection(),
 			},
 			{
-				Config: testAccVirtualClusterResource_removeDeletionProtection(vcNameSuffix),
+				Config: testAccVirtualClusterResource_removeDeletionProtection(vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testNoDeletionProtection(),
 					func(s *terraform.State) error {
@@ -99,10 +98,10 @@ func TestAccVirtualClusterResource(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccVirtualClusterResource_withRenamedCluster(vcNameSuffix),
+				Config: testAccVirtualClusterResource_withRenamedCluster(vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccVirtualClusterResourceCheck(false, false, true, 1, "byoc", false, false),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "name", fmt.Sprintf("vcn_test_acc_renamed_%s", vcNameSuffix)),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "name", fmt.Sprintf("%s_renamed", vcName)),
 					func(s *terraform.State) error {
 						rs, ok := s.RootModule().Resources["warpstream_virtual_cluster.test"]
 						if !ok {
@@ -123,48 +122,48 @@ func testNoDeletionProtection() resource.TestCheckFunc {
 	return resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_deletion_protection", "false")
 }
 
-func testAccVirtualClusterResource_removeDeletionProtection(vcNameSuffix string) string {
+func testAccVirtualClusterResource_removeDeletionProtection(vcName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
+  name = "%s"
   tier = "fundamentals"
   configuration = {
     enable_deletion_protection = false
   }
-}`, vcNameSuffix)
+}`, vcName)
 }
 
-func testAccVirtualClusterResource_withRenamedCluster(vcNameSuffix string) string {
+func testAccVirtualClusterResource_withRenamedCluster(vcName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_renamed_%s"
+  name = "%s_renamed"
   tier = "fundamentals"
   configuration = {
     enable_deletion_protection = false
   }
-}`, vcNameSuffix)
+}`, vcName)
 }
 
-func testAccVirtualClusterResource(vcNameSuffix string) string {
+func testAccVirtualClusterResource(vcName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
+  name = "%s"
   tier = "fundamentals"
-}`, vcNameSuffix)
+}`, vcName)
 }
 
 func testAccVirtualClusterResource_withPartialConfiguration(
 	acls bool,
-	vcNameSuffix string,
+	vcName string,
 ) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
+  name = "%s"
   tier = "fundamentals"
   configuration = {
     enable_acls = %t
   }
-}`, vcNameSuffix, acls)
+}`, vcName, acls)
 }
 
 func testAccVirtualClusterResource_withConfiguration(
@@ -172,11 +171,11 @@ func testAccVirtualClusterResource_withConfiguration(
 	aclShadowing bool,
 	autoTopic bool,
 	numParts int64,
-	vcNameSuffix string,
+	vcName string,
 ) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
+  name = "%s"
   tier = "fundamentals"
   configuration = {
     enable_acls = %t
@@ -188,7 +187,7 @@ resource "warpstream_virtual_cluster" "test" {
   tags = {
     "test_tag" = "test_value"
   }
-}`, vcNameSuffix, acls, aclShadowing, numParts, autoTopic)
+}`, vcName, acls, aclShadowing, numParts, autoTopic)
 }
 
 func testAccVirtualClusterResourceCheck(acls bool, aclShadowing bool, autoTopic bool, numParts int64, vcType string, tags bool, deletionProtection bool) resource.TestCheckFunc {
@@ -232,12 +231,12 @@ func testAccVirtualClusterResourceCheck(acls bool, aclShadowing bool, autoTopic 
 }
 
 func TestAccVirtualClusterImport(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestKafkaVcName()
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVirtualClusterResource(vcNameSuffix),
+				Config: testAccVirtualClusterResource(vcName),
 			},
 			{
 				ImportState:       true,
@@ -250,19 +249,19 @@ func TestAccVirtualClusterImport(t *testing.T) {
 }
 
 func TestAccVirtualClusterResourceWithSoftDeletion(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestKafkaVcName()
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVirtualClusterResource_withSoftDeletionSettings(vcNameSuffix, false, 48),
+				Config: testAccVirtualClusterResource_withSoftDeletionSettings(vcName, false, 48),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_soft_topic_deletion", "false"),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.soft_topic_deletion_ttl_millis", "172800000"),
 				),
 			},
 			{
-				Config: testAccVirtualClusterResource_withSoftDeletionSettings(vcNameSuffix, true, 72),
+				Config: testAccVirtualClusterResource_withSoftDeletionSettings(vcName, true, 72),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_soft_topic_deletion", "true"),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.soft_topic_deletion_ttl_millis", "259200000"),
@@ -272,16 +271,16 @@ func TestAccVirtualClusterResourceWithSoftDeletion(t *testing.T) {
 	})
 }
 
-func testAccVirtualClusterResource_withSoftDeletionSettings(vcNameSuffix string, softDeleteEnable bool, ttlHours int64) string {
+func testAccVirtualClusterResource_withSoftDeletionSettings(vcName string, softDeleteEnable bool, ttlHours int64) string {
 	// Convert hours to milliseconds
 	ttlMillis := ttlHours * 3600 * 1000
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
+  name = "%s"
   tier = "fundamentals"
   configuration = {
     enable_soft_topic_deletion   = %t
     soft_topic_deletion_ttl_millis  = %d
   }
-}`, vcNameSuffix, softDeleteEnable, ttlMillis)
+}`, vcName, softDeleteEnable, ttlMillis)
 }

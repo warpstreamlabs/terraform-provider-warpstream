@@ -6,22 +6,22 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/resources"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 func TestBentoPipelineResourceDeletePlan(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestKafkaVcNameWithNamespace("bento")
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create Pipeline
 			{
-				Config: testBentoPipeline(vcNameSuffix),
+				Config: testBentoPipeline(vcName),
 				Check:  testPipelineCheck(resources.BentoPipelineType),
 			},
 			// Pre delete pipeline and try planning
@@ -36,7 +36,7 @@ func TestBentoPipelineResourceDeletePlan(t *testing.T) {
 
 					var virtualCluster api.VirtualCluster
 					for _, vc := range vcs {
-						if vc.Name == fmt.Sprintf("vcn_test_acc_%s", vcNameSuffix) {
+						if vc.Name == vcName {
 							virtualCluster = vc
 							break
 						}
@@ -66,7 +66,7 @@ func TestBentoPipelineResourceDeletePlan(t *testing.T) {
 			},
 			// Create pipeline
 			{
-				Config: testBentoPipeline(vcNameSuffix),
+				Config: testBentoPipeline(vcName),
 				Check:  testPipelineCheck(resources.BentoPipelineType),
 			},
 			// Delete virtual cluster and try planning
@@ -81,7 +81,7 @@ func TestBentoPipelineResourceDeletePlan(t *testing.T) {
 
 					var virtualCluster api.VirtualCluster
 					for _, vc := range vcs {
-						if vc.Name == fmt.Sprintf("vcn_test_acc_%s", vcNameSuffix) {
+						if vc.Name == vcName {
 							virtualCluster = vc
 							break
 						}
@@ -110,7 +110,7 @@ func TestBentoPipelineResource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testBentoPipeline(acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)),
+				Config: testBentoPipeline(utils.CreateTestKafkaVcName()),
 				Check:  testPipelineCheck(resources.BentoPipelineType),
 			},
 		},
@@ -118,23 +118,23 @@ func TestBentoPipelineResource(t *testing.T) {
 }
 
 func TestBentoPipelineResourceInvalidYamlUpdate(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestKafkaVcName()
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create Pipeline with valid config
 			{
-				Config: testBentoPipeline(vcNameSuffix),
+				Config: testBentoPipeline(vcName),
 				Check:  testPipelineCheck(resources.BentoPipelineType),
 			},
 			// Try to update with invalid YAML - should error without deleting pipeline
 			{
-				Config:      testBentoPipelineInvalidYaml(vcNameSuffix),
+				Config:      testBentoPipelineInvalidYaml(vcName),
 				ExpectError: regexp.MustCompile(".*"),
 			},
 			// Verify pipeline still exists with original config
 			{
-				Config:             testBentoPipeline(vcNameSuffix),
+				Config:             testBentoPipeline(vcName),
 				Check:              testPipelineCheck(resources.BentoPipelineType),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: false,
@@ -144,18 +144,18 @@ func TestBentoPipelineResourceInvalidYamlUpdate(t *testing.T) {
 }
 
 func TestBentoPipelineResourceValidYamlUpdate(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestKafkaVcName()
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create Pipeline with initial config
 			{
-				Config: testBentoPipeline(vcNameSuffix),
+				Config: testBentoPipeline(vcName),
 				Check:  testPipelineCheck(resources.BentoPipelineType),
 			},
 			// Update with valid modified YAML - should update in place, not recreate
 			{
-				Config: testBentoPipelineUpdated(vcNameSuffix),
+				Config: testBentoPipelineUpdated(vcName),
 				Check:  testPipelineCheck(resources.BentoPipelineType),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
@@ -167,12 +167,12 @@ func TestBentoPipelineResourceValidYamlUpdate(t *testing.T) {
 	})
 }
 
-func testBentoPipeline(vcNameSuffix string) string {
+func testBentoPipeline(vcName string) string {
 	virtualClusterResource := fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
-	name = "vcn_test_acc_%s"
+	name = "%s"
     tier = "dev"
-}`, vcNameSuffix)
+}`, vcName)
 	return providerConfig + virtualClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {
   virtual_cluster_id = warpstream_virtual_cluster.test.id
@@ -196,12 +196,12 @@ resource "warpstream_pipeline" "test_pipeline" {
 }`
 }
 
-func testBentoPipelineInvalidYaml(vcNameSuffix string) string {
+func testBentoPipelineInvalidYaml(vcName string) string {
 	virtualClusterResource := fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
-	name = "vcn_test_acc_%s"
+	name = "%s"
     tier = "dev"
-}`, vcNameSuffix)
+}`, vcName)
 	return providerConfig + virtualClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {
   virtual_cluster_id = warpstream_virtual_cluster.test.id
@@ -226,12 +226,12 @@ resource "warpstream_pipeline" "test_pipeline" {
 }`
 }
 
-func testBentoPipelineUpdated(vcNameSuffix string) string {
+func testBentoPipelineUpdated(vcName string) string {
 	virtualClusterResource := fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
-	name = "vcn_test_acc_%s"
+	name = "%s"
     tier = "dev"
-}`, vcNameSuffix)
+}`, vcName)
 	return providerConfig + virtualClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {
   virtual_cluster_id = warpstream_virtual_cluster.test.id
@@ -268,11 +268,12 @@ func TestOrbitPipelineResource(t *testing.T) {
 }
 
 func testOrbitPipeline() string {
+	vcName := utils.CreateTestKafkaVcName()
 	virtualClusterResource := fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
-	name = "vcn_test_acc_kobe_%s"
+	name = "%s"
     tier = "dev"
-}`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+}`, vcName)
 	return providerConfig + virtualClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {
   virtual_cluster_id = warpstream_virtual_cluster.test.id
@@ -328,10 +329,11 @@ func TestSchemaMigratorPipelineResource(t *testing.T) {
 }
 
 func testSchemaMigratorPipeline() string {
+	vcName := utils.CreateTestSchemaRegistryVcName()
 	virtualClusterResource := fmt.Sprintf(`
 resource "warpstream_schema_registry" "test" {
-  name = "vcn_sr_test_%s"
-}`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+  name = "%s"
+}`, vcName)
 	return providerConfig + virtualClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {
   virtual_cluster_id = warpstream_schema_registry.test.id
@@ -361,15 +363,16 @@ func TestTableflowPipelineResource(t *testing.T) {
 }
 
 func testTableflowPipeline() string {
+	vcName := utils.CreateTestKafkaVcNameWithNamespace("dl")
 	tableflowClusterResource := fmt.Sprintf(`
 resource "warpstream_tableflow_cluster" "test" {
-  name = "vcn_dl_test_%s"
+  name = "%s"
   tier = "dev"
   cloud = {
     provider = "aws"
     region   = "us-east-1"
   }
-}`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+}`, vcName)
 	return providerConfig + tableflowClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {
   virtual_cluster_id = warpstream_tableflow_cluster.test.id

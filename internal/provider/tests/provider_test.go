@@ -23,6 +23,9 @@ var (
 	// nameSuffix is a random string that we append to resource names
 	// in order to prevent name collisions when acceptance tests run
 	// in parallel for different terraform versions.
+	//
+	// WARNING: Don't use this for virtual cluster names,
+	// use utils.CreateTestVcNameWithNamespace instead.
 	nameSuffix = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 )
 

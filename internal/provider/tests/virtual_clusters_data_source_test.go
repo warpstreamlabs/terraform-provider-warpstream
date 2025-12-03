@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/require"
 
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 // TestAccVirtualClustersDataSource checks for expected attributes on the virtual_clusters data source.
@@ -25,9 +25,9 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 
 	// Create multiple clusters to make sure we can return multiple
 	for range 5 {
-		vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+		vcName := utils.CreateTestKafkaVcName()
 		vc, err := client.CreateVirtualCluster(
-			vcNameSuffix,
+			vcName,
 			api.ClusterParameters{
 				Type:           api.VirtualClusterTypeBYOC,
 				Tier:           api.VirtualClusterTierPro,

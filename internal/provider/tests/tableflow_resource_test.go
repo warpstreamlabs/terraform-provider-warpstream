@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/stretchr/testify/require"
@@ -12,22 +11,22 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
-func testTableFlowResource(nameSuffix string) string {
+func testTableFlowResource(vcName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_tableflow_cluster" "test" {
-  name = "vcn_dl_test_%s"
+  name = "%s"
   tier = "dev"
-}`, nameSuffix)
+}`, vcName)
 }
 
 func TestAccTableFlowResourceDeletePlan(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestTableFlowVcName()
 	resourceName := "warpstream_tableflow_cluster.test"
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testTableFlowResource(vcNameSuffix),
+				Config: testTableFlowResource(vcName),
 				Check:  testCheckTableFlow(resourceName),
 			},
 			{
@@ -35,7 +34,7 @@ func TestAccTableFlowResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
-					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_dl_test_%s", vcNameSuffix))
+					virtualCluster, err := client.FindVirtualCluster(vcName)
 					require.NoError(t, err)
 
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
@@ -55,13 +54,13 @@ func TestAccTableFlowResourceDeletePlan(t *testing.T) {
 }
 
 func TestAccTableFlowResource(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestTableFlowVcName()
 	resourceName := "warpstream_tableflow_cluster.test"
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testTableFlowResource(vcNameSuffix),
+				Config: testTableFlowResource(vcName),
 				Check:  testCheckTableFlow(resourceName),
 			},
 		},
@@ -80,12 +79,12 @@ func testCheckTableFlow(resourceName string) resource.TestCheckFunc {
 }
 
 func TestAccTableFlowImport(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestTableFlowVcName()
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testTableFlowResource(vcNameSuffix),
+				Config: testTableFlowResource(vcName),
 			},
 			{
 				ImportState:       true,

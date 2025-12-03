@@ -11,15 +11,17 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
+	vcName := utils.CreateTestKafkaVcNameWithNamespace("cred")
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create credential
 			{
-				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true),
+				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true, vcName),
 				Check:  testAccVirtualClusterCredentialsResourceCheck(true),
 			},
 			// Pre delete credential and try planning
@@ -29,7 +31,7 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClient("", &token)
 					require.NoError(t, err)
 
-					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_%s", nameSuffix))
+					virtualCluster, err := client.FindVirtualCluster(vcName)
 					require.NoError(t, err)
 
 					credentials, err := client.GetCredentials(*virtualCluster)
@@ -58,7 +60,7 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 			},
 			// Create credential
 			{
-				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true),
+				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true, vcName),
 				Check:  testAccVirtualClusterCredentialsResourceCheck(true),
 			},
 			// Delete virtual cluster and try planning
@@ -68,7 +70,7 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClient("", &token)
 					require.NoError(t, err)
 
-					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_%s", nameSuffix))
+					virtualCluster, err := client.FindVirtualCluster(vcName)
 					require.NoError(t, err)
 
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
@@ -89,11 +91,12 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 }
 
 func TestAccVirtualClusterCredentialsResource(t *testing.T) {
+	vcName := utils.CreateTestKafkaVcNameWithNamespace("cred")
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true),
+				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true, vcName),
 				Check:  testAccVirtualClusterCredentialsResourceCheck(true),
 			},
 			{
@@ -104,7 +107,7 @@ func TestAccVirtualClusterCredentialsResource(t *testing.T) {
 				// ImportStateVerify: true,
 			},
 			{
-				Config: testAccVirtualClusterCredentialsResource_withSuperuser(false),
+				Config: testAccVirtualClusterCredentialsResource_withSuperuser(false, vcName),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction("warpstream_virtual_cluster_credentials.test", plancheck.ResourceActionReplace),
@@ -113,34 +116,34 @@ func TestAccVirtualClusterCredentialsResource(t *testing.T) {
 				},
 			},
 			{
-				Config: testAccVirtualClusterCredentialsResource_withSuperuser(false),
+				Config: testAccVirtualClusterCredentialsResource_withSuperuser(false, vcName),
 				Check:  testAccVirtualClusterCredentialsResourceCheck(false),
 			},
 			{
-				Config: testAccVirtualClusterCredentialsResource_vcField("virtual_cluster_id"),
+				Config: testAccVirtualClusterCredentialsResource_vcField("virtual_cluster_id", vcName),
 				Check:  testAccVirtualClusterCredentialsResourceCheck(false),
 			},
 			{
-				Config: testAccVirtualClusterCredentialsResource_vcField("virtual_cluster"),
+				Config: testAccVirtualClusterCredentialsResource_vcField("virtual_cluster", vcName),
 				Check:  testAccVirtualClusterCredentialsResourceCheck(false),
 			},
 			{
-				Config:      testAccVirtualClusterCredentialsResource_vcFieldMissing(),
+				Config:      testAccVirtualClusterCredentialsResource_vcFieldMissing(vcName),
 				ExpectError: regexp.MustCompile("Invalid Attribute Combination"),
 			},
 			// Workaround: re-run the first check so the TF framework cleans up the one with the error above.
 			{
-				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true),
+				Config: testAccVirtualClusterCredentialsResource_withSuperuser(true, vcName),
 				Check:  testAccVirtualClusterCredentialsResourceCheck(true),
 			},
 		},
 	})
 }
 
-func testAccVirtualClusterCredentialsResource_withSuperuser(su bool) string {
+func testAccVirtualClusterCredentialsResource_withSuperuser(su bool, vcName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
     tier = "dev"
 }
 
@@ -149,13 +152,13 @@ resource "warpstream_virtual_cluster_credentials" "test" {
 	virtual_cluster_id = warpstream_virtual_cluster.default.id
 	cluster_superuser = %t
   }
-`, nameSuffix, nameSuffix, su)
+`, vcName, nameSuffix, su)
 }
 
-func testAccVirtualClusterCredentialsResource_vcField(vcFieldName string) string {
+func testAccVirtualClusterCredentialsResource_vcField(vcFieldName string, vcName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
     tier = "dev"
 }
 
@@ -164,13 +167,13 @@ resource "warpstream_virtual_cluster_credentials" "test" {
 	%s = warpstream_virtual_cluster.default.id
 	cluster_superuser = false
   }
-`, nameSuffix, nameSuffix, vcFieldName)
+`, vcName, nameSuffix, vcFieldName)
 }
 
-func testAccVirtualClusterCredentialsResource_vcFieldMissing() string {
+func testAccVirtualClusterCredentialsResource_vcFieldMissing(vcName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
     tier = "dev"
 }
 
@@ -178,7 +181,7 @@ resource "warpstream_virtual_cluster_credentials" "test" {
 	name            = "ccn_test_%s"
 	cluster_superuser = false
   }
-`, nameSuffix, nameSuffix)
+`, vcName, nameSuffix)
 }
 
 func testAccVirtualClusterCredentialsResourceCheck(su bool) resource.TestCheckFunc {
