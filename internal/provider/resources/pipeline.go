@@ -45,6 +45,20 @@ type pipelineResource struct {
 	client *api.Client
 }
 
+// parsePipelineID parses the ID which can be either:
+// - Composite format: "virtual_cluster_id/pipeline_id" (new format)
+// - Legacy format: just "pipeline_id" (old format, requires fallbackVirtualClusterID)
+// Returns the virtual cluster ID and pipeline ID.
+func parsePipelineID(id, fallbackVirtualClusterID string) (virtualClusterID, pipelineID string) {
+	parts := strings.Split(id, "/")
+	if len(parts) == 2 {
+		// New composite format
+		return parts[0], parts[1]
+	}
+	// Legacy format - use the fallback virtual cluster ID from state
+	return fallbackVirtualClusterID, id
+}
+
 // pipelineModel maps credentials schema data.
 type pipelineModel struct {
 	VirtualClusterID  types.String    `tfsdk:"virtual_cluster_id"`
