@@ -393,7 +393,7 @@ tables:
         - { name: service, type: string, id: 2}
         - { name: status, type: string, id: 3}
         - { name: message, type: string, id: 4}
-destination_bucket_url: s3://test-tableflow-bucket
+destination_bucket_url: s3://test-tableflow-bucket?region=us-east-1
 EOT
 }`
 }
