@@ -181,7 +181,8 @@ func (r *pipelineResource) Create(ctx context.Context, req resource.CreateReques
 		)
 		return
 	}
-	plan.ID = types.StringValue(c.PipelineID)
+	generatedId := fmt.Sprintf("%s/%s", plan.VirtualClusterID.ValueString(), c.PipelineID)
+	plan.ID = types.StringValue(generatedId)
 
 	cc, err := r.client.CreatePipelineConfiguration(ctx, api.HTTPCreatePipelineConfigurationRequest{
 		VirtualClusterID:  plan.VirtualClusterID.ValueString(),
@@ -209,14 +210,14 @@ func (r *pipelineResource) Create(ctx context.Context, req resource.CreateReques
 
 	_, err = r.client.ChangePipelineState(ctx, api.HTTPChangePipelineStateRequest{
 		VirtualClusterID:        plan.VirtualClusterID.ValueString(),
-		PipelineID:              plan.ID.ValueString(),
+		PipelineID:              c.PipelineID,
 		DesiredState:            plan.State.ValueStringPointer(),
 		DeployedConfigurationID: plan.ConfigurationID.ValueStringPointer(),
 	})
 	if err != nil {
 		if _, resetErr := r.client.DeletePipeline(ctx, api.HTTPDeletePipelineRequest{
 			VirtualClusterID: plan.VirtualClusterID.ValueString(),
-			PipelineID:       plan.ID.ValueString(),
+			PipelineID:       c.PipelineID,
 		}); resetErr != nil {
 			resp.Diagnostics.AddError(
 				"Error resetting WarpStream Pipeline state",
@@ -248,9 +249,12 @@ func (r *pipelineResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
+	// Parse ID - handles both composite (new) and legacy formats
+	virtualClusterID, pipelineID := parsePipelineID(state.ID.ValueString(), state.VirtualClusterID.ValueString())
+
 	pipeline, err := r.client.DescribePipeline(ctx, api.HTTPDescribePipelineRequest{
-		VirtualClusterID: state.VirtualClusterID.ValueString(),
-		PipelineID:       state.ID.ValueString(),
+		VirtualClusterID: virtualClusterID,
+		PipelineID:       pipelineID,
 	})
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
@@ -265,9 +269,12 @@ func (r *pipelineResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
+	// Maintain the composite ID format: virtual_cluster_id/pipeline_id
+	compositeID := fmt.Sprintf("%s/%s", virtualClusterID, pipeline.PipelineOverview.ID)
+
 	state = pipelineModel{
-		VirtualClusterID: state.VirtualClusterID,
-		ID:               types.StringValue(pipeline.PipelineOverview.ID),
+		VirtualClusterID: types.StringValue(virtualClusterID),
+		ID:               types.StringValue(compositeID),
 		Name:             types.StringValue(pipeline.PipelineOverview.Name),
 		State:            types.StringValue(pipeline.PipelineOverview.State),
 		Type:             types.StringValue(pipeline.PipelineOverview.Type),
@@ -305,6 +312,9 @@ func (r *pipelineResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
+	// Parse ID - handles both composite (new) and legacy formats
+	_, pipelineID := parsePipelineID(state.ID.ValueString(), state.VirtualClusterID.ValueString())
+
 	var (
 		configHasChanged       = plan.ConfigurationYAML != state.ConfigurationYAML
 		desiredConfigurationID = state.ConfigurationID
@@ -312,7 +322,7 @@ func (r *pipelineResource) Update(ctx context.Context, req resource.UpdateReques
 	if configHasChanged {
 		createConfigResp, err := r.client.CreatePipelineConfiguration(ctx, api.HTTPCreatePipelineConfigurationRequest{
 			VirtualClusterID:  plan.VirtualClusterID.ValueString(),
-			PipelineID:        state.ID.ValueString(),
+			PipelineID:        pipelineID,
 			ConfigurationYAML: plan.ConfigurationYAML.ValueString(),
 		})
 		if err != nil {
@@ -329,7 +339,7 @@ func (r *pipelineResource) Update(ctx context.Context, req resource.UpdateReques
 	if deployedStateHasChanged {
 		_, err := r.client.ChangePipelineState(ctx, api.HTTPChangePipelineStateRequest{
 			VirtualClusterID:        plan.VirtualClusterID.ValueString(),
-			PipelineID:              state.ID.ValueString(),
+			PipelineID:              pipelineID,
 			DesiredState:            plan.State.ValueStringPointer(),
 			DeployedConfigurationID: desiredConfigurationID.ValueStringPointer(),
 		})
@@ -359,9 +369,12 @@ func (r *pipelineResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
+	// Parse ID - handles both composite (new) and legacy formats
+	_, pipelineID := parsePipelineID(state.ID.ValueString(), state.VirtualClusterID.ValueString())
+
 	_, err := r.client.DeletePipeline(ctx, api.HTTPDeletePipelineRequest{
 		VirtualClusterID: state.VirtualClusterID.ValueString(),
-		PipelineID:       state.ID.ValueString(),
+		PipelineID:       pipelineID,
 	})
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
@@ -386,5 +399,5 @@ func (r *pipelineResource) ImportState(ctx context.Context, req resource.ImportS
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("virtual_cluster_id"), parts[0])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
