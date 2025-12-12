@@ -397,3 +397,20 @@ destination_bucket_url: s3://test-tableflow-bucket?region=us-east-1
 EOT
 }`
 }
+
+func TestPipelineResourceImport(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testOrbitPipeline(),
+			},
+			{
+				ImportState:       true,
+				ImportStateVerify: true,
+				ResourceName:      "warpstream_pipeline.test_pipeline",
+			},
+		},
+	})
+}
