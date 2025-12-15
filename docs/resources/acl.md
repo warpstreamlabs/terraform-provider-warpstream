@@ -26,7 +26,7 @@ The WarpStream provider must be authenticated with an application key to consume
 - `permission_type` (String) The permission for the ACL. Accepted values are: `ALLOW` or `DENY`.
 - `principal` (String) The principal for the ACL.
 - `resource_name` (String) The resource name for the ACL
-- `resource_type` (String) The type of the resource. Accepted values are: `TOPIC`, `GROUP`, `CLUSTER`, `TRANSACTIONAL_ID` or `DELEGATION_TOKEN`.
+- `resource_type` (String) The type of the resource. Accepted values are:  `ANY`, `TOPIC`, `GROUP`, `CLUSTER`, `TRANSACTIONAL_ID` or `DELEGATION_TOKEN`.
 - `virtual_cluster_id` (String) The ID of the Virtual Cluster that the ACL applies to.
 
 ### Read-Only
