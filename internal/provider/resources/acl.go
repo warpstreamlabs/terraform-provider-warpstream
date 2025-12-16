@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	validACLResourceTypes   = []string{"TOPIC", "GROUP", "CLUSTER", "TRANSACTIONAL_ID", "DELEGATION_TOKEN"}
+	validACLResourceTypes   = []string{"ANY", "TOPIC", "GROUP", "CLUSTER", "TRANSACTIONAL_ID", "DELEGATION_TOKEN"}
 	validACLPatternTypes    = []string{"LITERAL", "PREFIXED"}
 	validACLOperations      = []string{"ALL", "READ", "WRITE", "CREATE", "DELETE", "ALTER", "DESCRIBE", "CLUSTER_ACTION", "DESCRIBE_CONFIGS", "ALTER_CONFIGS", "IDEMPOTENT_WRITE"}
 	validACLPermissionTypes = []string{"DENY", "ALLOW"}
@@ -113,7 +113,7 @@ The WarpStream provider must be authenticated with an application key to consume
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"resource_type": schema.StringAttribute{
-				Description: "The type of the resource. Accepted values are: `TOPIC`, `GROUP`, `CLUSTER`, `TRANSACTIONAL_ID` or `DELEGATION_TOKEN`.",
+				Description: "The type of the resource. Accepted values are:  `ANY`, `TOPIC`, `GROUP`, `CLUSTER`, `TRANSACTIONAL_ID` or `DELEGATION_TOKEN`.",
 				Required:    true,
 				Validators: []validator.String{
 					stringvalidator.OneOf(validACLResourceTypes...),
