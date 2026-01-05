@@ -125,6 +125,17 @@ Optional:
 Optional:
 
 - `enabled` (Boolean) Enable events for this virtual cluster. Defaults to `false`.
+- `event_types` (Attributes Map) Per-event-type configuration. Map keys are event type names (e.g., 'produce', 'consume', 'fetch'). (see [below for nested schema](#nestedatt--events--event_types))
+
+<a id="nestedatt--events--event_types"></a>
+### Nested Schema for `events.event_types`
+
+Optional:
+
+- `enabled` (Boolean) Whether this event type is enabled.
+- `retention_period_nanos` (Number) Retention period in nanoseconds for this event type.
+- `shard_count` (Number) Number of shards for this event type.
+
 
 ## Import
 

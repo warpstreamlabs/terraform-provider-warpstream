@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -153,6 +154,26 @@ The WarpStream provider must be authenticated with an application key to read th
 					"enabled": schema.BoolAttribute{
 						Computed: true,
 					},
+					"event_types": schema.MapNestedAttribute{
+						Description: "Per-event-type configuration. Map keys are event type names.",
+						Computed:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"enabled": schema.BoolAttribute{
+									Description: "Whether this event type is enabled.",
+									Computed:    true,
+								},
+								"shard_count": schema.Int64Attribute{
+									Description: "Number of shards for this event type.",
+									Computed:    true,
+								},
+								"retention_period_nanos": schema.Int64Attribute{
+									Description: "Retention period in nanoseconds for this event type.",
+									Computed:    true,
+								},
+							},
+						},
+					},
 				},
 				Computed: true,
 			},
@@ -287,8 +308,61 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
+	// Convert event types from API to Terraform model
+	var eventTypesMap map[string]attr.Value
+	if len(eventsState.EventTypes) > 0 {
+		eventTypesMap = make(map[string]attr.Value)
+		for eventType, config := range eventsState.EventTypes {
+			eventTypeAttrs := map[string]attr.Value{}
+
+			if config.Enabled != nil {
+				eventTypeAttrs["enabled"] = types.BoolValue(*config.Enabled)
+			} else {
+				eventTypeAttrs["enabled"] = types.BoolNull()
+			}
+
+			if config.ShardCount != nil {
+				eventTypeAttrs["shard_count"] = types.Int64Value(int64(*config.ShardCount))
+			} else {
+				eventTypeAttrs["shard_count"] = types.Int64Null()
+			}
+
+			if config.RetentionPeriodNanos != nil {
+				eventTypeAttrs["retention_period_nanos"] = types.Int64Value(int64(*config.RetentionPeriodNanos))
+			} else {
+				eventTypeAttrs["retention_period_nanos"] = types.Int64Null()
+			}
+
+			eventTypeObj, diagsLocal := types.ObjectValue(
+				models.EventTypeConfig{}.AttributeTypes(),
+				eventTypeAttrs,
+			)
+			resp.Diagnostics.Append(diagsLocal...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			eventTypesMap[eventType] = eventTypeObj
+		}
+	}
+
+	var eventTypesValue types.Map
+	if eventTypesMap != nil {
+		var diagsLocal diag.Diagnostics
+		eventTypesValue, diagsLocal = types.MapValue(
+			types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()},
+			eventTypesMap,
+		)
+		resp.Diagnostics.Append(diagsLocal...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	} else {
+		eventTypesValue = types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()})
+	}
+
 	eventsModel := models.VirtualClusterEvents{
-		Enabled: types.BoolValue(eventsState.Enabled),
+		Enabled:    types.BoolValue(eventsState.Enabled),
+		EventTypes: eventTypesValue,
 	}
 
 	// Set state

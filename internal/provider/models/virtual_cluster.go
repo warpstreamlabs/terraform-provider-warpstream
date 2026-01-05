@@ -122,19 +122,43 @@ func (m VirtualClusterCloud) DefaultObject() map[string]attr.Value {
 	}
 }
 
+// EventTypeConfig represents per-event-type configuration
+type EventTypeConfig struct {
+	Enabled              types.Bool  `tfsdk:"enabled"`
+	ShardCount           types.Int64 `tfsdk:"shard_count"`
+	RetentionPeriodNanos types.Int64 `tfsdk:"retention_period_nanos"`
+}
+
+func (m EventTypeConfig) AttributeTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"enabled":                types.BoolType,
+		"shard_count":            types.Int64Type,
+		"retention_period_nanos": types.Int64Type,
+	}
+}
+
 // VirtualClusterEvents represents the events configuration for a virtual cluster
 type VirtualClusterEvents struct {
-	Enabled types.Bool `tfsdk:"enabled"`
+	Enabled    types.Bool `tfsdk:"enabled"`
+	EventTypes types.Map  `tfsdk:"event_types"`
 }
 
 func (m VirtualClusterEvents) AttributeTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"enabled": types.BoolType,
+		"event_types": types.MapType{
+			ElemType: types.ObjectType{
+				AttrTypes: EventTypeConfig{}.AttributeTypes(),
+			},
+		},
 	}
 }
 
 func (m VirtualClusterEvents) DefaultObject() map[string]attr.Value {
 	return map[string]attr.Value{
 		"enabled": types.BoolValue(false),
+		"event_types": types.MapNull(types.ObjectType{
+			AttrTypes: EventTypeConfig{}.AttributeTypes(),
+		}),
 	}
 }

@@ -300,6 +300,30 @@ The WarpStream provider must be authenticated with an application key to consume
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
 					},
+					"event_types": schema.MapNestedAttribute{
+						Description: "Per-event-type configuration. Map keys are event type names (e.g., 'produce', 'consume', 'fetch').",
+						Optional:    true,
+						Computed:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"enabled": schema.BoolAttribute{
+									Description: "Whether this event type is enabled.",
+									Optional:    true,
+									Computed:    true,
+								},
+								"shard_count": schema.Int64Attribute{
+									Description: "Number of shards for this event type.",
+									Optional:    true,
+									Computed:    true,
+								},
+								"retention_period_nanos": schema.Int64Attribute{
+									Description: "Retention period in nanoseconds for this event type.",
+									Optional:    true,
+									Computed:    true,
+								},
+							},
+						},
+					},
 				},
 				Description: "Virtual Cluster Events Configuration.",
 				Optional:    true,
@@ -819,8 +843,61 @@ func (r *virtualClusterResource) readEvents(ctx context.Context, cluster api.Vir
 	}
 	tflog.Debug(ctx, fmt.Sprintf("Events State: %+v", *eventsState))
 
+	// Convert event types from API to Terraform model
+	var eventTypesMap map[string]attr.Value
+	if len(eventsState.EventTypes) > 0 {
+		eventTypesMap = make(map[string]attr.Value)
+		for eventType, config := range eventsState.EventTypes {
+			eventTypeAttrs := map[string]attr.Value{}
+
+			if config.Enabled != nil {
+				eventTypeAttrs["enabled"] = types.BoolValue(*config.Enabled)
+			} else {
+				eventTypeAttrs["enabled"] = types.BoolNull()
+			}
+
+			if config.ShardCount != nil {
+				eventTypeAttrs["shard_count"] = types.Int64Value(int64(*config.ShardCount))
+			} else {
+				eventTypeAttrs["shard_count"] = types.Int64Null()
+			}
+
+			if config.RetentionPeriodNanos != nil {
+				eventTypeAttrs["retention_period_nanos"] = types.Int64Value(int64(*config.RetentionPeriodNanos))
+			} else {
+				eventTypeAttrs["retention_period_nanos"] = types.Int64Null()
+			}
+
+			eventTypeObj, diags := types.ObjectValue(
+				models.EventTypeConfig{}.AttributeTypes(),
+				eventTypeAttrs,
+			)
+			respDiags.Append(diags...)
+			if respDiags.HasError() {
+				return
+			}
+			eventTypesMap[eventType] = eventTypeObj
+		}
+	}
+
+	var eventTypesValue types.Map
+	if eventTypesMap != nil {
+		var diags diag.Diagnostics
+		eventTypesValue, diags = types.MapValue(
+			types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()},
+			eventTypesMap,
+		)
+		respDiags.Append(diags...)
+		if respDiags.HasError() {
+			return
+		}
+	} else {
+		eventTypesValue = types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()})
+	}
+
 	eventsModel := models.VirtualClusterEvents{
-		Enabled: types.BoolValue(eventsState.Enabled),
+		Enabled:    types.BoolValue(eventsState.Enabled),
+		EventTypes: eventTypesValue,
 	}
 
 	// Set events state
@@ -846,9 +923,51 @@ func (r *virtualClusterResource) applyEvents(ctx context.Context, plan models.Vi
 		return
 	}
 
+	// Prepare enabled pointer
+	var enabledPtr *bool
+	if !eventsPlan.Enabled.IsNull() && !eventsPlan.Enabled.IsUnknown() {
+		enabled := eventsPlan.Enabled.ValueBool()
+		enabledPtr = &enabled
+	}
+
+	// Convert event types from Terraform model to API
+	var eventTypesMap map[string]api.EventTypeConfig
+	if !eventsPlan.EventTypes.IsNull() && !eventsPlan.EventTypes.IsUnknown() {
+		eventTypesMap = make(map[string]api.EventTypeConfig)
+
+		// Get the map elements
+		elements := eventsPlan.EventTypes.Elements()
+		for eventTypeName, eventTypeValue := range elements {
+			var eventTypeConfig models.EventTypeConfig
+			diags := eventTypeValue.(types.Object).As(ctx, &eventTypeConfig, basetypes.ObjectAsOptions{})
+			respDiags.Append(diags...)
+			if respDiags.HasError() {
+				return
+			}
+
+			apiConfig := api.EventTypeConfig{}
+
+			if !eventTypeConfig.Enabled.IsNull() && !eventTypeConfig.Enabled.IsUnknown() {
+				enabled := eventTypeConfig.Enabled.ValueBool()
+				apiConfig.Enabled = &enabled
+			}
+
+			if !eventTypeConfig.ShardCount.IsNull() && !eventTypeConfig.ShardCount.IsUnknown() {
+				shardCount := uint32(eventTypeConfig.ShardCount.ValueInt64())
+				apiConfig.ShardCount = &shardCount
+			}
+
+			if !eventTypeConfig.RetentionPeriodNanos.IsNull() && !eventTypeConfig.RetentionPeriodNanos.IsUnknown() {
+				retentionPeriod := uint64(eventTypeConfig.RetentionPeriodNanos.ValueInt64())
+				apiConfig.RetentionPeriodNanos = &retentionPeriod
+			}
+
+			eventTypesMap[eventTypeName] = apiConfig
+		}
+	}
+
 	// Update virtual cluster events state
-	enabled := eventsPlan.Enabled.ValueBool()
-	err := r.client.UpdateEventsState(enabled, cluster)
+	err := r.client.UpdateEventsState(enabledPtr, eventTypesMap, cluster)
 	if err != nil {
 		respDiags.AddError(
 			"Error Updating WarpStream Virtual Cluster Events State",

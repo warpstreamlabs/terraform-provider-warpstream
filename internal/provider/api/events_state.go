@@ -69,10 +69,11 @@ func (c *Client) GetEventsState(vc VirtualCluster) (*EventsState, error) {
 }
 
 // UpdateEventsState - Update virtual cluster events state.
-func (c *Client) UpdateEventsState(enabled bool, vc VirtualCluster) error {
+func (c *Client) UpdateEventsState(enabled *bool, eventTypes map[string]EventTypeConfig, vc VirtualCluster) error {
 	payload, err := json.Marshal(EventsStateUpdateRequest{
 		VirtualClusterID: vc.ID,
-		Enabled:          &enabled,
+		Enabled:          enabled,
+		EventTypes:       eventTypes,
 	})
 	if err != nil {
 		return err

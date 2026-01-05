@@ -102,3 +102,13 @@ Read-Only:
 Read-Only:
 
 - `enabled` (Boolean)
+- `event_types` (Attributes Map) Per-event-type configuration. Map keys are event type names. (see [below for nested schema](#nestedatt--events--event_types))
+
+<a id="nestedatt--events--event_types"></a>
+### Nested Schema for `events.event_types`
+
+Read-Only:
+
+- `enabled` (Boolean) Whether this event type is enabled.
+- `retention_period_nanos` (Number) Retention period in nanoseconds for this event type.
+- `shard_count` (Number) Number of shards for this event type.
