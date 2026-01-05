@@ -12,8 +12,8 @@ provider "warpstream" {
 }
 
 # BYOC cluster with configuration.
-resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test"
+resource "warpstream_virtual_cluster" "example" {
+  name = "vcn_example"
   type = "byoc"
   tier = "dev"
   configuration = {
@@ -37,16 +37,27 @@ resource "warpstream_virtual_cluster" "test" {
 resource "warpstream_topic" "topic" {
   topic_name         = "logs"
   partition_count    = 1
-  virtual_cluster_id = warpstream_virtual_cluster.test.id
+  virtual_cluster_id = warpstream_virtual_cluster.example.id
 
+  # Supported configuration is documented here: https://docs.warpstream.com/warpstream/kafka/reference/protocol-and-feature-support/topic-configuration-reference
   config {
     name  = "retention.ms"
     value = "604800000"
   }
 }
 
-resource "warpstream_virtual_cluster_credentials" "creds" {
-  name = "ccn_test"
-
-  virtual_cluster_id = warpstream_virtual_cluster.test.id
+# This is an agent key to authenticate the WarpStream Agents with the WarpStream
+# control plane. This is what you'll use in your Agent helm chart.
+resource "warpstream_agent_key" "example_agent_key" {
+  virtual_cluster_id = warpstream_virtual_cluster.example.id
+  name               = "akn_example_agent_key"
 }
+
+# These are client credentials to authenticate with the WarpStream Agents if
+# authentication is enabled.
+resource "warpstream_virtual_cluster_credentials" "creds" {
+  name = "ccn_example"
+
+  virtual_cluster_id = warpstream_virtual_cluster.example.id
+}
+
