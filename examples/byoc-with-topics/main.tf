@@ -39,6 +39,7 @@ resource "warpstream_topic" "topic" {
   partition_count    = 1
   virtual_cluster_id = warpstream_virtual_cluster.example.id
 
+  # Supported configuration is documented here: https://docs.warpstream.com/warpstream/kafka/reference/protocol-and-feature-support/topic-configuration-reference
   config {
     name  = "retention.ms"
     value = "604800000"
