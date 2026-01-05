@@ -301,9 +301,10 @@ The WarpStream provider must be authenticated with an application key to consume
 						Default:     booldefault.StaticBool(false),
 					},
 					"event_types": schema.MapNestedAttribute{
-						Description: "Per-event-type configuration. Map keys are event type names (e.g., 'produce', 'consume', 'fetch').",
+						Description: fmt.Sprintf("Per event type configuration. Map keys can be the names of any supported event type: %s.", utils.ValidEventTypeNamesDescription),
 						Optional:    true,
 						Computed:    true,
+						Validators:  []validator.Map{utils.ValidEventTypeKeys()},
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
 								"enabled": schema.BoolAttribute{
@@ -578,7 +579,14 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		}
 	}
 
-	r.readEvents(ctx, *cluster, &resp.State, &resp.Diagnostics)
+	// Get current event types from state to filter API response
+	var currentEvents models.VirtualClusterEvents
+	diags = state.Events.As(ctx, &currentEvents, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	r.readEvents(ctx, *cluster, &resp.State, &resp.Diagnostics, currentEvents.EventTypes)
 	r.readTags(ctx, *cluster, &resp.State, &resp.Diagnostics)
 }
 
@@ -831,7 +839,7 @@ func (r *virtualClusterResource) applyTags(ctx context.Context, state models.Vir
 	r.readTags(ctx, cluster, respState, respDiags)
 }
 
-func (r *virtualClusterResource) readEvents(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {
+func (r *virtualClusterResource) readEvents(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics, planEventTypes types.Map) {
 	// Get virtual cluster events state
 	eventsState, err := r.client.GetEventsState(cluster)
 	if err != nil {
@@ -845,9 +853,15 @@ func (r *virtualClusterResource) readEvents(ctx context.Context, cluster api.Vir
 
 	// Convert event types from API to Terraform model
 	var eventTypesMap map[string]attr.Value
-	if len(eventsState.EventTypes) > 0 {
+	if len(eventsState.EventTypes) > 0 && !planEventTypes.IsNull() && !planEventTypes.IsUnknown() {
 		eventTypesMap = make(map[string]attr.Value)
+		planElements := planEventTypes.Elements()
+
 		for eventType, config := range eventsState.EventTypes {
+			// Only include this event type if it was in the plan
+			if _, inPlan := planElements[eventType]; !inPlan {
+				continue
+			}
 			eventTypeAttrs := map[string]attr.Value{}
 
 			if config.Enabled != nil {
@@ -911,7 +925,8 @@ func (r *virtualClusterResource) applyEvents(ctx context.Context, plan models.Vi
 	// If events plan is empty, just retrieve it from API
 	if plan.Events.IsNull() {
 		tflog.Info(ctx, "No virtual cluster events configuration provided")
-		r.readEvents(ctx, cluster, state, respDiags)
+		// Pass null map to read all event types from API
+		r.readEvents(ctx, cluster, state, respDiags, types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()}))
 		return
 	}
 
@@ -939,7 +954,15 @@ func (r *virtualClusterResource) applyEvents(ctx context.Context, plan models.Vi
 		elements := eventsPlan.EventTypes.Elements()
 		for eventTypeName, eventTypeValue := range elements {
 			var eventTypeConfig models.EventTypeConfig
-			diags := eventTypeValue.(types.Object).As(ctx, &eventTypeConfig, basetypes.ObjectAsOptions{})
+			eventTypeObj, ok := eventTypeValue.(types.Object)
+			if !ok {
+				respDiags.AddError(
+					"Error Converting Event Type",
+					fmt.Sprintf("Expected event type %s to be an object, got %T", eventTypeName, eventTypeValue),
+				)
+				return
+			}
+			diags := eventTypeObj.As(ctx, &eventTypeConfig, basetypes.ObjectAsOptions{})
 			respDiags.Append(diags...)
 			if respDiags.HasError() {
 				return
@@ -976,6 +999,6 @@ func (r *virtualClusterResource) applyEvents(ctx context.Context, plan models.Vi
 		return
 	}
 
-	// Retrieve updated virtual cluster events state
-	r.readEvents(ctx, cluster, state, respDiags)
+	// Retrieve updated virtual cluster events state, filtering to only the event types in the plan
+	r.readEvents(ctx, cluster, state, respDiags, eventsPlan.EventTypes)
 }

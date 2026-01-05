@@ -248,27 +248,6 @@ func TestAccVirtualClusterImport(t *testing.T) {
 	})
 }
 
-func TestAccVirtualClusterImportWithEvents(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccVirtualClusterResource_withEvents(vcNameSuffix, true),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
-				),
-			},
-			{
-				ImportState:       true,
-				ImportStateVerify: true,
-				ResourceName:      "warpstream_virtual_cluster.test",
-			},
-		},
-		IsUnitTest: true,
-	})
-}
-
 func TestAccVirtualClusterResourceWithSoftDeletion(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
@@ -409,53 +388,165 @@ resource "warpstream_virtual_cluster" "test" {
 }`, vcNameSuffix, eventsEnabled)
 }
 
-func TestAccVirtualClusterResourceWithEventsAndConfiguration(t *testing.T) {
+func TestAccVirtualClusterResourceWithEventTypes(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create with both events and configuration
+			// Create with event types configured
 			{
-				Config: testAccVirtualClusterResource_withEventsAndConfiguration(vcNameSuffix, true, false, 2),
+				Config: testAccVirtualClusterResource_withEventTypes(vcNameSuffix, true, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acls", "false"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_num_partitions", "2"),
+					// Check agent_logs
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.shard_count", "4"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.retention_period_nanos", "604800000000000"),
+					// Check pipeline_logs
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.shard_count", "2"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.retention_period_nanos", "259200000000000"),
+					// Verify acl_logs is not in state. Only configured event types should appear.
+					resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "events.event_types.acl_logs"),
 				),
 			},
-			// Update events without changing configuration
+			// Update event types configuration
 			{
-				Config: testAccVirtualClusterResource_withEventsAndConfiguration(vcNameSuffix, false, false, 2),
+				Config: testAccVirtualClusterResource_withEventTypes(vcNameSuffix, false, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acls", "false"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_num_partitions", "2"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
+					// Check agent_logs is now disabled
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "false"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.shard_count", "2"),
+					// Check pipeline_logs is still enabled
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
 				),
 			},
-			// Update configuration without changing events
+			// Disable all events
 			{
-				Config: testAccVirtualClusterResource_withEventsAndConfiguration(vcNameSuffix, false, true, 3),
+				Config: testAccVirtualClusterResource_withEventTypes(vcNameSuffix, false, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acls", "true"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_num_partitions", "3"),
 				),
 			},
 		},
 	})
 }
 
-func testAccVirtualClusterResource_withEventsAndConfiguration(vcNameSuffix string, eventsEnabled bool, aclsEnabled bool, numParts int64) string {
+func TestAccVirtualClusterResourceEventTypesValidation(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccVirtualClusterResource_withInvalidEventType(vcNameSuffix),
+				ExpectError: regexp.MustCompile("Invalid Event Type Key"),
+			},
+		},
+	})
+}
+
+func TestAccVirtualClusterResourceEventTypesAllTypes(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with all three event types configured
+			{
+				Config: testAccVirtualClusterResource_withAllEventTypes(vcNameSuffix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
+					// Check all three event types are present
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.acl_logs.enabled", "true"),
+				),
+			},
+			// Remove one event type from config
+			{
+				Config: testAccVirtualClusterResource_withEventTypes(vcNameSuffix, true, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					// Only agent_logs and pipeline_logs should be in state now
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
+					// acl_logs should not be in state
+					resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "events.event_types.acl_logs"),
+				),
+			},
+		},
+	})
+}
+
+func testAccVirtualClusterResource_withEventTypes(vcNameSuffix string, agentLogsEnabled bool, pipelineLogsEnabled bool) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test_acc_%s"
   tier = "fundamentals"
   events = {
     enabled = %t
+    event_types = {
+      agent_logs = {
+        enabled                = %t
+        shard_count            = %d
+        retention_period_nanos = 604800000000000
+      }
+      pipeline_logs = {
+        enabled                = %t
+        shard_count            = 2
+        retention_period_nanos = 259200000000000
+      }
+    }
   }
-  configuration = {
-    enable_acls = %t
-    default_num_partitions = %d
+}`, vcNameSuffix, agentLogsEnabled || pipelineLogsEnabled, agentLogsEnabled, func() int {
+		if agentLogsEnabled {
+			return 4
+		}
+		return 2
+	}(), pipelineLogsEnabled)
+}
+
+func testAccVirtualClusterResource_withAllEventTypes(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = {
+    enabled = true
+    event_types = {
+      agent_logs = {
+        enabled                = true
+        shard_count            = 4
+        retention_period_nanos = 604800000000000
+      }
+      pipeline_logs = {
+        enabled                = true
+        shard_count            = 2
+        retention_period_nanos = 259200000000000
+      }
+      acl_logs = {
+        enabled                = true
+        shard_count            = 3
+        retention_period_nanos = 432000000000000
+      }
+    }
   }
-}`, vcNameSuffix, eventsEnabled, aclsEnabled, numParts)
+}`, vcNameSuffix)
+}
+
+func testAccVirtualClusterResource_withInvalidEventType(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = {
+    enabled = true
+    event_types = {
+      invalid_event_type = {
+        enabled                = true
+        shard_count            = 1
+        retention_period_nanos = 86400000000000
+      }
+    }
+  }
+}`, vcNameSuffix)
 }

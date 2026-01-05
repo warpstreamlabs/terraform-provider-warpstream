@@ -228,3 +228,66 @@ func (v billingGrantValidator) ValidateObject(ctx context.Context, req validator
 func BillingGrantConstraint() validator.Object {
 	return billingGrantValidator{}
 }
+
+// ValidEventTypeNames defines the allowed event type names for virtual cluster events.
+var ValidEventTypeNames = []string{"agent_logs", "pipeline_logs", "acl_logs"}
+
+// ValidEventTypeNamesDescription is a formatted string listing the valid event type names for use in schema descriptions.
+var ValidEventTypeNamesDescription string
+
+func init() {
+	quoted := make([]string, len(ValidEventTypeNames))
+	for i, name := range ValidEventTypeNames {
+		quoted[i] = fmt.Sprintf("`%s`", name)
+	}
+	ValidEventTypeNamesDescription = strings.Join(quoted, ", ")
+}
+
+type eventTypeKeysValidator struct {
+	allowedKeys []string
+}
+
+func (v eventTypeKeysValidator) Description(ctx context.Context) string {
+	return fmt.Sprintf("Map keys must be one of: %s", strings.Join(v.allowedKeys, ", "))
+}
+
+func (v eventTypeKeysValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v eventTypeKeysValidator) ValidateMap(ctx context.Context, req validator.MapRequest, resp *validator.MapResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	elements := req.ConfigValue.Elements()
+
+	// Check each key in the map
+	for key := range elements {
+		valid := false
+		for _, allowedKey := range v.allowedKeys {
+			if key == allowedKey {
+				valid = true
+				break
+			}
+		}
+
+		if !valid {
+			resp.Diagnostics.AddAttributeError(
+				req.Path,
+				"Invalid Event Type Key",
+				fmt.Sprintf(
+					"The event type key '%s' is not valid. Valid event types are: %s",
+					key,
+					strings.Join(v.allowedKeys, ", "),
+				),
+			)
+		}
+	}
+}
+
+func ValidEventTypeKeys() validator.Map {
+	return eventTypeKeysValidator{
+		allowedKeys: ValidEventTypeNames,
+	}
+}

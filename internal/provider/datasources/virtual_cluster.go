@@ -155,7 +155,7 @@ The WarpStream provider must be authenticated with an application key to read th
 						Computed: true,
 					},
 					"event_types": schema.MapNestedAttribute{
-						Description: "Per-event-type configuration. Map keys are event type names.",
+						Description: fmt.Sprintf("Per-event-type configuration. Map keys are event type names: %s.", utils.ValidEventTypeNamesDescription),
 						Computed:    true,
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{

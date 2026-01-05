@@ -8,31 +8,31 @@ import (
 	"net/http"
 )
 
-// EventTypeConfig represents per-event-type configuration
+// EventTypeConfig represents per-event-type configuration.
 type EventTypeConfig struct {
 	Enabled              *bool   `json:"enabled,omitempty"`
 	ShardCount           *uint32 `json:"shard_count,omitempty"`
 	RetentionPeriodNanos *uint64 `json:"retention_period_nanos,omitempty"`
 }
 
-// EventsState represents the events state for a virtual cluster
+// EventsState represents the events state for a virtual cluster.
 type EventsState struct {
 	Enabled    bool                       `json:"enabled"`
 	EventTypes map[string]EventTypeConfig `json:"event_types,omitempty"`
 }
 
-// EventsStateDescribeRequest for GetEventsState
+// EventsStateDescribeRequest for GetEventsState.
 type EventsStateDescribeRequest struct {
 	VirtualClusterID string `json:"virtual_cluster_id"`
 }
 
-// EventsStateDescribeResponse for GetEventsState
+// EventsStateDescribeResponse for GetEventsState.
 type EventsStateDescribeResponse struct {
 	Enabled    bool                       `json:"enabled"`
 	EventTypes map[string]EventTypeConfig `json:"event_types"`
 }
 
-// EventsStateUpdateRequest for UpdateEventsState
+// EventsStateUpdateRequest for UpdateEventsState.
 type EventsStateUpdateRequest struct {
 	VirtualClusterID string                     `json:"virtual_cluster_id"`
 	Enabled          *bool                      `json:"enabled,omitempty"`

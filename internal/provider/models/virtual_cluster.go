@@ -122,7 +122,7 @@ func (m VirtualClusterCloud) DefaultObject() map[string]attr.Value {
 	}
 }
 
-// EventTypeConfig represents per-event-type configuration
+// EventTypeConfig represents per-event-type configuration.
 type EventTypeConfig struct {
 	Enabled              types.Bool  `tfsdk:"enabled"`
 	ShardCount           types.Int64 `tfsdk:"shard_count"`
@@ -137,7 +137,7 @@ func (m EventTypeConfig) AttributeTypes() map[string]attr.Type {
 	}
 }
 
-// VirtualClusterEvents represents the events configuration for a virtual cluster
+// VirtualClusterEvents represents the events configuration for a virtual cluster.
 type VirtualClusterEvents struct {
 	Enabled    types.Bool `tfsdk:"enabled"`
 	EventTypes types.Map  `tfsdk:"event_types"`

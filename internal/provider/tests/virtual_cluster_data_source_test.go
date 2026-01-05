@@ -171,7 +171,8 @@ func TestAccVirtualClusterDataSourceWithEvents(t *testing.T) {
 	}()
 
 	// Enable events for the cluster
-	err = client.UpdateEventsState(true, *vc)
+	enabled := true
+	err = client.UpdateEventsState(&enabled, nil, *vc)
 	require.NoError(t, err)
 
 	// Verify events are enabled
@@ -281,6 +282,63 @@ data "warpstream_virtual_cluster" "test" {
   name = warpstream_virtual_cluster.test.name
   depends_on = [warpstream_virtual_cluster.test]
 }`, vcNameSuffix, eventsEnabled)
+}
+
+func TestAccVirtualClusterDataSourceWithEventTypes(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create resource with event types and read via data source
+			{
+				Config: testAccVirtualClusterDataSourceWithEventTypes(vcNameSuffix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					// Check resource
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.shard_count", "4"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.shard_count", "2"),
+					// Check data source matches
+					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.enabled", "true"),
+					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.agent_logs.shard_count", "4"),
+					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.shard_count", "2"),
+					// Verify acl_logs is not in data source state. Only configured event types appear.
+					resource.TestCheckNoResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.acl_logs"),
+				),
+			},
+		},
+	})
+}
+
+func testAccVirtualClusterDataSourceWithEventTypes(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = {
+    enabled = true
+    event_types = {
+      agent_logs = {
+        enabled                = true
+        shard_count            = 4
+        retention_period_nanos = 604800000000000
+      }
+      pipeline_logs = {
+        enabled                = true
+        shard_count            = 2
+        retention_period_nanos = 259200000000000
+      }
+    }
+  }
+}
+
+data "warpstream_virtual_cluster" "test" {
+  name = warpstream_virtual_cluster.test.name
+  depends_on = [warpstream_virtual_cluster.test]
+}`, vcNameSuffix)
 }
 
 // Verify that the virtual cluster data source doesn't work with schema registry clusters.
