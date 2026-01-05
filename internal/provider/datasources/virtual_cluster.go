@@ -148,6 +148,14 @@ The WarpStream provider must be authenticated with an application key to read th
 				},
 				Computed: true,
 			},
+			"events": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Computed: true,
+					},
+				},
+				Computed: true,
+			},
 			"cloud": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"region": schema.StringAttribute{
@@ -225,6 +233,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		AgentPoolName: types.StringValue(vc.AgentPoolName),
 		CreatedAt:     types.StringValue(vc.CreatedAt),
 		Configuration: data.Configuration,
+		Events:        data.Events,
 		Cloud:         data.Cloud,
 		Tags:          data.Tags,
 		WorkspaceID:   types.StringValue(vc.WorkspaceID),
@@ -268,6 +277,20 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 
 	state.Tier = types.StringValue(cfg.Tier)
 
+	// Read virtual cluster events state
+	eventsState, err := d.client.GetEventsState(*vc)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read events state of Virtual Cluster with ID="+vc.ID,
+			err.Error(),
+		)
+		return
+	}
+
+	eventsModel := models.VirtualClusterEvents{
+		Enabled: types.BoolValue(eventsState.Enabled),
+	}
+
 	// Set state
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -287,6 +310,13 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	}
 
 	diags = resp.State.SetAttribute(ctx, path.Root("cloud"), cldState)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Set events state
+	diags = resp.State.SetAttribute(ctx, path.Root("events"), eventsModel)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return

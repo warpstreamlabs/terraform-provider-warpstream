@@ -146,6 +146,143 @@ func testAccVCDataSourceCheck(vc *api.VirtualCluster) resource.TestCheckFunc {
 	)
 }
 
+func TestAccVirtualClusterDataSourceWithEvents(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	region := "us-east-1"
+	vc, err := client.CreateVirtualCluster(
+		vcNameSuffix,
+		api.ClusterParameters{
+			Type:   api.VirtualClusterTypeBYOC,
+			Tier:   api.VirtualClusterTierPro,
+			Region: &region,
+			Cloud:  "aws",
+			Tags:   map[string]string{"test_tag": "test_value"},
+		},
+	)
+	require.NoError(t, err)
+	defer func() {
+		err := client.DeleteVirtualCluster(vc.ID, vc.Name)
+		if err != nil {
+			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		}
+	}()
+
+	// Enable events for the cluster
+	err = client.UpdateEventsState(true, *vc)
+	require.NoError(t, err)
+
+	// Verify events are enabled
+	eventsState, err := client.GetEventsState(*vc)
+	require.NoError(t, err)
+	require.True(t, eventsState.Enabled, "expected events to be enabled")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterDataSourceWithID(vc.ID),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.enabled", "true"),
+					testAccVCDataSourceCheck(vc),
+				),
+			},
+			{
+				Config: testAccVirtualClusterDataSourceWithName(vc.Name),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.enabled", "true"),
+					testAccVCDataSourceCheck(vc),
+				),
+			},
+		},
+	})
+}
+
+func TestAccVirtualClusterDataSourceWithEventsDisabled(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	region := "us-east-1"
+	vc, err := client.CreateVirtualCluster(
+		vcNameSuffix,
+		api.ClusterParameters{
+			Type:   api.VirtualClusterTypeBYOC,
+			Tier:   api.VirtualClusterTierPro,
+			Region: &region,
+			Cloud:  "aws",
+		},
+	)
+	require.NoError(t, err)
+	defer func() {
+		err := client.DeleteVirtualCluster(vc.ID, vc.Name)
+		if err != nil {
+			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		}
+	}()
+
+	// Verify events are disabled by default
+	eventsState, err := client.GetEventsState(*vc)
+	require.NoError(t, err)
+	require.False(t, eventsState.Enabled, "expected events to be disabled by default")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterDataSourceWithID(vc.ID),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.enabled", "false"),
+					testAccVCDataSourceCheck(vc),
+				),
+			},
+		},
+	})
+}
+
+func TestAccVirtualClusterDataSourceEventsWithResource(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create resource with events enabled
+			{
+				Config: testAccVirtualClusterDataSourceWithResourceAndEvents(vcNameSuffix, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
+					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.enabled", "true"),
+				),
+			},
+			// Update resource to disable events, verify data source reflects change
+			{
+				Config: testAccVirtualClusterDataSourceWithResourceAndEvents(vcNameSuffix, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
+					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.enabled", "false"),
+				),
+			},
+		},
+	})
+}
+
+func testAccVirtualClusterDataSourceWithResourceAndEvents(vcNameSuffix string, eventsEnabled bool) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = {
+    enabled = %t
+  }
+}
+
+data "warpstream_virtual_cluster" "test" {
+  name = warpstream_virtual_cluster.test.name
+  depends_on = [warpstream_virtual_cluster.test]
+}`, vcNameSuffix, eventsEnabled)
+}
+
 // Verify that the virtual cluster data source doesn't work with schema registry clusters.
 func TestAccVirtualClusterDatasource_SchemaRegistryNotWork(t *testing.T) {
 	client, err := api.NewClientDefault()

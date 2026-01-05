@@ -292,6 +292,27 @@ The WarpStream provider must be authenticated with an application key to consume
 					utils.ACLModeMutualExclusion(),
 				},
 			},
+			"events": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Description: "Enable events for this virtual cluster. Defaults to `false`.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+				},
+				Description: "Virtual Cluster Events Configuration.",
+				Optional:    true,
+				Computed:    true,
+				Default: objectdefault.StaticValue(
+					types.ObjectValueMust(
+						models.VirtualClusterEvents{}.AttributeTypes(),
+						models.VirtualClusterEvents{}.DefaultObject(),
+					)),
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"cloud": cloudSchema,
 			"bootstrap_url": schema.StringAttribute{
 				Description: "Bootstrap URL to connect to the Virtual Cluster.",
@@ -382,6 +403,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		Default:       types.BoolValue(cluster.Name == "vcn_default"),
 		WorkspaceID:   types.StringValue(cluster.WorkspaceID),
 		Configuration: plan.Configuration,
+		Events:        plan.Events,
 		Cloud:         cloudValue,
 		Tags:          plan.Tags,
 	}
@@ -403,6 +425,11 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	}
 
 	r.applyConfiguration(ctx, state, &resp.State, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	r.applyEvents(ctx, state, &resp.State, &resp.Diagnostics)
 }
 
 func getCloudValue(cluster *api.VirtualCluster) (basetypes.ObjectValue, diag.Diagnostics) {
@@ -527,6 +554,7 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		}
 	}
 
+	r.readEvents(ctx, *cluster, &resp.State, &resp.Diagnostics)
 	r.readTags(ctx, *cluster, &resp.State, &resp.Diagnostics)
 }
 
@@ -568,6 +596,15 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 
 	// Update virtual cluster configuration
 	r.applyConfiguration(ctx, plan, &resp.State, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Update virtual cluster events
+	r.applyEvents(ctx, plan, &resp.State, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	// Update tags if they have changed
 	if !plan.Tags.IsUnknown() && !state.Tags.IsUnknown() && !plan.Tags.Equal(state.Tags) {
@@ -768,4 +805,58 @@ func (r *virtualClusterResource) applyTags(ctx context.Context, state models.Vir
 
 	// Read updated tags
 	r.readTags(ctx, cluster, respState, respDiags)
+}
+
+func (r *virtualClusterResource) readEvents(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {
+	// Get virtual cluster events state
+	eventsState, err := r.client.GetEventsState(cluster)
+	if err != nil {
+		respDiags.AddError(
+			"Unable to Read events state of Virtual Cluster with ID="+cluster.ID,
+			err.Error(),
+		)
+		return
+	}
+	tflog.Debug(ctx, fmt.Sprintf("Events State: %+v", *eventsState))
+
+	eventsModel := models.VirtualClusterEvents{
+		Enabled: types.BoolValue(eventsState.Enabled),
+	}
+
+	// Set events state
+	diags := state.SetAttribute(ctx, path.Root("events"), eventsModel)
+	respDiags.Append(diags...)
+}
+
+func (r *virtualClusterResource) applyEvents(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics) {
+	cluster := plan.Cluster()
+
+	// If events plan is empty, just retrieve it from API
+	if plan.Events.IsNull() {
+		tflog.Info(ctx, "No virtual cluster events configuration provided")
+		r.readEvents(ctx, cluster, state, respDiags)
+		return
+	}
+
+	// Retrieve events values from plan
+	var eventsPlan models.VirtualClusterEvents
+	diags := plan.Events.As(ctx, &eventsPlan, basetypes.ObjectAsOptions{})
+	respDiags.Append(diags...)
+	if respDiags.HasError() {
+		return
+	}
+
+	// Update virtual cluster events state
+	enabled := eventsPlan.Enabled.ValueBool()
+	err := r.client.UpdateEventsState(enabled, cluster)
+	if err != nil {
+		respDiags.AddError(
+			"Error Updating WarpStream Virtual Cluster Events State",
+			"Could not update WarpStream Virtual Cluster Events State, unexpected error: "+err.Error(),
+		)
+		return
+	}
+
+	// Retrieve updated virtual cluster events state
+	r.readEvents(ctx, cluster, state, respDiags)
 }

@@ -79,6 +79,7 @@ resource "warpstream_virtual_cluster" "test_cloud_region" {
 
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
+- `events` (Attributes) Virtual Cluster Events Configuration. (see [below for nested schema](#nestedatt--events))
 - `tags` (Map of String) Tags associated with the virtual cluster.
 - `type` (String) Virtual Cluster Type. Currently, the only valid virtual cluster types is `byoc` (default).
 
@@ -116,6 +117,14 @@ Optional:
 - `enable_deletion_protection` (Boolean) Enable deletion protection, defaults to `false`. If set to true, it is impossible to delete this cluster. enable_deletion_protection needs to be set to false before deleting the cluster.
 - `enable_soft_topic_deletion` (Boolean) Enable soft deletion for topics. Defaults to `true`. If true, topic deletion will be a soft deletion. For clusters with the Fundamentals tier or above, it will be possible to restore topics for some time after deletion. If false, deleting a topic will immediately delete of all of its data, with no way to recover it.
 - `soft_topic_deletion_ttl_millis` (Number) If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many milliseconds before being irrecoverably deleted. Defaults to 24 hours.
+
+
+<a id="nestedatt--events"></a>
+### Nested Schema for `events`
+
+Optional:
+
+- `enabled` (Boolean) Enable events for this virtual cluster. Defaults to `false`.
 
 ## Import
 

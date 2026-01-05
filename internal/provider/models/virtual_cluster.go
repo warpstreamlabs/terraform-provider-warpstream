@@ -19,6 +19,7 @@ type VirtualClusterDataSource struct {
 	Default       types.Bool   `tfsdk:"default"`
 	Tags          types.Map    `tfsdk:"tags"`
 	Configuration types.Object `tfsdk:"configuration"`
+	Events        types.Object `tfsdk:"events"`
 	Cloud         types.Object `tfsdk:"cloud"`
 	BootstrapURL  types.String `tfsdk:"bootstrap_url"`
 	WorkspaceID   types.String `tfsdk:"workspace_id"`
@@ -35,6 +36,7 @@ type VirtualClusterResource struct {
 	Default       types.Bool   `tfsdk:"default"`
 	Tags          types.Map    `tfsdk:"tags"`
 	Configuration types.Object `tfsdk:"configuration"`
+	Events        types.Object `tfsdk:"events"`
 	Cloud         types.Object `tfsdk:"cloud"`
 	BootstrapURL  types.String `tfsdk:"bootstrap_url"`
 	WorkspaceID   types.String `tfsdk:"workspace_id"`
@@ -117,5 +119,22 @@ func (m VirtualClusterCloud) DefaultObject() map[string]attr.Value {
 		"provider":     types.StringValue("aws"),
 		"region":       types.StringValue("us-east-1"),
 		"region_group": types.StringNull(),
+	}
+}
+
+// VirtualClusterEvents represents the events configuration for a virtual cluster
+type VirtualClusterEvents struct {
+	Enabled types.Bool `tfsdk:"enabled"`
+}
+
+func (m VirtualClusterEvents) AttributeTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"enabled": types.BoolType,
+	}
+}
+
+func (m VirtualClusterEvents) DefaultObject() map[string]attr.Value {
+	return map[string]attr.Value{
+		"enabled": types.BoolValue(false),
 	}
 }

@@ -248,6 +248,27 @@ func TestAccVirtualClusterImport(t *testing.T) {
 	})
 }
 
+func TestAccVirtualClusterImportWithEvents(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterResource_withEvents(vcNameSuffix, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
+				),
+			},
+			{
+				ImportState:       true,
+				ImportStateVerify: true,
+				ResourceName:      "warpstream_virtual_cluster.test",
+			},
+		},
+		IsUnitTest: true,
+	})
+}
+
 func TestAccVirtualClusterResourceWithSoftDeletion(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
@@ -329,4 +350,112 @@ resource "warpstream_virtual_cluster" "test" {
     default_topic_type = "%s"
   }
 }`, vcNameSuffix, topicType)
+}
+
+func TestAccVirtualClusterResourceWithEvents(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with events disabled (explicit)
+			{
+				Config: testAccVirtualClusterResource_withEvents(vcNameSuffix, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
+				),
+			},
+			// Update to enable events
+			{
+				Config: testAccVirtualClusterResource_withEvents(vcNameSuffix, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
+				),
+			},
+			// Update to disable events
+			{
+				Config: testAccVirtualClusterResource_withEvents(vcNameSuffix, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccVirtualClusterResourceWithEventsDefault(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create without events block - should default to disabled
+			{
+				Config: testAccVirtualClusterResource(vcNameSuffix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
+				),
+			},
+		},
+	})
+}
+
+func testAccVirtualClusterResource_withEvents(vcNameSuffix string, eventsEnabled bool) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = {
+    enabled = %t
+  }
+}`, vcNameSuffix, eventsEnabled)
+}
+
+func TestAccVirtualClusterResourceWithEventsAndConfiguration(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with both events and configuration
+			{
+				Config: testAccVirtualClusterResource_withEventsAndConfiguration(vcNameSuffix, true, false, 2),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acls", "false"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_num_partitions", "2"),
+				),
+			},
+			// Update events without changing configuration
+			{
+				Config: testAccVirtualClusterResource_withEventsAndConfiguration(vcNameSuffix, false, false, 2),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acls", "false"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_num_partitions", "2"),
+				),
+			},
+			// Update configuration without changing events
+			{
+				Config: testAccVirtualClusterResource_withEventsAndConfiguration(vcNameSuffix, false, true, 3),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.enable_acls", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_num_partitions", "3"),
+				),
+			},
+		},
+	})
+}
+
+func testAccVirtualClusterResource_withEventsAndConfiguration(vcNameSuffix string, eventsEnabled bool, aclsEnabled bool, numParts int64) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = {
+    enabled = %t
+  }
+  configuration = {
+    enable_acls = %t
+    default_num_partitions = %d
+  }
+}`, vcNameSuffix, eventsEnabled, aclsEnabled, numParts)
 }
