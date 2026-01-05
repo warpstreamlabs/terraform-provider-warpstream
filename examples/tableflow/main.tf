@@ -25,6 +25,13 @@ resource "warpstream_tableflow_cluster" "example" {
   }
 }
 
+# This is an agent key to authenticate the WarpStream Agents with the WarpStream
+# control plane. This is what you'll use in your Agent helm chart.
+resource "warpstream_agent_key" "example_agent_key" {
+  virtual_cluster_id = warpstream_tableflow_cluster.example.id
+  name               = "akn_example_agent_key"
+}
+
 resource "warpstream_pipeline" "tableflow_pipeline" {
   virtual_cluster_id = warpstream_tableflow_cluster.example.id
   name               = "example_tableflow_pipeline"

@@ -11,8 +11,8 @@ provider "warpstream" {
   token = "YOUR_API_KEY"
 }
 
-resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test"
+resource "warpstream_virtual_cluster" "example" {
+  name = "vcn_example"
   type = "byoc"
   tier = "dev"
   cloud = {
@@ -21,8 +21,15 @@ resource "warpstream_virtual_cluster" "test" {
   }
 }
 
+# This is an agent key to authenticate the WarpStream Agents with the WarpStream
+# control plane. This is what you'll use in your Agent helm chart.
+resource "warpstream_agent_key" "example_agent_key" {
+  virtual_cluster_id = warpstream_virtual_cluster.example.id
+  name               = "akn_example_agent_key"
+}
+
 resource "warpstream_pipeline" "example_bento_pipeline" {
-  virtual_cluster_id = warpstream_virtual_cluster.test.id
+  virtual_cluster_id = warpstream_virtual_cluster.example.id
   name               = "example_bento_pipeline"
   state              = "running"
   configuration_yaml = <<EOT
