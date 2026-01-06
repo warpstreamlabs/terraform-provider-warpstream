@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
@@ -299,28 +300,43 @@ The WarpStream provider must be authenticated with an application key to consume
 						Optional:    true,
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
+						PlanModifiers: []planmodifier.Bool{
+							boolplanmodifier.UseStateForUnknown(),
+						},
 					},
 					"event_types": schema.MapNestedAttribute{
 						Description: fmt.Sprintf("Per event type configuration. Map keys can be the names of any supported event type: %s.", utils.ValidEventTypeNamesDescription),
 						Optional:    true,
 						Computed:    true,
 						Validators:  []validator.Map{utils.ValidEventTypeKeys()},
+						PlanModifiers: []planmodifier.Map{
+							mapplanmodifier.UseStateForUnknown(),
+						},
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
 								"enabled": schema.BoolAttribute{
 									Description: "Whether this event type is enabled.",
 									Optional:    true,
 									Computed:    true,
+									PlanModifiers: []planmodifier.Bool{
+										boolplanmodifier.UseStateForUnknown(),
+									},
 								},
 								"shard_count": schema.Int64Attribute{
 									Description: "Number of shards for this event type.",
 									Optional:    true,
 									Computed:    true,
+									PlanModifiers: []planmodifier.Int64{
+										int64planmodifier.UseStateForUnknown(),
+									},
 								},
 								"retention_period_nanos": schema.Int64Attribute{
 									Description: "Retention period in nanoseconds for this event type.",
 									Optional:    true,
 									Computed:    true,
+									PlanModifiers: []planmodifier.Int64{
+										int64planmodifier.UseStateForUnknown(),
+									},
 								},
 							},
 						},
