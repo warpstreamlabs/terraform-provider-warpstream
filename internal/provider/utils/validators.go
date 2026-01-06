@@ -262,7 +262,6 @@ func (v eventTypeKeysValidator) ValidateMap(ctx context.Context, req validator.M
 
 	elements := req.ConfigValue.Elements()
 
-	// Check each key in the map
 	for key := range elements {
 		valid := false
 		for _, allowedKey := range v.allowedKeys {

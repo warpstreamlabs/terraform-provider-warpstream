@@ -308,7 +308,6 @@ func TestAccVirtualClusterDataSourceWithEventTypes(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled"),
 					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.shard_count", "2"),
 					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.retention_period_nanos", "259200000000000"),
-					// ACL logs were never configured so their values should be the defaults.
 					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.acl_logs.enabled", "false"),
 					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.acl_logs.shard_count", "1"),
 					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.acl_logs.retention_period_nanos", "86400000000000"),
@@ -336,9 +335,11 @@ resource "warpstream_virtual_cluster" "test" {
         shard_count            = 2
         retention_period_nanos = 259200000000000
       }
-	  acl_logs = {
-		enabled                = false
-	  }
+      acl_logs = {
+        enabled                = false
+        shard_count            = 1
+        retention_period_nanos = 86400000000000
+      }
     }
   }
 }
