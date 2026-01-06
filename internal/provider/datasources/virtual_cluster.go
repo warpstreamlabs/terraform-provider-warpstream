@@ -308,61 +308,15 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	// Convert event types from API to Terraform model
-	var eventTypesMap map[string]attr.Value
-	if len(eventsState.EventTypes) > 0 {
-		eventTypesMap = make(map[string]attr.Value)
-		for eventType, config := range eventsState.EventTypes {
-			eventTypeAttrs := map[string]attr.Value{}
-
-			if config.Enabled != nil {
-				eventTypeAttrs["enabled"] = types.BoolValue(*config.Enabled)
-			} else {
-				eventTypeAttrs["enabled"] = types.BoolNull()
-			}
-
-			if config.ShardCount != nil {
-				eventTypeAttrs["shard_count"] = types.Int64Value(int64(*config.ShardCount))
-			} else {
-				eventTypeAttrs["shard_count"] = types.Int64Null()
-			}
-
-			if config.RetentionPeriodNanos != nil {
-				eventTypeAttrs["retention_period_nanos"] = types.Int64Value(int64(*config.RetentionPeriodNanos))
-			} else {
-				eventTypeAttrs["retention_period_nanos"] = types.Int64Null()
-			}
-
-			eventTypeObj, diagsLocal := types.ObjectValue(
-				models.EventTypeConfig{}.AttributeTypes(),
-				eventTypeAttrs,
-			)
-			resp.Diagnostics.Append(diagsLocal...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-			eventTypesMap[eventType] = eventTypeObj
-		}
-	}
-
-	var eventTypesValue types.Map
-	if eventTypesMap != nil {
-		var diagsLocal diag.Diagnostics
-		eventTypesValue, diagsLocal = types.MapValue(
-			types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()},
-			eventTypesMap,
-		)
-		resp.Diagnostics.Append(diagsLocal...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	} else {
-		eventTypesValue = types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()})
+	eventTypesMap, diags := buildEventTypesMap(eventsState)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	eventsModel := models.VirtualClusterEvents{
 		Enabled:    types.BoolValue(eventsState.Enabled),
-		EventTypes: eventTypesValue,
+		EventTypes: eventTypesMap,
 	}
 
 	// Set state
@@ -428,6 +382,40 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	if resp.Diagnostics.HasError() {
 		return
 	}
+}
+
+func buildEventTypesMap(eventsState *api.EventsState) (types.Map, diag.Diagnostics) {
+	if len(eventsState.EventTypes) < 1 {
+		return types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()}), diag.Diagnostics{}
+	}
+
+	eventTypesMap := make(map[string]attr.Value)
+
+	for eventTypeName, eventTypeConfig := range eventsState.EventTypes {
+		eventTypeAttrs := map[string]attr.Value{
+			"enabled":                types.BoolValue(eventTypeConfig.Enabled != nil && *eventTypeConfig.Enabled),
+			"shard_count":            types.Int64Value(0),
+			"retention_period_nanos": types.Int64Value(0),
+		}
+
+		if eventTypeConfig.ShardCount != nil {
+			eventTypeAttrs["shard_count"] = types.Int64Value(int64(*eventTypeConfig.ShardCount))
+		}
+
+		if eventTypeConfig.RetentionPeriodNanos != nil {
+			eventTypeAttrs["retention_period_nanos"] = types.Int64Value(int64(*eventTypeConfig.RetentionPeriodNanos))
+		}
+
+		eventTypeObj, diags := types.ObjectValue(models.EventTypeConfig{}.AttributeTypes(), eventTypeAttrs)
+		if diags.HasError() {
+			return types.Map{}, diags
+		}
+
+		eventTypesMap[eventTypeName] = eventTypeObj
+	}
+
+	return types.MapValue(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()}, eventTypesMap)
+
 }
 
 // Configure adds the provider configured client to the data source.

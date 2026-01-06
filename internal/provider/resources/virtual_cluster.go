@@ -579,14 +579,20 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		}
 	}
 
-	// Get current event types from state to filter API response
-	var currentEvents models.VirtualClusterEvents
-	diags = state.Events.As(ctx, &currentEvents, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+	// Get current event types from state to filter API response.
+	eventTypesFilter := types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()})
+	if !state.Events.IsNull() {
+		// If events is not null, get the current event types from state to use as a filter.
+		var currentEvents models.VirtualClusterEvents
+		diags = state.Events.As(ctx, &currentEvents, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		eventTypesFilter = currentEvents.EventTypes
 	}
-	r.readEvents(ctx, *cluster, &resp.State, &resp.Diagnostics, currentEvents.EventTypes)
+
+	r.readEvents(ctx, *cluster, &resp.State, &resp.Diagnostics, eventTypesFilter)
 	r.readTags(ctx, *cluster, &resp.State, &resp.Diagnostics)
 }
 
