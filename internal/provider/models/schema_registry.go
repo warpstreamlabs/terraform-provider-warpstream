@@ -18,7 +18,6 @@ type SchemaRegistryDataSource struct {
 type SchemaRegistryResource struct {
 	ID           types.String `tfsdk:"id"`
 	Name         types.String `tfsdk:"name"`
-	AgentKeys    types.List   `tfsdk:"agent_keys"`
 	CreatedAt    types.String `tfsdk:"created_at"`
 	Cloud        types.Object `tfsdk:"cloud"`
 	BootstrapURL types.String `tfsdk:"bootstrap_url"`

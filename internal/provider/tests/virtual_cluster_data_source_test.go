@@ -20,12 +20,11 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 	vc, err := client.CreateVirtualCluster(
 		vcNameSuffix,
 		api.ClusterParameters{
-			Type:           api.VirtualClusterTypeBYOC,
-			Tier:           api.VirtualClusterTierPro,
-			Region:         &region,
-			Cloud:          "aws",
-			Tags:           map[string]string{"test_tag": "test_value"},
-			CreateAgentKey: true,
+			Type:   api.VirtualClusterTypeBYOC,
+			Tier:   api.VirtualClusterTierPro,
+			Region: &region,
+			Cloud:  "aws",
+			Tags:   map[string]string{"test_tag": "test_value"},
 		},
 	)
 	require.NoError(t, err)
@@ -39,16 +38,19 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 	cfg, err := client.GetConfiguration(*vc)
 	require.NoError(t, err)
 
+	agentKeyName := "akn_test_agent_key" + acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	defer cleanupAPIKeyByName(t, agentKeyName)
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVirtualClusterDataSourceWithID(vc.ID),
-				Check:  testAccVCDataSourceCheck_byoc(vc, cfg),
+				Config: testAccVirtualClusterDataSourceWithIDAndAgentKey(vc.ID, agentKeyName),
+				Check:  testAccVCDataSourceCheck_byoc(vc, cfg, agentKeyName),
 			},
 			{
-				Config: testAccVirtualClusterDataSourceWithName(vc.Name),
-				Check:  testAccVCDataSourceCheck_byoc(vc, cfg),
+				Config: testAccVirtualClusterDataSourceWithNameAndAgentKey(vc.Name, vc.ID, agentKeyName),
+				Check:  testAccVCDataSourceCheck_byoc(vc, cfg, agentKeyName),
 			},
 		},
 	})
@@ -61,6 +63,22 @@ data "warpstream_virtual_cluster" "test" {
 }`, id)
 }
 
+func testAccVirtualClusterDataSourceWithIDAndAgentKey(id, agentKeyName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_agent_key" "test" {
+  name = "%s"
+  virtual_cluster_id = "%s"
+}
+
+data "warpstream_virtual_cluster" "test" {
+  id = "%s"
+
+  depends_on = [
+    warpstream_agent_key.test,
+  ]
+}`, agentKeyName, id, id)
+}
+
 func testAccVirtualClusterDataSourceWithName(name string) string {
 	return providerConfig + fmt.Sprintf(`
 data "warpstream_virtual_cluster" "test" {
@@ -68,15 +86,27 @@ data "warpstream_virtual_cluster" "test" {
 }`, name)
 }
 
-func testAccVCDataSourceCheck_byoc(vc *api.VirtualCluster, cfg *api.VirtualClusterConfiguration) resource.TestCheckFunc {
-	agentKeyName := ""
-	if vc.AgentKeys != nil {
-		agentKeys := *vc.AgentKeys
-		if len(agentKeys) > 0 {
-			agentKeyName = agentKeys[0].Name
-		}
-	}
+func testAccVirtualClusterDataSourceWithNameAndAgentKey(name, vcID, agentKeyName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_agent_key" "test" {
+  name = "%s"
+  virtual_cluster_id = "%s"
+}
 
+data "warpstream_virtual_cluster" "test" {
+  name = "%s"
+
+  depends_on = [
+    warpstream_agent_key.test,
+  ]
+}`, agentKeyName, vcID, name)
+}
+
+func testAccVCDataSourceCheck_byoc(
+	vc *api.VirtualCluster,
+	cfg *api.VirtualClusterConfiguration,
+	agentKeyName string,
+) resource.TestCheckFunc {
 	softTopicDeletionTTL := int64(86400000)
 	if cfg.SoftTopicDeletionTTLMillis != nil {
 		softTopicDeletionTTL = *cfg.SoftTopicDeletionTTLMillis
@@ -86,12 +116,8 @@ func testAccVCDataSourceCheck_byoc(vc *api.VirtualCluster, cfg *api.VirtualClust
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "type", "byoc"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "tags.test_tag", "test_value"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "agent_keys.#", "1"),
-		resource.TestCheckResourceAttr(
-			"data.warpstream_virtual_cluster.test", "agent_keys.0.virtual_cluster_id", vc.ID,
-		),
-		resource.TestCheckResourceAttr(
-			"data.warpstream_virtual_cluster.test", "agent_keys.0.name", agentKeyName,
-		),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "agent_keys.0.virtual_cluster_id", vc.ID),
+		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "agent_keys.0.name", agentKeyName),
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_cluster.test", "bootstrap_url", *vc.BootstrapURL,
 		),

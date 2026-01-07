@@ -70,7 +70,6 @@ resource "warpstream_tableflow_cluster" "pro_cluster" {
 
 ### Read-Only
 
-- `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. (see [below for nested schema](#nestedatt--agent_keys))
 - `created_at` (String) Virtual Cluster Creation Timestamp.
 - `id` (String) TableFlow ID.
 - `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key used to authenticate the WarpStream provider. Cannot be changed after creation.
@@ -82,18 +81,6 @@ Optional:
 
 - `provider` (String) Cloud Provider. Valid providers are: `aws` (default), `gcp`, and `azure`.
 - `region` (String) Cloud Region. Defaults to `us-east-1`.
-
-
-<a id="nestedatt--agent_keys"></a>
-### Nested Schema for `agent_keys`
-
-Read-Only:
-
-- `created_at` (String)
-- `id` (String)
-- `key` (String, Sensitive)
-- `name` (String)
-- `virtual_cluster_id` (String)
 
 ## Import
 

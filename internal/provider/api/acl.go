@@ -120,7 +120,7 @@ func (c *Client) ListACLs(vcID string) ([]ACLResponse, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/virtual_clusters/acls/list", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/virtual_clusters/acls/list", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}

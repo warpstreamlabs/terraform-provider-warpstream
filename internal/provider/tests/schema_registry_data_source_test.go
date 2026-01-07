@@ -20,11 +20,10 @@ func TestAccSchemaRegistryDataSource(t *testing.T) {
 	vc, err := client.CreateVirtualCluster(
 		vcNameSuffix,
 		api.ClusterParameters{
-			Type:           api.VirtualClusterTypeSchemaRegistry,
-			Tier:           api.VirtualClusterTierPro,
-			Region:         &region,
-			Cloud:          "aws",
-			CreateAgentKey: true,
+			Type:   api.VirtualClusterTypeSchemaRegistry,
+			Tier:   api.VirtualClusterTierPro,
+			Region: &region,
+			Cloud:  "aws",
 		},
 	)
 	require.NoError(t, err)
@@ -36,13 +35,15 @@ func TestAccSchemaRegistryDataSource(t *testing.T) {
 	}()
 
 	datasourceName := "data.warpstream_schema_registry.test"
+	agentKeyName := "akn_test_agent_key" + acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	defer cleanupAPIKeyByName(t, agentKeyName)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testSchemaRegistryDataSourceWithID(vc.ID),
-				Check:  testAccSchemaRegistryDatasourceCheck(vc, datasourceName),
+				Config: testSchemaRegistryDataSourceWithIDAndAgentKey(vc.ID, agentKeyName),
+				Check:  testAccSchemaRegistryDatasourceCheck(vc, datasourceName, agentKeyName),
 			},
 		},
 	})
@@ -55,6 +56,22 @@ data "warpstream_schema_registry" "test" {
 }`, id)
 }
 
+func testSchemaRegistryDataSourceWithIDAndAgentKey(id, agentKeyName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_agent_key" "test" {
+  name = "%s"
+  virtual_cluster_id = "%s"
+}
+
+data "warpstream_schema_registry" "test" {
+  id = "%s"
+
+  depends_on = [
+    warpstream_agent_key.test,
+  ]
+}`, agentKeyName, id, id)
+}
+
 func testSchemaRegistryDataSourceWithName(name string) string {
 	return providerConfig + fmt.Sprintf(`
 data "warpstream_schema_registry" "test" {
@@ -65,15 +82,8 @@ data "warpstream_schema_registry" "test" {
 func testAccSchemaRegistryDatasourceCheck(
 	vc *api.VirtualCluster,
 	datasourceName string,
+	agentKeyName string,
 ) resource.TestCheckFunc {
-	agentKeyName := ""
-	if vc.AgentKeys != nil {
-		agentKeys := *vc.AgentKeys
-		if len(agentKeys) > 0 {
-			agentKeyName = agentKeys[0].Name
-		}
-	}
-
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet(datasourceName, "id"),
 		resource.TestCheckResourceAttr(datasourceName, "id", vc.ID),
