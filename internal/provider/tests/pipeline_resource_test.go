@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"testing"
 
@@ -27,8 +26,7 @@ func TestBentoPipelineResourceDeletePlan(t *testing.T) {
 			// Pre delete pipeline and try planning
 			{
 				PreConfig: func() {
-					token := os.Getenv("WARPSTREAM_API_KEY")
-					client, err := api.NewClient("", &token)
+					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
 					vcs, err := client.GetVirtualClusters()
@@ -72,8 +70,7 @@ func TestBentoPipelineResourceDeletePlan(t *testing.T) {
 			// Delete virtual cluster and try planning
 			{
 				PreConfig: func() {
-					token := os.Getenv("WARPSTREAM_API_KEY")
-					client, err := api.NewClient("", &token)
+					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
 					vcs, err := client.GetVirtualClusters()

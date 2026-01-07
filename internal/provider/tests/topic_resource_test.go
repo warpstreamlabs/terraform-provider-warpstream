@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"testing"
 
@@ -320,8 +319,7 @@ func TestAccTopicResourceDeletePlan(t *testing.T) {
 			// Pre delete topic and try planning
 			{
 				PreConfig: func() {
-					token := os.Getenv("WARPSTREAM_API_KEY")
-					client, err := api.NewClient("", &token)
+					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
 					virtualCluster, err := client.FindVirtualCluster(virtualClusterName)
@@ -354,8 +352,7 @@ func TestAccTopicResourceDeletePlan(t *testing.T) {
 			// Delete virtual cluster and try planning
 			{
 				PreConfig: func() {
-					token := os.Getenv("WARPSTREAM_API_KEY")
-					client, err := api.NewClient("", &token)
+					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
 					virtualCluster, err := client.FindVirtualCluster(virtualClusterName)
