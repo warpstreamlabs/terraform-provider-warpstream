@@ -40,7 +40,7 @@ func (c *Client) GetConfiguration(vc VirtualCluster) (*VirtualClusterConfigurati
 		return nil, err
 	}
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/describe_virtual_cluster_configuration", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/describe_virtual_cluster_configuration", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}

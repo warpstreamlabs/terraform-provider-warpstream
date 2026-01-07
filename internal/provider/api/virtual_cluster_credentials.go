@@ -110,7 +110,7 @@ func (c *Client) GetCredentials(vc VirtualCluster) (map[string]VirtualClusterCre
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/list_virtual_cluster_credentials", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/list_virtual_cluster_credentials", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}

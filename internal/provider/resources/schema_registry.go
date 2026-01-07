@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -117,14 +116,6 @@ The WarpStream provider must be authenticated with an application key to consume
 				},
 				Validators: []validator.String{utils.ValidSchemaRegistryName()},
 			},
-			"agent_keys": schema.ListNestedAttribute{
-				Description:  "List of keys to authenticate an agent with this cluster.",
-				Computed:     true,
-				NestedObject: agentKeyResourceSchema,
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.UseStateForUnknown(),
-				},
-			},
 			"created_at": schema.StringAttribute{
 				Description: "Virtual Cluster Creation Timestamp.",
 				Computed:    true,
@@ -189,7 +180,6 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 	state := models.SchemaRegistryResource{
 		ID:          types.StringValue(cluster.ID),
 		Name:        types.StringValue(cluster.Name),
-		AgentKeys:   plan.AgentKeys,
 		CreatedAt:   types.StringValue(cluster.CreatedAt),
 		Cloud:       plan.Cloud,
 		WorkspaceID: types.StringValue(cluster.WorkspaceID),
@@ -201,17 +191,6 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, state)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	agentKeysState, ok := models.MapToAgentKeys(cluster.AgentKeys, &resp.Diagnostics)
-	if !ok { // Diagnostics handled by helper.
-		return
-	}
-
-	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -286,16 +265,6 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 	state.Cloud = cloudValue
 
 	diags = resp.State.Set(ctx, &state)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	agentKeysState, ok := models.MapToAgentKeys(cluster.AgentKeys, &resp.Diagnostics)
-	if !ok { // Diagnostics handled by helper.
-		return
-	}
-	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return

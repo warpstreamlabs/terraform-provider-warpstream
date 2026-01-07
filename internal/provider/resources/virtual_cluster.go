@@ -14,7 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -74,26 +73,6 @@ func (r *virtualClusterResource) Metadata(_ context.Context, req resource.Metada
 }
 
 var (
-	agentKeyResourceSchema = schema.NestedAttributeObject{
-		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Computed: true,
-			},
-			"name": schema.StringAttribute{
-				Computed: true,
-			},
-			"key": schema.StringAttribute{
-				Computed:  true,
-				Sensitive: true,
-			},
-			"virtual_cluster_id": schema.StringAttribute{
-				Computed: true,
-			},
-			"created_at": schema.StringAttribute{
-				Computed: true,
-			},
-		},
-	}
 	cloudSchema = schema.SingleNestedAttribute{
 		Attributes: map[string]schema.Attribute{
 			"provider": schema.StringAttribute{
@@ -196,14 +175,6 @@ The WarpStream provider must be authenticated with an application key to consume
 						api.VirtualClusterTierPro,
 						api.VirtualClusterTierEnterprise,
 					),
-				},
-			},
-			"agent_keys": schema.ListNestedAttribute{
-				Description:  "List of keys to authenticate an agent with this cluster.",
-				Computed:     true,
-				NestedObject: agentKeyResourceSchema,
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"agent_pool_id": schema.StringAttribute{
@@ -389,7 +360,6 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		ID:            types.StringValue(cluster.ID),
 		Name:          types.StringValue(cluster.Name),
 		Type:          types.StringValue(cluster.Type),
-		AgentKeys:     plan.AgentKeys,
 		AgentPoolID:   types.StringValue(cluster.AgentPoolID),
 		AgentPoolName: types.StringValue(cluster.AgentPoolName),
 		CreatedAt:     types.StringValue(cluster.CreatedAt),
@@ -412,17 +382,6 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	}
 
 	r.readTags(ctx, *cluster, &resp.State, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	agentKeysState, ok := models.MapToAgentKeys(cluster.AgentKeys, &resp.Diagnostics)
-	if !ok { // Diagnostics handled by helper.
-		return
-	}
-
-	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
-	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -526,16 +485,6 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 
 	r.readConfiguration(ctx, *cluster, &resp.State, &resp.Diagnostics)
 	r.readTags(ctx, *cluster, &resp.State, &resp.Diagnostics)
-
-	agentKeysState, ok := models.MapToAgentKeys(cluster.AgentKeys, &resp.Diagnostics)
-	if !ok { // Diagnostics handled by helper.
-		return
-	}
-	diags = resp.State.SetAttribute(ctx, path.Root("agent_keys"), agentKeysState)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 }
 
 // Update updates the resource and sets the updated Terraform state on success.

@@ -22,6 +22,7 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 	region := "us-east-1"
 
 	createdVCs := make([]*api.VirtualCluster, 0)
+	agentKeyNames := make([]string, 0)
 
 	// Create multiple clusters to make sure we can return multiple
 	for range 5 {
@@ -29,16 +30,16 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 		vc, err := client.CreateVirtualCluster(
 			vcNameSuffix,
 			api.ClusterParameters{
-				Type:           api.VirtualClusterTypeBYOC,
-				Tier:           api.VirtualClusterTierPro,
-				Region:         &region,
-				Cloud:          "aws",
-				CreateAgentKey: true,
+				Type:   api.VirtualClusterTypeBYOC,
+				Tier:   api.VirtualClusterTierPro,
+				Region: &region,
+				Cloud:  "aws",
 			},
 		)
 		require.NoError(t, err)
 
 		createdVCs = append(createdVCs, vc)
+		agentKeyNames = append(agentKeyNames, "akn_test_agent_key"+acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
 	}
 
 	require.NoError(t, err)
@@ -51,24 +52,57 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 			}
 		}
 	}()
+	defer func() {
+		for _, agentKeyName := range agentKeyNames {
+			cleanupAPIKeyByName(t, agentKeyName)
+		}
+	}()
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVirtualClustersDataSource_default(),
+				Config: testAccVirtualClustersDataSource_withAgentKeys(createdVCs, agentKeyNames),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testCheckVirtualClustersState(t, createdVCs),
+					testCheckVirtualClustersState(t, createdVCs, agentKeyNames),
 				),
 			},
 		},
 	})
 }
 
-func testAccVirtualClustersDataSource_default() string {
-	return providerConfig + `
-data "warpstream_virtual_clusters" "test" {
-}`
+func testAccVirtualClustersDataSource_withAgentKeys(vcs []*api.VirtualCluster, agentKeyNames []string) string {
+	var b strings.Builder
+	b.WriteString(providerConfig)
+
+	deps := make([]string, 0, len(vcs))
+	for i, vc := range vcs {
+		dep := fmt.Sprintf("warpstream_agent_key.ak%d", i)
+		deps = append(deps, dep)
+		b.WriteString(fmt.Sprintf(`
+			resource "warpstream_agent_key" "ak%d" {
+				name = "%s"
+				virtual_cluster_id = "%s"
+			}
+			`,
+			i,
+			agentKeyNames[i],
+			vc.ID,
+		))
+	}
+
+	b.WriteString(fmt.Sprintf(`
+		data "warpstream_virtual_clusters" "test" {
+			depends_on = [%s]
+		}`,
+		strings.Join(deps, ",\n"),
+	))
+
+	fmt.Println("--------------------------------")
+	fmt.Println(b.String())
+	fmt.Println("--------------------------------")
+
+	return b.String()
 }
 
 /*
@@ -78,7 +112,7 @@ resource test suite creates virtual clusters.
 There must be a better way to deserialize the data source's attributes but I couldn't figure it out from the docs.
 https://developer.hashicorp.com/terraform/plugin/sdkv2/testing/acceptance-tests/teststep#custom-check-functions
 */
-func testCheckVirtualClustersState(t *testing.T, expectedVCs []*api.VirtualCluster) resource.TestCheckFunc {
+func testCheckVirtualClustersState(t *testing.T, expectedVCs []*api.VirtualCluster, agentKeyNames []string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		resourceName := "data.warpstream_virtual_clusters.test"
 		rs, ok := s.RootModule().Resources[resourceName]
@@ -92,8 +126,8 @@ func testCheckVirtualClustersState(t *testing.T, expectedVCs []*api.VirtualClust
 			return err
 		}
 
-		for _, expectedVC := range expectedVCs {
-			err = assertBYOCVC(vcs, expectedVC)
+		for i, expectedVC := range expectedVCs {
+			err = assertBYOCVC(vcs, expectedVC, agentKeyNames[i])
 			if err != nil {
 				return err
 			}
@@ -103,7 +137,7 @@ func testCheckVirtualClustersState(t *testing.T, expectedVCs []*api.VirtualClust
 	}
 }
 
-func assertBYOCVC(vcs []map[string]string, expectedVc *api.VirtualCluster) error {
+func assertBYOCVC(vcs []map[string]string, expectedVc *api.VirtualCluster, expectedAgentKeyName string) error {
 	vc, err := getVCWithName(vcs, expectedVc.Name)
 	if err != nil {
 		return err
@@ -119,7 +153,7 @@ func assertBYOCVC(vcs []map[string]string, expectedVc *api.VirtualCluster) error
 
 	agentKeysCountAttr, ok := vc["agent_keys.#"]
 	if !ok {
-		return errors.New("Expected BYOC cluter to have agent keys")
+		return errors.New("Expected BYOC cluster to have agent keys")
 	}
 	if agentKeysCountAttr != "1" {
 		return fmt.Errorf("Expected 1 agent key, got %s", agentKeysCountAttr)
@@ -127,14 +161,6 @@ func assertBYOCVC(vcs []map[string]string, expectedVc *api.VirtualCluster) error
 	agentKeyNameAttr, ok := vc["agent_keys.0.name"]
 	if !ok {
 		return errors.New("Expected agent key name")
-	}
-
-	expectedAgentKeyName := ""
-	if expectedVc.AgentKeys != nil {
-		agentKeys := *expectedVc.AgentKeys
-		if len(agentKeys) > 0 {
-			expectedAgentKeyName = agentKeys[0].Name
-		}
 	}
 	if agentKeyNameAttr != expectedAgentKeyName {
 		return fmt.Errorf("Expected agent key name to be '%s', got %s", expectedAgentKeyName, agentKeyNameAttr)
@@ -150,7 +176,7 @@ func assertBYOCVC(vcs []map[string]string, expectedVc *api.VirtualCluster) error
 
 	burl, ok := vc["bootstrap_url"]
 	if !ok {
-		return fmt.Errorf("Expected byoc virtual cluster JSON to have a bootstrap URL field")
+		return errors.New("Expected byoc virtual cluster JSON to have a bootstrap URL field")
 	}
 
 	if burl != *expectedVc.BootstrapURL {
@@ -163,7 +189,7 @@ func assertBYOCVC(vcs []map[string]string, expectedVc *api.VirtualCluster) error
 
 	workspaceID, ok := vc["workspace_id"]
 	if !ok {
-		return fmt.Errorf("Expected byoc virtual cluster JSON to have a workspace ID field")
+		return errors.New("Expected byoc virtual cluster JSON to have a workspace ID field")
 	}
 	if workspaceID != expectedVc.WorkspaceID {
 		return fmt.Errorf("Expected byoc cluster workspace ID to be %s, got %s", expectedVc.WorkspaceID, workspaceID)

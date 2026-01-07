@@ -29,7 +29,6 @@ type VirtualClusterResource struct {
 	Name          types.String `tfsdk:"name"`
 	Type          types.String `tfsdk:"type"`
 	Tier          types.String `tfsdk:"tier"`
-	AgentKeys     types.List   `tfsdk:"agent_keys"`
 	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
 	AgentPoolName types.String `tfsdk:"agent_pool_name"`
 	CreatedAt     types.String `tfsdk:"created_at"`
