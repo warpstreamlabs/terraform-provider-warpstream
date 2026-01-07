@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -97,8 +96,7 @@ func TestAccACLResourceDeletePlan(t *testing.T) {
 			},
 			{
 				PreConfig: func() {
-					token := os.Getenv("WARPSTREAM_API_KEY")
-					client, err := api.NewClient("", &token)
+					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
 					vc, err := client.FindVirtualCluster(vcName)

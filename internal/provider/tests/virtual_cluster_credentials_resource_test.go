@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"testing"
 
@@ -25,8 +24,7 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 			// Pre delete credential and try planning
 			{
 				PreConfig: func() {
-					token := os.Getenv("WARPSTREAM_API_KEY")
-					client, err := api.NewClient("", &token)
+					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
 					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_%s", nameSuffix))
@@ -64,8 +62,7 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 			// Delete virtual cluster and try planning
 			{
 				PreConfig: func() {
-					token := os.Getenv("WARPSTREAM_API_KEY")
-					client, err := api.NewClient("", &token)
+					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
 					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_%s", nameSuffix))
