@@ -84,7 +84,6 @@ resource "warpstream_virtual_cluster" "test_cloud_region" {
 
 ### Read-Only
 
-- `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. (see [below for nested schema](#nestedatt--agent_keys))
 - `agent_pool_id` (String) Agent Pool ID.
 - `agent_pool_name` (String) Agent Pool Name.
 - `bootstrap_url` (String) Bootstrap URL to connect to the Virtual Cluster.
@@ -116,18 +115,6 @@ Optional:
 - `enable_deletion_protection` (Boolean) Enable deletion protection, defaults to `false`. If set to true, it is impossible to delete this cluster. enable_deletion_protection needs to be set to false before deleting the cluster.
 - `enable_soft_topic_deletion` (Boolean) Enable soft deletion for topics. Defaults to `true`. If true, topic deletion will be a soft deletion. For clusters with the Fundamentals tier or above, it will be possible to restore topics for some time after deletion. If false, deleting a topic will immediately delete of all of its data, with no way to recover it.
 - `soft_topic_deletion_ttl_millis` (Number) If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many milliseconds before being irrecoverably deleted. Defaults to 24 hours.
-
-
-<a id="nestedatt--agent_keys"></a>
-### Nested Schema for `agent_keys`
-
-Read-Only:
-
-- `created_at` (String)
-- `id` (String)
-- `key` (String, Sensitive)
-- `name` (String)
-- `virtual_cluster_id` (String)
 
 ## Import
 

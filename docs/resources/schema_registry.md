@@ -46,7 +46,6 @@ resource "warpstream_schema_registry" "example_schema_registry" {
 
 ### Read-Only
 
-- `agent_keys` (Attributes List) List of keys to authenticate an agent with this cluster. (see [below for nested schema](#nestedatt--agent_keys))
 - `bootstrap_url` (String) Bootstrap URL to connect to the Schema Registry.
 - `created_at` (String) Virtual Cluster Creation Timestamp.
 - `id` (String) Schema Registry ID.
@@ -59,15 +58,3 @@ Optional:
 
 - `provider` (String) Cloud Provider. Valid providers are: `aws` (default), `gcp`, and `azure`.
 - `region` (String) Cloud Region. Defaults to `us-east-1`.
-
-
-<a id="nestedatt--agent_keys"></a>
-### Nested Schema for `agent_keys`
-
-Read-Only:
-
-- `created_at` (String)
-- `id` (String)
-- `key` (String, Sensitive)
-- `name` (String)
-- `virtual_cluster_id` (String)

@@ -98,10 +98,6 @@ func testAccVirtualClustersDataSource_withAgentKeys(vcs []*api.VirtualCluster, a
 		strings.Join(deps, ",\n"),
 	))
 
-	fmt.Println("--------------------------------")
-	fmt.Println(b.String())
-	fmt.Println("--------------------------------")
-
 	return b.String()
 }
 

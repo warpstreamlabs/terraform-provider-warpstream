@@ -27,7 +27,7 @@ func (c *Client) GetTags(vc VirtualCluster) (map[string]string, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/describe_virtual_cluster_tags", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/describe_virtual_cluster_tags", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (c *Client) UpdateTags(tags map[string]string, vc VirtualCluster) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/update_virtual_cluster_tags", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/update_virtual_cluster_tags", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}

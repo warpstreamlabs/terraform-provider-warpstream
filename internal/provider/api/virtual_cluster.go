@@ -103,7 +103,7 @@ func (c *Client) GetVirtualCluster(id string) (*VirtualCluster, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/describe_virtual_cluster", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/describe_virtual_cluster", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 		RegionGroup:          opts.RegionGroup,
 		CloudProvider:        opts.Cloud,
 		Tags:                 opts.Tags,
-		SkipAgentKeyCreation: true, //!opts.CreateAgentKey,
+		SkipAgentKeyCreation: true,
 	})
 	if err != nil {
 		return nil, err
