@@ -156,7 +156,6 @@ Optional:
 - `retention_period_nanos` (Number) Retention period in nanoseconds for this event type.
 - `shard_count` (Number) Number of shards for this event type.
 
-
 ## Import
 
 Import is supported using the following syntax:
