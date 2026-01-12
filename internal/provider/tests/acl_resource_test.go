@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
@@ -186,6 +187,45 @@ func TestAccACLResourceReplaceOnChange(t *testing.T) {
 						return nil
 					}),
 				),
+			},
+		},
+	})
+}
+
+func TestAccACLResourceImport(t *testing.T) {
+	vcName := "vcn_acl_" + acctest.RandStringFromCharSet(8, acctest.CharSetAlphaNum)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccACLResource(vcName),
+				Check:  testAccACLResourceCheck(),
+			},
+			{
+				ResourceName:      "warpstream_acl.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateIdFunc: func(state *terraform.State) (string, error) {
+					// Get the ACL resource from the state
+					aclResource := state.RootModule().Resources["warpstream_acl.test"]
+					if aclResource == nil {
+						return "", fmt.Errorf("ACL resource not found in state")
+					}
+
+					attrs := aclResource.Primary.Attributes
+					importID := fmt.Sprintf("%s/%s/%s/%s/%s/%s/%s/%s",
+						attrs["virtual_cluster_id"],
+						attrs["resource_type"],
+						attrs["resource_name"],
+						attrs["pattern_type"],
+						attrs["principal"],
+						attrs["host"],
+						attrs["operation"],
+						attrs["permission_type"],
+					)
+					return importID, nil
+				},
 			},
 		},
 	})

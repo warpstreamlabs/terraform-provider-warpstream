@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -27,8 +29,9 @@ var (
 )
 
 var (
-	_ resource.Resource              = &aclResource{}
-	_ resource.ResourceWithConfigure = &aclResource{}
+	_ resource.Resource                = &aclResource{}
+	_ resource.ResourceWithConfigure   = &aclResource{}
+	_ resource.ResourceWithImportState = &aclResource{}
 )
 
 func NewACLResource() resource.Resource {
@@ -312,4 +315,40 @@ func (a *aclResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		resp.Diagnostics.AddError("Error deleting ACL", fmt.Sprintf("Failed to delete ACL: %s", err.Error()))
 		return
 	}
+}
+
+// ImportState imports an ACL resource into Terraform state.
+// The import ID format is: virtual_cluster_id/resource_type/resource_name/pattern_type/principal/host/operation/permission_type
+func (a *aclResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.Split(req.ID, "/")
+	if len(parts) != 8 {
+		resp.Diagnostics.AddError(
+			"Invalid Import ID",
+			"Expected an ID in the format: virtual_cluster_id/resource_type/resource_name/pattern_type/principal/host/operation/permission_type",
+		)
+		return
+	}
+
+	// Parse the import ID parts
+	virtualClusterID := parts[0]
+	resourceType := parts[1]
+	resourceName := parts[2]
+	patternType := parts[3]
+	principal := parts[4]
+	host := parts[5]
+	operation := parts[6]
+	permissionType := parts[7]
+
+	// Set all the attributes in state
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("virtual_cluster_id"), virtualClusterID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("resource_type"), resourceType)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("resource_name"), resourceName)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("pattern_type"), patternType)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal"), principal)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("host"), host)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("operation"), operation)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("permission_type"), permissionType)...)
+
+	// The ID will be computed during the subsequent Read() call
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
