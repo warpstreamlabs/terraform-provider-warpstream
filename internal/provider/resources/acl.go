@@ -318,7 +318,7 @@ func (a *aclResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 }
 
 // ImportState imports an ACL resource into Terraform state.
-// The import ID format is: virtual_cluster_id/resource_type/resource_name/pattern_type/principal/host/operation/permission_type
+// The import ID format is: virtual_cluster_id/resource_type/resource_name/pattern_type/principal/host/operation/permission_type.
 func (a *aclResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	parts := strings.Split(req.ID, "/")
 	if len(parts) != 8 {
