@@ -84,12 +84,12 @@ func (c *Client) CreateAgentKey(name, virtualClusterID string, readOnly bool) (*
 	if strings.HasPrefix(virtualClusterID, "vci_sr_") {
 		virtualClusterTypeOverride = VirtualClusterTypeSchemaRegistry
 	}
-	
+
 	principalKind := PrincipalKindAgent
 	if readOnly {
 		principalKind = PrincipalKindAgentReadOnly
 	}
-	
+
 	accessGrant := map[string]string{
 		"principal_kind": principalKind,
 		"resource_kind":  ResourceKindVirtualCluster,
