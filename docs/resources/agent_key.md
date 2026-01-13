@@ -36,6 +36,7 @@ resource "warpstream_virtual_cluster" "tf_example_agent_keys" {
 resource "warpstream_agent_key" "example_agent_key" {
   virtual_cluster_id = warpstream_virtual_cluster.tf_example_agent_keys.id
   name               = "akn_example_agent_key"
+  read_only          = false
 }
 ```
 
@@ -46,6 +47,10 @@ resource "warpstream_agent_key" "example_agent_key" {
 
 - `name` (String) Agent Key Name. Must be unique across WarpStream account. Must start with 'akn_' and contain underscores and alphanumeric characters only. Cannot be changed after creation.
 - `virtual_cluster_id` (String) Virtual Cluster ID associated with the Agent Key.
+
+### Optional
+
+- `read_only` (Boolean) Whether the Agent Key is read-only. Read-only keys have limited permissions and cannot perform write operations. Cannot be changed after creation.
 
 ### Read-Only
 

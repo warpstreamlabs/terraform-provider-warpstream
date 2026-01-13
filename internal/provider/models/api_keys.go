@@ -23,6 +23,7 @@ type AgentKey struct {
 	CreatedAt types.String `tfsdk:"created_at"`
 
 	VirtualClusterID types.String `tfsdk:"virtual_cluster_id"`
+	ReadOnly         types.Bool   `tfsdk:"read_only"`
 }
 
 func MapToApplicationKeys(apiKeysPtr *[]api.APIKey) *[]ApplicationKey {
@@ -64,6 +65,7 @@ func MapToAgentKeys(apiKeysPtr *[]api.APIKey, diags *diag.Diagnostics) (*[]Agent
 			Key:              types.StringValue(key.Key),
 			VirtualClusterID: types.StringValue(vcID),
 			CreatedAt:        types.StringValue(key.CreatedAt),
+			ReadOnly:         types.BoolValue(key.IsReadOnly()),
 		}
 
 		keyModels = append(keyModels, keyModel)

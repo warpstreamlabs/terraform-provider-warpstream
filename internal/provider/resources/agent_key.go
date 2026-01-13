@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -104,6 +105,15 @@ The WarpStream provider must be authenticated with an application key to consume
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"read_only": schema.BoolAttribute{
+				Description: "Whether the Agent Key is read-only. " +
+					"Read-only keys have limited permissions and cannot perform write operations. " +
+					"Cannot be changed after creation.",
+				Optional: true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.RequiresReplace(),
+				},
+			},
 		},
 	}
 }
@@ -119,9 +129,14 @@ func (r *agentKeyResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	// Create new agent key
+	readOnly := false
+	if !plan.ReadOnly.IsNull() {
+		readOnly = plan.ReadOnly.ValueBool()
+	}
 	apiKey, err := r.client.CreateAgentKey(
 		plan.Name.ValueString(),
 		plan.VirtualClusterID.ValueString(),
+		readOnly,
 	)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -153,6 +168,7 @@ func (r *agentKeyResource) Create(ctx context.Context, req resource.CreateReques
 		VirtualClusterID: types.StringValue(virtualClusterID),
 		Key:              types.StringValue(apiKey.Key),
 		CreatedAt:        types.StringValue(apiKey.CreatedAt),
+		ReadOnly:         types.BoolValue(apiKey.IsReadOnly()),
 	}
 
 	// Set state to fully populated data
@@ -198,6 +214,7 @@ func (r *agentKeyResource) Read(ctx context.Context, req resource.ReadRequest, r
 		Key:              types.StringValue(apiKey.Key),
 		VirtualClusterID: types.StringValue(virtualClusterID),
 		CreatedAt:        types.StringValue(apiKey.CreatedAt),
+		ReadOnly:         types.BoolValue(apiKey.IsReadOnly()),
 	}
 
 	// Set state
