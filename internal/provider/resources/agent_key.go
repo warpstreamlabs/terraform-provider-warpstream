@@ -111,6 +111,9 @@ The WarpStream provider must be authenticated with an application key to consume
 					"Read-only keys cannot be used to deploy Agents, they can only be used to interact with read-only APIs in WarpStream's external API, like hitting the hosted Prometheus endpoint for example. " +
 					"Cannot be changed after creation.",
 				Optional: true,
+				// This is important for backwards compatibility otherwise existing Agent Keys that
+				// were created before we added this field would see drift.
+				Computed: true,
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
 				},
