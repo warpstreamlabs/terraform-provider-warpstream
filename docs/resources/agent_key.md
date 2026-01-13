@@ -50,7 +50,7 @@ resource "warpstream_agent_key" "example_agent_key" {
 
 ### Optional
 
-- `read_only` (Boolean) Whether the Agent Key is read-only. Read-only keys have limited permissions and cannot perform write operations. Cannot be changed after creation.
+- `read_only` (Boolean) Whether the Agent Key is read-only. Read-only keys have limited permissions and cannot perform write operations. Read-only keys cannot be used to deploy Agents, they can only be used to interact with read-only APIs in WarpStream's external API, like hitting the hosted Prometheus endpoint for example. Cannot be changed after creation.
 
 ### Read-Only
 
