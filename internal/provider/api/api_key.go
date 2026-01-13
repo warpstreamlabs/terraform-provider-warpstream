@@ -14,6 +14,7 @@ import (
 const (
 	PrincipalKindAny           = "*"
 	PrincipalKindAgent         = "agent"
+	PrincipalKindAgentReadOnly = "agent_r"
 	PrincipalKindApplication   = "app"
 	ResourceKindVirtualCluster = "virtual_cluster"
 	ResourceKindAny            = "*"
@@ -54,6 +55,14 @@ func (a APIKey) GetVirtualClusterID(diags *diag.Diagnostics) (string, bool) {
 	return a.AccessGrants[0].ResourceID, true
 }
 
+func (a APIKey) IsReadOnly() bool {
+	if len(a.AccessGrants) == 0 {
+		return false
+	}
+
+	return a.AccessGrants[0].PrincipalKind == PrincipalKindAgentReadOnly
+}
+
 type APIKeyListResponse struct {
 	APIKeys []APIKey `json:"api_keys"`
 }
@@ -70,13 +79,19 @@ type APIKeyDeleteRequest struct {
 }
 
 // CreateAgentKey - Create new Agent Key. Supports creating keys with just one access grant for now.
-func (c *Client) CreateAgentKey(name, virtualClusterID string) (*APIKey, error) {
+func (c *Client) CreateAgentKey(name, virtualClusterID string, readOnly bool) (*APIKey, error) {
 	virtualClusterTypeOverride := ""
 	if strings.HasPrefix(virtualClusterID, "vci_sr_") {
 		virtualClusterTypeOverride = VirtualClusterTypeSchemaRegistry
 	}
+
+	principalKind := PrincipalKindAgent
+	if readOnly {
+		principalKind = PrincipalKindAgentReadOnly
+	}
+
 	accessGrant := map[string]string{
-		"principal_kind": PrincipalKindAgent,
+		"principal_kind": principalKind,
 		"resource_kind":  ResourceKindVirtualCluster,
 		"resource_id":    virtualClusterID,
 	}

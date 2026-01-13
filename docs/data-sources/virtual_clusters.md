@@ -51,4 +51,5 @@ Read-Only:
 - `id` (String)
 - `key` (String, Sensitive)
 - `name` (String)
+- `read_only` (Boolean)
 - `virtual_cluster_id` (String)

@@ -81,7 +81,7 @@ func filterAgentKeys(apiKeys []api.APIKey) []api.APIKey {
 
 	for _, apiKey := range apiKeys {
 		for _, grant := range apiKey.AccessGrants {
-			if grant.PrincipalKind == api.PrincipalKindAgent &&
+			if (grant.PrincipalKind == api.PrincipalKindAgent || grant.PrincipalKind == api.PrincipalKindAgentReadOnly) &&
 				grant.ResourceKind == api.ResourceKindVirtualCluster {
 				agentKeys = append(agentKeys, apiKey)
 				break

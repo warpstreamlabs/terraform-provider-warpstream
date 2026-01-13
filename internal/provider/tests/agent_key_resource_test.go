@@ -106,6 +106,60 @@ func TestAccAgentKeyResourceSchemaRegistryCluster(t *testing.T) {
 	})
 }
 
+func TestAccAgentKeyResourceReadOnly(t *testing.T) {
+	name := "akn_test_agent_key_readonly" + nameSuffix
+	vcID := "vci_test_virtual_cluster_id"
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAgentKeyResourceWithReadOnly(name, vcID, true),
+				Check:  testAccAgentKeyResourceCheckWithReadOnly(name, vcID, "true"),
+			},
+		},
+	})
+}
+
+func TestAccAgentKeyResourceNotReadOnly(t *testing.T) {
+	name := "akn_test_agent_key_not_readonly" + nameSuffix
+	vcID := "vci_test_virtual_cluster_id"
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAgentKeyResourceWithReadOnly(name, vcID, false),
+				Check:  testAccAgentKeyResourceCheckWithReadOnly(name, vcID, "false"),
+			},
+		},
+	})
+}
+
+func TestAccAgentKeyResourceReadOnlyRequiresReplace(t *testing.T) {
+	name := "akn_test_agent_key_replace" + nameSuffix
+	vcID := "vci_test_virtual_cluster_id"
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAgentKeyResourceWithReadOnly(name, vcID, false),
+				Check:  testAccAgentKeyResourceCheckWithReadOnly(name, vcID, "false"),
+			},
+			{
+				Config: testAccAgentKeyResourceWithReadOnly(name, vcID, true),
+				Check:  testAccAgentKeyResourceCheckWithReadOnly(name, vcID, "true"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_agent_key.test", plancheck.ResourceActionDestroyBeforeCreate),
+					},
+				},
+			},
+		},
+	})
+}
+
 func testAccAgentKeyResource(name, vcID string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_agent_key" "test" {
@@ -121,5 +175,25 @@ func testAccAgentKeyResourceCheck(name, vcID string) resource.TestCheckFunc {
 		resource.TestCheckResourceAttr("warpstream_agent_key.test", "virtual_cluster_id", vcID),
 		resource.TestCheckResourceAttrSet("warpstream_agent_key.test", "key"),
 		resource.TestCheckResourceAttrSet("warpstream_agent_key.test", "created_at"),
+	)
+}
+
+func testAccAgentKeyResourceWithReadOnly(name, vcID string, readOnly bool) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_agent_key" "test" {
+  name = "%s"
+  virtual_cluster_id = "%s"
+  read_only = %t
+}`, name, vcID, readOnly)
+}
+
+func testAccAgentKeyResourceCheckWithReadOnly(name, vcID, readOnly string) resource.TestCheckFunc {
+	return resource.ComposeAggregateTestCheckFunc(
+		resource.TestCheckResourceAttrSet("warpstream_agent_key.test", "id"),
+		resource.TestCheckResourceAttr("warpstream_agent_key.test", "name", name),
+		resource.TestCheckResourceAttr("warpstream_agent_key.test", "virtual_cluster_id", vcID),
+		resource.TestCheckResourceAttrSet("warpstream_agent_key.test", "key"),
+		resource.TestCheckResourceAttrSet("warpstream_agent_key.test", "created_at"),
+		resource.TestCheckResourceAttr("warpstream_agent_key.test", "read_only", readOnly),
 	)
 }

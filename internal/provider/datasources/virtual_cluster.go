@@ -57,6 +57,9 @@ var agentKeyDataSourceSchema = schema.NestedAttributeObject{
 		"created_at": schema.StringAttribute{
 			Computed: true,
 		},
+		"read_only": schema.BoolAttribute{
+			Computed: true,
+		},
 	},
 }
 
