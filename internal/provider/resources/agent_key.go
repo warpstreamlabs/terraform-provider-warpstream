@@ -107,7 +107,8 @@ The WarpStream provider must be authenticated with an application key to consume
 			},
 			"read_only": schema.BoolAttribute{
 				Description: "Whether the Agent Key is read-only. " +
-					"Read-only keys have limited permissions and cannot perform write operations. " +
+					"Read-only keys have limited permissions and cannot perform write operations.
+					Read-only keys cannot be used to deploy Agents, they can only be used to interact with read-only APIs in WarpStream's external API, like hitting the hosted Prometheus endpoint for example. " +
 					"Cannot be changed after creation.",
 				Optional: true,
 				PlanModifiers: []planmodifier.Bool{
