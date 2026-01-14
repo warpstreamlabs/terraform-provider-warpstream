@@ -5,20 +5,20 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 func TestAccTableFlowDataSource(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
 
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestTableFlowVcName()
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		vcName,
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeTableFlow,
 			Tier:   api.VirtualClusterTierPro,
@@ -102,10 +102,10 @@ func TestAccTableFlowDatasource_BYOCNotWork(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
 
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestTableFlowVcName()
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		vcName,
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeBYOC,
 			Tier:   api.VirtualClusterTierPro,

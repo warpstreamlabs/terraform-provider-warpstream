@@ -5,20 +5,20 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 func TestAccVirtualClusterDataSource(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
 
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestKafkaVcName()
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		vcName,
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeBYOC,
 			Tier:   api.VirtualClusterTierPro,
@@ -151,10 +151,10 @@ func TestAccVirtualClusterDatasource_SchemaRegistryNotWork(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
 
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestSchemaRegistryVcName()
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		vcName,
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeSchemaRegistry,
 			Tier:   api.VirtualClusterTierPro,

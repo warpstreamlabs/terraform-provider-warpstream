@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
@@ -17,12 +16,12 @@ import (
 )
 
 func TestAccTopicResourceMultipleConfigs(t *testing.T) {
-	var cluster = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	var vcName = utils.CreateTestKafkaVcName()
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccTopicAndClusterResource(cluster),
+				Config: testAccTopicAndClusterResource(vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -35,7 +34,7 @@ func TestAccTopicResourceMultipleConfigs(t *testing.T) {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
     tier = "dev"
 }
 
@@ -54,7 +53,7 @@ resource "warpstream_topic" "topic" {
 	value = "604800000"
   }
 }
-				`, cluster),
+				`, vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -72,7 +71,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
     tier = "dev"
 }
 
@@ -91,7 +90,7 @@ resource "warpstream_topic" "topic" {
 	value = "604800000"
   }
 }
-				`, cluster),
+				`, vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -105,7 +104,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
     tier = "dev"
 }
 
@@ -124,7 +123,7 @@ resource "warpstream_topic" "topic" {
 	value = "delete"
   }
 }
-				`, cluster),
+				`, vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -138,7 +137,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
     tier = "dev"
 }
 
@@ -162,7 +161,7 @@ resource "warpstream_topic" "topic" {
 	value = "delete"
   }
 }
-				`, cluster),
+				`, vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -181,7 +180,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
     tier = "dev"
 }
 
@@ -200,7 +199,7 @@ resource "warpstream_topic" "topic" {
 	value = "delete"
   }
 }
-				`, cluster),
+				`, vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -216,7 +215,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
     tier = "dev"
 }
 
@@ -240,7 +239,7 @@ resource "warpstream_topic" "topic" {
 	value = "604800000"
   }
 }
-				`, cluster),
+				`, vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -260,7 +259,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
     tier = "dev"
 }
 
@@ -284,7 +283,7 @@ resource "warpstream_topic" "topic" {
 	value = "604800000"
   }
 }
-				`, cluster),
+				`, vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -299,14 +298,13 @@ resource "warpstream_topic" "topic" {
 }
 
 func TestAccTopicResourceDeletePlan(t *testing.T) {
-	virtualClusterRandString := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	virtualClusterName := fmt.Sprintf("vcn_%s", virtualClusterRandString)
+	vcName := utils.CreateTestKafkaVcName()
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create topic
 			{
-				Config: testAccTopicAndClusterResource(virtualClusterRandString),
+				Config: testAccTopicAndClusterResource(vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -322,7 +320,7 @@ func TestAccTopicResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
-					virtualCluster, err := client.FindVirtualCluster(virtualClusterName)
+					virtualCluster, err := client.FindVirtualCluster(vcName)
 					require.NoError(t, err)
 
 					err = client.DeleteTopic(virtualCluster.ID, "test")
@@ -339,7 +337,7 @@ func TestAccTopicResourceDeletePlan(t *testing.T) {
 			},
 			// Create topic
 			{
-				Config: testAccTopicAndClusterResource(virtualClusterRandString),
+				Config: testAccTopicAndClusterResource(vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -355,7 +353,7 @@ func TestAccTopicResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
-					virtualCluster, err := client.FindVirtualCluster(virtualClusterName)
+					virtualCluster, err := client.FindVirtualCluster(vcName)
 					require.NoError(t, err)
 
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
@@ -376,12 +374,12 @@ func TestAccTopicResourceDeletePlan(t *testing.T) {
 }
 
 func TestAccTopicResource(t *testing.T) {
-	var cluster = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	var vcName = utils.CreateTestKafkaVcName()
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccTopicAndClusterResource(cluster),
+				Config: testAccTopicAndClusterResource(vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 				),
@@ -394,7 +392,7 @@ func TestAccTopicResource(t *testing.T) {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
     tier = "dev"
 }
 
@@ -409,7 +407,7 @@ resource "warpstream_topic" "topic" {
 	value = "604800000"
   }
 }
-				`, cluster),
+				`, vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 					resource.TestCheckNoResourceAttr("warpstream_topic.topic", "config.1.name"),
@@ -426,16 +424,16 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
 	tier = "dev"
 }
-				`, cluster),
+				`, vcName),
 				ExpectError: regexp.MustCompile("deletion protection enabled"),
 			},
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
 	tier = "dev"
 }
 
@@ -450,7 +448,7 @@ resource "warpstream_topic" "topic" {
 	value = "604800000"
   }
 }
-				`, cluster),
+				`, vcName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
 					resource.TestCheckNoResourceAttr("warpstream_topic.topic", "config.1.name"),
@@ -467,34 +465,35 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "%s"
 	tier = "dev"
 }
-				`, cluster),
+				`, vcName),
 			},
 		},
 	})
 }
 
-func testAccTopicAndClusterResource(clusterName string) string {
+func testAccTopicAndClusterResource(vcName string) string {
 	return providerConfig + fmt.Sprintf(`
 	resource "warpstream_virtual_cluster" "default" {
-		name = "vcn_%s"
+		name = "%s"
         tier = "dev"
 	}
 	resource "warpstream_topic" "topic" {
 	  topic_name         = "test"
 	  partition_count    = 1
 	  virtual_cluster_id = warpstream_virtual_cluster.default.id
-	}`, clusterName)
+	}`, vcName)
 }
 
 func TestAccTopicImport(t *testing.T) {
+	vcName := utils.CreateTestKafkaVcName()
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccTopicAndClusterResource(acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)),
+				Config: testAccTopicAndClusterResource(vcName),
 			},
 			{
 				ImportState:       true,

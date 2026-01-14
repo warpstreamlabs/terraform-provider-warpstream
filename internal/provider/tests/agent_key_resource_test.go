@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 func TestAccAgentKeyResourceDeletePlan(t *testing.T) {
@@ -74,10 +74,10 @@ func TestAccAgentKeyResourceSchemaRegistryCluster(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
 
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestSchemaRegistryVcName()
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		vcName,
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeSchemaRegistry,
 			Tier:   api.VirtualClusterTierPro,
@@ -93,7 +93,7 @@ func TestAccAgentKeyResourceSchemaRegistryCluster(t *testing.T) {
 		}
 	}()
 
-	name := "akn_test_agent_key" + acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	name := "akn_test_agent_key_" + nameSuffix
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

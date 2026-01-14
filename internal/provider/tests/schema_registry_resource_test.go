@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/stretchr/testify/require"
@@ -12,21 +11,21 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
-func testSchemaRegistryResource(nameSuffix string) string {
+func testSchemaRegistryResource(vcName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_schema_registry" "test" {
-  name = "vcn_sr_test_%s"
-}`, nameSuffix)
+  name = "%s"
+}`, vcName)
 }
 
 func TestAccSchemaRegistryResourceDeletePlan(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestSchemaRegistryVcName()
 	resourceName := "warpstream_schema_registry.test"
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testSchemaRegistryResource(vcNameSuffix),
+				Config: testSchemaRegistryResource(vcName),
 				Check:  testCheckSchemaRegistry(resourceName),
 			},
 			{
@@ -34,7 +33,7 @@ func TestAccSchemaRegistryResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
-					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_sr_test_%s", vcNameSuffix))
+					virtualCluster, err := client.FindVirtualCluster(vcName)
 					require.NoError(t, err)
 
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
@@ -54,13 +53,13 @@ func TestAccSchemaRegistryResourceDeletePlan(t *testing.T) {
 }
 
 func TestAccSchemaRegistryResource(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestSchemaRegistryVcName()
 	resourceName := "warpstream_schema_registry.test"
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testSchemaRegistryResource(vcNameSuffix),
+				Config: testSchemaRegistryResource(vcName),
 				Check:  testCheckSchemaRegistry(resourceName),
 			},
 		},
@@ -78,12 +77,12 @@ func testCheckSchemaRegistry(resourceName string) resource.TestCheckFunc {
 }
 
 func TestAccSchemaRegistryImport(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestSchemaRegistryVcName()
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testSchemaRegistryResource(vcNameSuffix),
+				Config: testSchemaRegistryResource(vcName),
 			},
 			{
 				ImportState:       true,

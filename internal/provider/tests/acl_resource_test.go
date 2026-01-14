@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
 func TestAccACLResource(t *testing.T) {
-	vcName := "vcn_acl_" + acctest.RandStringFromCharSet(8, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestKafkaVcNameWithNamespace("acl")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -86,7 +86,7 @@ func testAccACLResourceCheck() resource.TestCheckFunc {
 }
 
 func TestAccACLResourceDeletePlan(t *testing.T) {
-	vcName := "vcn_acl_" + acctest.RandStringFromCharSet(8, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestKafkaVcNameWithNamespace("acl")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -140,7 +140,7 @@ func TestAccACLResourceDeletePlan(t *testing.T) {
 }
 
 func TestAccACLResourceReplaceOnChange(t *testing.T) {
-	vcName := "vcn_acl_" + acctest.RandStringFromCharSet(8, acctest.CharSetAlphaNum)
+	vcName := utils.CreateTestKafkaVcNameWithNamespace("acl")
 
 	var originalACLID string
 

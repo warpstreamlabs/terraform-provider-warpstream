@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
@@ -46,4 +47,23 @@ func TestCheckResourceAttrMatchesRegex(pathToAttr, attr string, regex string) re
 			return nil
 		},
 	)
+}
+
+func CreateTestKafkaVcName() string {
+	return fmt.Sprintf("vcn_test_acc_%s", acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+}
+
+func CreateTestKafkaVcNameWithNamespace(namespace string) string {
+	if namespace == "" {
+		return CreateTestKafkaVcName()
+	}
+	return fmt.Sprintf("vcn_test_acc_%s_%s", namespace, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+}
+
+func CreateTestSchemaRegistryVcName() string {
+	return fmt.Sprintf("vcn_sr_test_acc_%s", acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+}
+
+func CreateTestTableFlowVcName() string {
+	return fmt.Sprintf("vcn_dl_test_acc_%s", acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
 }
