@@ -284,3 +284,49 @@ resource "warpstream_virtual_cluster" "test" {
   }
 }`, vcNameSuffix, softDeleteEnable, ttlMillis)
 }
+
+func TestAccVirtualClusterResourceWithDefaultTopicType(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create without default_topic_type (should be null)
+			{
+				Config: testAccVirtualClusterResource(vcNameSuffix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "configuration.default_topic_type"),
+				),
+			},
+			// Test invalid value is rejected
+			{
+				Config:      testAccVirtualClusterResource_withDefaultTopicType(vcNameSuffix, "invalid"),
+				ExpectError: regexp.MustCompile("Attribute configuration.default_topic_type value must be one of"),
+			},
+			// Update to set default_topic_type to "classic"
+			{
+				Config: testAccVirtualClusterResource_withDefaultTopicType(vcNameSuffix, "classic"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_topic_type", "classic"),
+				),
+			},
+			// // Update to set default_topic_type to "lightning"
+			{
+				Config: testAccVirtualClusterResource_withDefaultTopicType(vcNameSuffix, "lightning"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_topic_type", "lightning"),
+				),
+			},
+		},
+	})
+}
+
+func testAccVirtualClusterResource_withDefaultTopicType(vcNameSuffix string, topicType string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  configuration = {
+    default_topic_type = "%s"
+  }
+}`, vcNameSuffix, topicType)
+}

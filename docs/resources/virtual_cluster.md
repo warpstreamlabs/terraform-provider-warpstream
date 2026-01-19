@@ -110,6 +110,7 @@ Optional:
 - `auto_create_topic` (Boolean) Enable topic autocreation feature, defaults to `true`.
 - `default_num_partitions` (Number) Number of partitions created by default.
 - `default_retention_millis` (Number) Default retention for topics that are created automatically using Kafka's topic auto-creation feature.
+- `default_topic_type` (String) Default topic type for new topics. Valid values are `classic` or `lightning`. If not specified, the WarpStream API defaults to `classic`. See [Lightning Topics](https://docs.warpstream.com/warpstream/kafka/advanced-agent-deployment-options/low-latency-clusters/lightning-topics)
 - `enable_acl_shadowing` (Boolean) Enable ACL shadowing, defaults to `false`. See [ACL Shadowing](https://docs.warpstream.com/warpstream/kafka/manage-security/configure-acls#acl-shadowing)
 - `enable_acls` (Boolean) Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)
 - `enable_deletion_protection` (Boolean) Enable deletion protection, defaults to `false`. If set to true, it is impossible to delete this cluster. enable_deletion_protection needs to be set to false before deleting the cluster.
