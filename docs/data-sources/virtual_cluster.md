@@ -87,6 +87,7 @@ Read-Only:
 - `auto_create_topic` (Boolean)
 - `default_num_partitions` (Number)
 - `default_retention_millis` (Number)
+- `default_topic_type` (String)
 - `enable_acl_shadowing` (Boolean)
 - `enable_acls` (Boolean)
 - `enable_deletion_protection` (Boolean)

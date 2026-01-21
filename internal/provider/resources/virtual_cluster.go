@@ -230,6 +230,14 @@ The WarpStream provider must be authenticated with an application key to consume
 						Computed:    true,
 						Default:     int64default.StaticInt64(86400000),
 					},
+					"default_topic_type": schema.StringAttribute{
+						Description: "Default topic type for new topics. Valid values are `classic` or `lightning`. If not specified, the WarpStream API defaults to `classic`. See [Lightning Topics](https://docs.warpstream.com/warpstream/kafka/advanced-agent-deployment-options/low-latency-clusters/lightning-topics)",
+						Optional:    true,
+						Computed:    true,
+						Validators: []validator.String{
+							stringvalidator.OneOf("classic", "lightning"),
+						},
+					},
 					"enable_acls": schema.BoolAttribute{
 						Description: "Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)",
 						Optional:    true,
@@ -483,7 +491,34 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
+	// Preserve the original default_topic_type value if it was null
+	var originalConfig models.VirtualClusterConfiguration
+	var hadNullDefaultTopicType bool
+	if !state.Configuration.IsNull() {
+		diags = state.Configuration.As(ctx, &originalConfig, basetypes.ObjectAsOptions{})
+		if !diags.HasError() {
+			hadNullDefaultTopicType = originalConfig.DefaultTopicType.IsNull()
+		}
+	}
+
 	r.readConfiguration(ctx, *cluster, &resp.State, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Preserve null value for default_topic_type if it was null in the previous state.
+	// The API returns "classic" as the default, but we want to keep it as null in the
+	// Terraform state to distinguish between "explicitly set to classic" and "using default".
+	if hadNullDefaultTopicType {
+		var cfgState models.VirtualClusterConfiguration
+		diags = resp.State.GetAttribute(ctx, path.Root("configuration"), &cfgState)
+		if !diags.HasError() {
+			cfgState.DefaultTopicType = types.StringNull()
+			diags = resp.State.SetAttribute(ctx, path.Root("configuration"), cfgState)
+			resp.Diagnostics.Append(diags...)
+		}
+	}
+
 	r.readTags(ctx, *cluster, &resp.State, &resp.Diagnostics)
 }
 
@@ -585,6 +620,11 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
 		EnableSoftTopicDeletion:  types.BoolValue(cfg.EnableSoftTopicDeletion),
 	}
+	if cfg.DefaultTopicType != nil {
+		cfgState.DefaultTopicType = types.StringValue(*cfg.DefaultTopicType)
+	} else {
+		cfgState.DefaultTopicType = types.StringNull()
+	}
 	if cfg.SoftTopicDeletionTTLMillis != nil {
 		cfgState.SoftTopicDeletionTTL = types.Int64Value(*cfg.SoftTopicDeletionTTLMillis)
 	} else {
@@ -628,6 +668,10 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 		EnableDeletionProtection: cfgPlan.EnableDeletionProtection.ValueBool(),
 		EnableSoftTopicDeletion:  cfgPlan.EnableSoftTopicDeletion.ValueBool(),
 	}
+	if !cfgPlan.DefaultTopicType.IsNull() && !cfgPlan.DefaultTopicType.IsUnknown() {
+		topicTypeValue := cfgPlan.DefaultTopicType.ValueString()
+		cfg.DefaultTopicType = &topicTypeValue
+	}
 	if !cfgPlan.SoftTopicDeletionTTL.IsNull() && !cfgPlan.SoftTopicDeletionTTL.IsUnknown() {
 		ttlValue := cfgPlan.SoftTopicDeletionTTL.ValueInt64()
 		cfg.SoftTopicDeletionTTLMillis = &ttlValue
@@ -645,6 +689,22 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 
 	// Retrieve updated virtual cluster configuration
 	r.readConfiguration(ctx, cluster, state, respDiags)
+	if respDiags.HasError() {
+		return
+	}
+
+	// Preserve null value for default_topic_type if it wasn't explicitly set in the plan.
+	// The API returns "classic" as the default, but we want to keep it as null in the
+	// Terraform state to distinguish between "explicitly set to classic" and "using default".
+	if cfgPlan.DefaultTopicType.IsNull() || cfgPlan.DefaultTopicType.IsUnknown() {
+		var cfgState models.VirtualClusterConfiguration
+		diags = state.GetAttribute(ctx, path.Root("configuration"), &cfgState)
+		if !diags.HasError() {
+			cfgState.DefaultTopicType = types.StringNull()
+			diags = state.SetAttribute(ctx, path.Root("configuration"), cfgState)
+			respDiags.Append(diags...)
+		}
+	}
 }
 
 func (r *virtualClusterResource) readTags(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {

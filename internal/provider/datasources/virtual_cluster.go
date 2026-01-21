@@ -127,6 +127,9 @@ The WarpStream provider must be authenticated with an application key to read th
 					"default_retention_millis": schema.Int64Attribute{
 						Computed: true,
 					},
+					"default_topic_type": schema.StringAttribute{
+						Computed: true,
+					},
 					"enable_acls": schema.BoolAttribute{
 						Computed: true,
 					},
@@ -254,6 +257,11 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		cfgState.SoftTopicDeletionTTL = types.Int64Value(*cfg.SoftTopicDeletionTTLMillis)
 	} else {
 		cfgState.SoftTopicDeletionTTL = types.Int64Value(86400000)
+	}
+	if cfg.DefaultTopicType != nil {
+		cfgState.DefaultTopicType = types.StringValue(*cfg.DefaultTopicType)
+	} else {
+		cfgState.DefaultTopicType = types.StringNull()
 	}
 
 	resp.Diagnostics.AddWarning("Virtual Cluster Tier", fmt.Sprintf("Tier: %s", cfg.Tier))
