@@ -108,8 +108,8 @@ func testAccVCDataSourceCheck_byoc(
 	agentKeyName string,
 ) resource.TestCheckFunc {
 	softTopicDeletionTTL := int64(86400000)
-	if cfg.SoftTopicDeletionTTLMillis != nil {
-		softTopicDeletionTTL = *cfg.SoftTopicDeletionTTLMillis
+	if cfg.SoftTopicDeletionTTL != nil {
+		softTopicDeletionTTL = cfg.SoftTopicDeletionTTL.Milliseconds()
 	}
 
 	return resource.ComposeAggregateTestCheckFunc(
