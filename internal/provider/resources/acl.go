@@ -148,6 +148,37 @@ func (a *aclResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
+	// Check if ACL already exists (duplicate detection)
+	aclToCheck := api.ACLRequest{
+		ResourceType:   plan.ResourceType.ValueString(),
+		ResourceName:   plan.ResourceName.ValueString(),
+		PatternType:    plan.PatternType.ValueString(),
+		Principal:      plan.Principal.ValueString(),
+		Host:           plan.Host.ValueString(),
+		Operation:      plan.Operation.ValueString(),
+		PermissionType: plan.PermissionType.ValueString(),
+	}
+
+	existingACL, err := a.client.GetACL(plan.VirtualClusterID.ValueString(), aclToCheck)
+	if err == nil {
+		// ACL already exists - this is a duplicate
+		resp.Diagnostics.AddError(
+			"Duplicate ACL Configuration",
+			formatDuplicateACLError(plan.VirtualClusterID.ValueString(), existingACL),
+		)
+		return
+	}
+	if !errors.Is(err, api.ErrNotFound) {
+		// Unexpected error during duplicate check
+		resp.Diagnostics.AddError(
+			"Error checking for existing ACL",
+			fmt.Sprintf("Failed to verify ACL uniqueness: %s", err.Error()),
+		)
+		return
+	}
+
+	// If we reach here, ACL doesn't exist (err == ErrNotFound) - proceed with creation
+
 	// Create new ACL
 	acl, err := a.client.CreateACL(plan.VirtualClusterID.ValueString(), api.ACLRequest{
 		ResourceType:   plan.ResourceType.ValueString(),
@@ -173,7 +204,7 @@ func (a *aclResource) Create(ctx context.Context, req resource.CreateRequest, re
 		PermissionType: acl.PermissionType,
 	}
 
-	// Describe the created ACL
+	// Verify the created ACL
 	acl, err = a.client.GetACL(plan.VirtualClusterID.ValueString(), aclToDescribe)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading ACL after creation", fmt.Sprintf("Failed to read ACL after creation: %s", err.Error()))
@@ -351,4 +382,40 @@ func (a *aclResource) ImportState(ctx context.Context, req resource.ImportStateR
 
 	// The ID will be computed during the subsequent Read() call
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// formatDuplicateACLError creates a detailed error message for duplicate ACL detection.
+func formatDuplicateACLError(vcID string, acl *api.ACLResponse) string {
+	return fmt.Sprintf(
+		"An ACL with these exact properties already exists in the virtual cluster.\n\n"+
+			"WarpStream enforces ACL uniqueness based on all identifying fields. "+
+			"The following ACL already exists:\n"+
+			"  Resource Type: %s\n"+
+			"  Resource Name: %s\n"+
+			"  Pattern Type: %s\n"+
+			"  Principal: %s\n"+
+			"  Host: %s\n"+
+			"  Operation: %s\n"+
+			"  Permission Type: %s\n\n"+
+			"To resolve this:\n"+
+			"  1. Check your Terraform configuration for duplicate ACL resources\n"+
+			"  2. If the ACL was created outside Terraform, import it using:\n"+
+			"     terraform import warpstream_acl.<name> %s/%s/%s/%s/%s/%s/%s/%s\n"+
+			"  3. Remove any duplicate resource definitions from your configuration",
+		acl.ResourceType,
+		acl.ResourceName,
+		acl.PatternType,
+		acl.Principal,
+		acl.Host,
+		acl.Operation,
+		acl.PermissionType,
+		vcID,
+		acl.ResourceType,
+		acl.ResourceName,
+		acl.PatternType,
+		acl.Principal,
+		acl.Host,
+		acl.Operation,
+		acl.PermissionType,
+	)
 }
