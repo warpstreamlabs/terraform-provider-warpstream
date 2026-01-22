@@ -253,8 +253,8 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
 		EnableSoftTopicDeletion:  types.BoolValue(cfg.EnableSoftTopicDeletion),
 	}
-	if cfg.SoftTopicDeletionTTLMillis != nil {
-		cfgState.SoftTopicDeletionTTL = types.Int64Value(*cfg.SoftTopicDeletionTTLMillis)
+	if cfg.SoftTopicDeletionTTL != nil {
+		cfgState.SoftTopicDeletionTTL = types.Int64Value(cfg.SoftTopicDeletionTTL.Milliseconds())
 	} else {
 		cfgState.SoftTopicDeletionTTL = types.Int64Value(86400000)
 	}

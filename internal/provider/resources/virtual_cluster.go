@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -14,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -209,6 +211,9 @@ The WarpStream provider must be authenticated with an application key to consume
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.StringType,
+				PlanModifiers: []planmodifier.Map{
+					mapplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
@@ -236,6 +241,9 @@ The WarpStream provider must be authenticated with an application key to consume
 						Computed:    true,
 						Validators: []validator.String{
 							stringvalidator.OneOf("classic", "lightning"),
+						},
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
 						},
 					},
 					"enable_acls": schema.BoolAttribute{
@@ -625,8 +633,8 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	} else {
 		cfgState.DefaultTopicType = types.StringNull()
 	}
-	if cfg.SoftTopicDeletionTTLMillis != nil {
-		cfgState.SoftTopicDeletionTTL = types.Int64Value(*cfg.SoftTopicDeletionTTLMillis)
+	if cfg.SoftTopicDeletionTTL != nil {
+		cfgState.SoftTopicDeletionTTL = types.Int64Value(cfg.SoftTopicDeletionTTL.Milliseconds())
 	} else {
 		cfgState.SoftTopicDeletionTTL = types.Int64Value(86400000)
 	}
@@ -674,7 +682,8 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 	}
 	if !cfgPlan.SoftTopicDeletionTTL.IsNull() && !cfgPlan.SoftTopicDeletionTTL.IsUnknown() {
 		ttlValue := cfgPlan.SoftTopicDeletionTTL.ValueInt64()
-		cfg.SoftTopicDeletionTTLMillis = &ttlValue
+		duration := time.Duration(ttlValue) * time.Millisecond
+		cfg.SoftTopicDeletionTTL = &duration
 	}
 
 	cfg.Tier = plan.Tier.ValueString()
