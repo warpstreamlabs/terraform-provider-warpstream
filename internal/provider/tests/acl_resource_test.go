@@ -239,11 +239,40 @@ func TestAccACLResourceDuplicate(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
+				// Step 1: Create first ACL successfully
+				Config: testAccACLResourceSingle(vcName),
+				Check:  testAccACLResourceCheck(),
+			},
+			{
+				// Step 2: Try to create duplicate ACL - should fail
 				Config:      testAccACLResourceDuplicate(vcName),
 				ExpectError: regexp.MustCompile("Duplicate ACL Configuration"),
 			},
 		},
 	})
+}
+
+func testAccACLResourceSingle(vcName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "acl_vc" {
+  name = "%s"
+  tier = "dev"
+  configuration = {
+    enable_acls = true
+  }
+}
+
+resource "warpstream_acl" "test" {
+  virtual_cluster_id = warpstream_virtual_cluster.acl_vc.id
+  host = "*"
+  principal     = "User:alice"
+  operation     = "READ"
+  permission_type    = "ALLOW"
+  resource_type = "TOPIC"
+  resource_name = "orders"
+  pattern_type  = "LITERAL"
+}
+`, vcName)
 }
 
 func testAccACLResourceDuplicate(vcName string) string {
@@ -256,7 +285,7 @@ resource "warpstream_virtual_cluster" "acl_vc" {
   }
 }
 
-resource "warpstream_acl" "test1" {
+resource "warpstream_acl" "test" {
   virtual_cluster_id = warpstream_virtual_cluster.acl_vc.id
   host = "*"
   principal     = "User:alice"
@@ -267,7 +296,7 @@ resource "warpstream_acl" "test1" {
   pattern_type  = "LITERAL"
 }
 
-resource "warpstream_acl" "test2" {
+resource "warpstream_acl" "test_duplicate" {
   virtual_cluster_id = warpstream_virtual_cluster.acl_vc.id
   host = "*"
   principal     = "User:alice"
