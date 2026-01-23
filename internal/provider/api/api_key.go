@@ -83,6 +83,8 @@ func (c *Client) CreateAgentKey(name, virtualClusterID string, readOnly bool) (*
 	virtualClusterTypeOverride := ""
 	if strings.HasPrefix(virtualClusterID, "vci_sr_") {
 		virtualClusterTypeOverride = VirtualClusterTypeSchemaRegistry
+	} else if strings.HasPrefix(virtualClusterID, "vci_dl_") {
+		virtualClusterTypeOverride = VirtualClusterTypeTableFlow
 	}
 
 	principalKind := PrincipalKindAgent
