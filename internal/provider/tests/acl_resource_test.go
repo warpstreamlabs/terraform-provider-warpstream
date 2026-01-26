@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -229,4 +230,147 @@ func TestAccACLResourceImport(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestAccACLResourceDuplicate(t *testing.T) {
+	vcName := "vcn_acl_" + acctest.RandStringFromCharSet(8, acctest.CharSetAlphaNum)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				// Step 1: Create first ACL successfully
+				Config: testAccACLResourceSingle(vcName),
+				Check:  testAccACLResourceCheck(),
+			},
+			{
+				// Step 2: Try to create duplicate ACL - should fail
+				Config:      testAccACLResourceDuplicate(vcName),
+				ExpectError: regexp.MustCompile("Duplicate ACL Configuration"),
+			},
+		},
+	})
+}
+
+func testAccACLResourceSingle(vcName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "acl_vc" {
+  name = "%s"
+  tier = "dev"
+  configuration = {
+    enable_acls = true
+  }
+}
+
+resource "warpstream_acl" "test" {
+  virtual_cluster_id = warpstream_virtual_cluster.acl_vc.id
+  host = "*"
+  principal     = "User:alice"
+  operation     = "READ"
+  permission_type    = "ALLOW"
+  resource_type = "TOPIC"
+  resource_name = "orders"
+  pattern_type  = "LITERAL"
+}
+`, vcName)
+}
+
+func testAccACLResourceDuplicate(vcName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "acl_vc" {
+  name = "%s"
+  tier = "dev"
+  configuration = {
+    enable_acls = true
+  }
+}
+
+resource "warpstream_acl" "test" {
+  virtual_cluster_id = warpstream_virtual_cluster.acl_vc.id
+  host = "*"
+  principal     = "User:alice"
+  operation     = "READ"
+  permission_type    = "ALLOW"
+  resource_type = "TOPIC"
+  resource_name = "orders"
+  pattern_type  = "LITERAL"
+}
+
+resource "warpstream_acl" "test_duplicate" {
+  virtual_cluster_id = warpstream_virtual_cluster.acl_vc.id
+  host = "*"
+  principal     = "User:alice"
+  operation     = "READ"
+  permission_type    = "ALLOW"
+  resource_type = "TOPIC"
+  resource_name = "orders"
+  pattern_type  = "LITERAL"
+}
+`, vcName)
+}
+
+func TestAccACLResourceMultipleUnique(t *testing.T) {
+	vcName := "vcn_acl_" + acctest.RandStringFromCharSet(8, acctest.CharSetAlphaNum)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccACLResourceMultipleUnique(vcName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("warpstream_acl.read", "id"),
+					resource.TestCheckResourceAttrSet("warpstream_acl.write", "id"),
+					resource.TestCheckResourceAttrSet("warpstream_acl.describe", "id"),
+					resource.TestCheckResourceAttr("warpstream_acl.read", "operation", "READ"),
+					resource.TestCheckResourceAttr("warpstream_acl.write", "operation", "WRITE"),
+					resource.TestCheckResourceAttr("warpstream_acl.describe", "operation", "DESCRIBE"),
+				),
+			},
+		},
+	})
+}
+
+func testAccACLResourceMultipleUnique(vcName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "acl_vc" {
+  name = "%s"
+  tier = "dev"
+  configuration = {
+    enable_acls = true
+  }
+}
+
+resource "warpstream_acl" "read" {
+  virtual_cluster_id = warpstream_virtual_cluster.acl_vc.id
+  host = "*"
+  principal     = "User:alice"
+  operation     = "READ"
+  permission_type    = "ALLOW"
+  resource_type = "TOPIC"
+  resource_name = "orders"
+  pattern_type  = "LITERAL"
+}
+
+resource "warpstream_acl" "write" {
+  virtual_cluster_id = warpstream_virtual_cluster.acl_vc.id
+  host = "*"
+  principal     = "User:alice"
+  operation     = "WRITE"
+  permission_type    = "ALLOW"
+  resource_type = "TOPIC"
+  resource_name = "orders"
+  pattern_type  = "LITERAL"
+}
+
+resource "warpstream_acl" "describe" {
+  virtual_cluster_id = warpstream_virtual_cluster.acl_vc.id
+  host = "*"
+  principal     = "User:alice"
+  operation     = "DESCRIBE"
+  permission_type    = "ALLOW"
+  resource_type = "TOPIC"
+  resource_name = "orders"
+  pattern_type  = "LITERAL"
+}
+`, vcName)
 }
