@@ -156,3 +156,75 @@ func (v aclsExclusionValidator) ValidateObject(ctx context.Context, req validato
 func ACLModeMutualExclusion() validator.Object {
 	return aclsExclusionValidator{}
 }
+
+// billingGrantValidator ensures that:
+// 1. If grant_type is "billing", workspace_id must be "-"
+// 2. If workspace_id is "-", grant_type must be "billing"
+type billingGrantValidator struct{}
+
+func (v billingGrantValidator) Description(ctx context.Context) string {
+	return "Ensures that billing grant type is always associated with the empty workspace ID '-' and vice versa."
+}
+
+func (v billingGrantValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v billingGrantValidator) ValidateObject(ctx context.Context, req validator.ObjectRequest, resp *validator.ObjectResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	attrs := req.ConfigValue.Attributes()
+
+	workspaceIDAttr, ok := attrs["workspace_id"]
+	if !ok {
+		return
+	}
+	workspaceID, ok := workspaceIDAttr.(types.String)
+	if !ok || workspaceID.IsUnknown() {
+		return
+	}
+
+	grantTypeAttr, ok := attrs["grant_type"]
+	if !ok {
+		return
+	}
+	grantType, ok := grantTypeAttr.(types.String)
+	if !ok || grantType.IsUnknown() {
+		return
+	}
+
+	wsID := workspaceID.ValueString()
+	gt := grantType.ValueString()
+
+	// If grant_type is "billing", workspace_id must be "-"
+	if gt == "billing" && wsID != "-" {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid Billing Grant Configuration",
+			fmt.Sprintf(
+				"The 'billing' grant type must be assigned with the empty workspace_id '-'. Received workspace_id=%q.",
+				wsID,
+			),
+		)
+		return
+	}
+
+	// If workspace_id is "-", grant_type must be "billing"
+	if wsID == "-" && gt != "billing" {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid Billing Grant Configuration",
+			fmt.Sprintf(
+				"The empty workspace ID '-' can only be assigned with the 'billing' grant type. Received grant_type=%q.",
+				gt,
+			),
+		)
+		return
+	}
+}
+
+func BillingGrantConstraint() validator.Object {
+	return billingGrantValidator{}
+}

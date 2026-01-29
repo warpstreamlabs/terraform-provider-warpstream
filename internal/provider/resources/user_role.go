@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -23,7 +24,7 @@ var (
 	_ resource.Resource              = &userRoleResource{}
 	_ resource.ResourceWithConfigure = &userRoleResource{}
 	// Names of the managed grants that can be assigned to a role inside a workspace.
-	ManagedGrantNames = []string{"admin", "read_only"}
+	ManagedGrantNames = []string{"admin", "read_only", "billing"}
 )
 
 // NewUserRoleResource is a helper function to simplify the provider implementation.
@@ -64,21 +65,25 @@ func (r *userRoleResource) Metadata(_ context.Context, req resource.MetadataRequ
 var grantSchema = schema.NestedAttributeObject{
 	Attributes: map[string]schema.Attribute{
 		"workspace_id": schema.StringAttribute{
-			Description: "ID of a workspace that the role has access to.",
+			Description: "ID of a workspace that the role has access to. " +
+				"The billing grant type can only be associated with the empty workspace ID '-' and vice-versa.",
 			Validators: []validator.String{
-				stringvalidator.Any(utils.StartsWith("wi_"), stringvalidator.OneOf("*")),
+				stringvalidator.Any(utils.StartsWith("wi_"), stringvalidator.OneOf("*", "-")),
 			},
 			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			Required:      true,
 		},
 		"grant_type": schema.StringAttribute{
-			Description:   "Level of access inside the workspace. Current options are: " + strings.Join(ManagedGrantNames, " and "),
+			Description:   "Level of access inside the workspace. Current options are: " + strings.Join(ManagedGrantNames, ", "),
 			Validators:    []validator.String{stringvalidator.OneOf(ManagedGrantNames...)},
 			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			// For now a grant is defined using a grant type only.
 			// In the future we may loosen the schema to so that grants can be defined using either a just grant type or more detailed grant attributes.
 			Required: true,
 		},
+	},
+	Validators: []validator.Object{
+		objectvalidator.All(utils.BillingGrantConstraint()),
 	},
 }
 

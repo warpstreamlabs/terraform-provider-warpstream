@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -81,4 +82,103 @@ resource "warpstream_user_role" "test" {
     },
   ]
 }`, randSuffix, randSuffix, randSuffix)
+}
+
+func TestAccUserRoleResourceWithBillingGrant(t *testing.T) {
+	randSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccUserRoleResourceWithBillingGrant(randSuffix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("warpstream_user_role.test_billing", "id"),
+					resource.TestCheckResourceAttr("warpstream_user_role.test_billing", "name", fmt.Sprintf("test_acc_user_role_billing_%s", randSuffix)),
+					resource.TestCheckResourceAttrSet("warpstream_user_role.test_billing", "created_at"),
+					resource.TestCheckResourceAttr("warpstream_user_role.test_billing", "access_grants.#", "2"),
+					resource.TestCheckResourceAttrSet("warpstream_user_role.test_billing", "access_grants.0.workspace_id"),
+					resource.TestCheckResourceAttr("warpstream_user_role.test_billing", "access_grants.0.grant_type", "admin"),
+					resource.TestCheckResourceAttr("warpstream_user_role.test_billing", "access_grants.1.workspace_id", "-"),
+					resource.TestCheckResourceAttr("warpstream_user_role.test_billing", "access_grants.1.grant_type", "billing"),
+				),
+			},
+		},
+	})
+}
+
+func testAccUserRoleResourceWithBillingGrant(randSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_workspace" "test" {
+  name = "test_acc_workspace_%s"
+}
+
+resource "warpstream_user_role" "test_billing" {
+  name = "test_acc_user_role_billing_%s"
+  access_grants = [
+    {
+      workspace_id = warpstream_workspace.test.id
+      grant_type   = "admin"
+    },
+    {
+      workspace_id = "-"
+      grant_type   = "billing"
+    },
+  ]
+}`, randSuffix, randSuffix)
+}
+
+func TestAccUserRoleResourceBillingGrantInvalidWorkspace(t *testing.T) {
+	randSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccUserRoleResourceBillingGrantInvalidWorkspace(randSuffix),
+				ExpectError: regexp.MustCompile(`The 'billing' grant type must use workspace_id '-'`),
+			},
+		},
+	})
+}
+
+func testAccUserRoleResourceBillingGrantInvalidWorkspace(randSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_workspace" "test" {
+  name = "test_acc_workspace_%s"
+}
+
+resource "warpstream_user_role" "test_billing_invalid" {
+  name = "test_acc_user_role_billing_invalid_%s"
+  access_grants = [
+    {
+      workspace_id = warpstream_workspace.test.id
+      grant_type   = "billing"
+    },
+  ]
+}`, randSuffix, randSuffix)
+}
+
+func TestAccUserRoleResourceNilWorkspaceInvalidGrantType(t *testing.T) {
+	randSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccUserRoleResourceNilWorkspaceInvalidGrantType(randSuffix),
+				ExpectError: regexp.MustCompile(`The nil workspace ID '-' can only be used with the 'billing' grant type`),
+			},
+		},
+	})
+}
+
+func testAccUserRoleResourceNilWorkspaceInvalidGrantType(randSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_user_role" "test_nil_workspace_invalid" {
+  name = "test_acc_user_role_nil_ws_invalid_%s"
+  access_grants = [
+    {
+      workspace_id = "-"
+      grant_type   = "admin"
+    },
+  ]
+}`, randSuffix)
 }
