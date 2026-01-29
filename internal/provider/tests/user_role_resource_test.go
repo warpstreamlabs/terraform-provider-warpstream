@@ -84,7 +84,7 @@ resource "warpstream_user_role" "test" {
 }`, randSuffix, randSuffix, randSuffix)
 }
 
-func TestAccUserRoleResourceWithBillingGrant(t *testing.T) {
+func TestAccAccountKeyUserRoleResourceWithBillingGrant(t *testing.T) {
 	randSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -127,7 +127,7 @@ resource "warpstream_user_role" "test_billing" {
 }`, randSuffix, randSuffix)
 }
 
-func TestAccUserRoleResourceBillingGrantInvalidWorkspace(t *testing.T) {
+func TestAccAccountKeyUserRoleResourceBillingGrantInvalidWorkspace(t *testing.T) {
 	randSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -157,7 +157,7 @@ resource "warpstream_user_role" "test_billing_invalid" {
 }`, randSuffix, randSuffix)
 }
 
-func TestAccUserRoleResourceNilWorkspaceInvalidGrantType(t *testing.T) {
+func TestAccAccountKeyUserRoleResourceNilWorkspaceInvalidGrantType(t *testing.T) {
 	randSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

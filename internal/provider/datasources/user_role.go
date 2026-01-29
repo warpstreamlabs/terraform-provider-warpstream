@@ -43,7 +43,7 @@ var grantSchema = schema.NestedAttributeObject{
 			Computed:    true,
 		},
 		"grant_type": schema.StringAttribute{
-			Description: "Level of access inside the workspace. Current options are: " + strings.Join(resources.ManagedGrantNames, ", "),
+			Description: "Level of access inside the workspace. Current options are: " + strings.Join(resources.ManagedGrantNames, ", ") + ".",
 			Computed:    true,
 		},
 	},

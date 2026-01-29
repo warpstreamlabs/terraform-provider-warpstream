@@ -74,7 +74,7 @@ var grantSchema = schema.NestedAttributeObject{
 			Required:      true,
 		},
 		"grant_type": schema.StringAttribute{
-			Description:   "Level of access inside the workspace. Current options are: " + strings.Join(ManagedGrantNames, ", "),
+			Description:   "Level of access inside the workspace. Current options are: " + strings.Join(ManagedGrantNames, ", ") + ".",
 			Validators:    []validator.String{stringvalidator.OneOf(ManagedGrantNames...)},
 			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			// For now a grant is defined using a grant type only.
