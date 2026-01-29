@@ -158,8 +158,8 @@ func ACLModeMutualExclusion() validator.Object {
 }
 
 // billingGrantValidator ensures that:
-// 1. If grant_type is "billing", workspace_id must be "-"
-// 2. If workspace_id is "-", grant_type must be "billing"
+// 1. If grant_type is "billing", workspace_id must be "-".
+// 2. If workspace_id is "-", grant_type must be "billing".
 type billingGrantValidator struct{}
 
 func (v billingGrantValidator) Description(ctx context.Context) string {
@@ -198,7 +198,7 @@ func (v billingGrantValidator) ValidateObject(ctx context.Context, req validator
 	wsID := workspaceID.ValueString()
 	gt := grantType.ValueString()
 
-	// If grant_type is "billing", workspace_id must be "-"
+	// If grant_type is "billing", workspace_id must be "-".
 	if gt == "billing" && wsID != "-" {
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
@@ -211,7 +211,7 @@ func (v billingGrantValidator) ValidateObject(ctx context.Context, req validator
 		return
 	}
 
-	// If workspace_id is "-", grant_type must be "billing"
+	// If workspace_id is "-", grant_type must be "billing".
 	if wsID == "-" && gt != "billing" {
 		resp.Diagnostics.AddAttributeError(
 			req.Path,

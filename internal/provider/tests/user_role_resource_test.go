@@ -134,7 +134,7 @@ func TestAccAccountKeyUserRoleResourceBillingGrantInvalidWorkspace(t *testing.T)
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccUserRoleResourceBillingGrantInvalidWorkspace(randSuffix),
-				ExpectError: regexp.MustCompile(`The 'billing' grant type must use workspace_id '-'`),
+				ExpectError: regexp.MustCompile(`The 'billing' grant type must be assigned with the empty workspace_id '-'.`),
 			},
 		},
 	})
@@ -164,7 +164,7 @@ func TestAccAccountKeyUserRoleResourceNilWorkspaceInvalidGrantType(t *testing.T)
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccUserRoleResourceNilWorkspaceInvalidGrantType(randSuffix),
-				ExpectError: regexp.MustCompile(`The nil workspace ID '-' can only be used with the 'billing' grant type`),
+				ExpectError: regexp.MustCompile(`The empty workspace ID '-' can only be assigned with the 'billing' grant`),
 			},
 		},
 	})

@@ -30,7 +30,7 @@ resource "warpstream_user_role" "example_user_role_2" {
 
   access_grants = [
     {
-      workspace_id = "-" // The billing grant type can only be associated with the empty workspace ID and vice-versa.
+      workspace_id = "-" # The billing grant type can only be associated with the empty workspace ID and vice-versa.
       grant_type   = "billing"
     },
   ]
