@@ -5,7 +5,6 @@ subcategory: ""
 description: |-
   This resource allows you to create and delete workspaces.
   The WarpStream provider must be authenticated with an account key to consume this resource.
-  Not all customers have the workspaces feature enabled. Please contact Support for details.
 ---
 
 # warpstream_workspace (Resource)
@@ -13,8 +12,6 @@ description: |-
 This resource allows you to create and delete workspaces.
 
 The WarpStream provider must be authenticated with an account key to consume this resource.
-
-Not all customers have the workspaces feature enabled. Please contact Support for details.
 
 ## Example Usage
 
