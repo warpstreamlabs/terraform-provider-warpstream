@@ -46,5 +46,5 @@ data "warpstream_user_role" "read_only_role" {
 
 Read-Only:
 
-- `grant_type` (String) Level of access inside the workspace. Current options are: admin and read_only
+- `grant_type` (String) Level of access inside the workspace. Current options are: admin, read_only, billing.
 - `workspace_id` (String) ID of a workspace that the role has access to.
