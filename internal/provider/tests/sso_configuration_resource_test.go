@@ -43,17 +43,17 @@ func TestAccAccountKeySequentialSSOConfigurationResource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSSOConfigurationResource(userRole.ID, ssoIdentifierSuffix),
+				Config: testAccSSOConfigurationResource(userRole.ID, "entity-id-gna", ssoIdentifierSuffix),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("warpstream_sso_configuration.test", "id"),
-					resource.TestCheckResourceAttr("warpstream_sso_configuration.test", "entity_id", "test-entity-id"),
+					resource.TestCheckResourceAttr("warpstream_sso_configuration.test", "entity_id", "entity-id-gna"),
 					resource.TestCheckResourceAttr("warpstream_sso_configuration.test", "sso_identifier", fmt.Sprintf("sso-coincoin-%s", ssoIdentifierSuffix)),
 				),
 			},
 			{
-				Config: testAccSSOConfigurationResource(userRole.ID, fmt.Sprintf("%s-renamed", ssoIdentifierSuffix)),
+				Config: testAccSSOConfigurationResource(userRole.ID, "entity-id-gnagna", ssoIdentifierSuffix),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("warpstream_sso_configuration.test", "sso_identifier", fmt.Sprintf("sso-coincoin-%s-renamed", ssoIdentifierSuffix)),
+					resource.TestCheckResourceAttr("warpstream_sso_configuration.test", "entity_id", "entity-id-gnagna"),
 				),
 			},
 		},
@@ -78,7 +78,7 @@ func TestAccAccountKeySequentialSSOConfigurationImport(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSSOConfigurationResource(userRole.ID, ssoIdentifierSuffix),
+				Config: testAccSSOConfigurationResource(userRole.ID, "test-entity-id", ssoIdentifierSuffix),
 			},
 			{
 				ImportState:       true,
@@ -90,15 +90,15 @@ func TestAccAccountKeySequentialSSOConfigurationImport(t *testing.T) {
 	})
 }
 
-func testAccSSOConfigurationResource(defaultRoleID, ssoIdentifierSuffix string) string {
+func testAccSSOConfigurationResource(defaultRoleID, entityID, ssoIdentifierSuffix string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_sso_configuration" "test" {
   sso_identifier = "sso-coincoin-%s"
-  entity_id = "test-entity-id"
+  entity_id = "%s"
   saml_url = "https://rene-coty.com"
   default_role_id = "%s"
   signing_certificate = <<EOT
 %s
 EOT
-}`, ssoIdentifierSuffix, defaultRoleID, signingCertificate)
+}`, ssoIdentifierSuffix, entityID, defaultRoleID, signingCertificate)
 }

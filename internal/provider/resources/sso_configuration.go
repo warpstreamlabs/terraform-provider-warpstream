@@ -79,8 +79,10 @@ The WarpStream provider must be authenticated with an account key to consume thi
 			"sso_identifier": schema.StringAttribute{
 				Description: "SSO Identifier. " +
 					"The unique SSO identifier that will be used to identify your team.",
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Required: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"saml_url": schema.StringAttribute{
 				Description: "SAML Sign In URL. " +
