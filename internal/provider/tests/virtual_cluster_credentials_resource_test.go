@@ -144,14 +144,14 @@ func TestAccVirtualClusterCredentialsResourcePassword(t *testing.T) {
 			{
 				Config: testAccVirtualClusterCredentialsResource_withPassword(nameSuffix, "S3cureP@ssw0rd!"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccVirtualClusterCredentialsResourceCheck(false),
+					testAccVirtualClusterCredentialsResourceCheckPassword(nameSuffix, "S3cureP@ssw0rd!"),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "password", "S3cureP@ssw0rd!"),
 				),
 			},
 			{
 				Config: testAccVirtualClusterCredentialsResource_withPassword(nameSuffix, "S3cureP@ssw0rd!!"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccVirtualClusterCredentialsResourceCheck(false),
+					testAccVirtualClusterCredentialsResourceCheckPassword(nameSuffix, "S3cureP@ssw0rd!!"),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "password", "S3cureP@ssw0rd!!"),
 				),
 				ExpectNonEmptyPlan: true,
@@ -223,6 +223,16 @@ resource "warpstream_virtual_cluster_credentials" "test" {
 	cluster_superuser = false
   }
 `, nameSuffix, nameSuffix, password)
+}
+
+func testAccVirtualClusterCredentialsResourceCheckPassword(nameSuffix string, password string) resource.TestCheckFunc {
+	return resource.ComposeAggregateTestCheckFunc(
+		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster_credentials.test", "username"),
+		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster_credentials.test", "password"),
+		resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "password", password),
+		resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "name", "ccn_test_"+nameSuffix),
+		resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "cluster_superuser", "false"),
+	)
 }
 
 func testAccVirtualClusterCredentialsResourceCheck(su bool) resource.TestCheckFunc {
