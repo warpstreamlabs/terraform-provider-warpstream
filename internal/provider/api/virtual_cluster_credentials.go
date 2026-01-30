@@ -33,9 +33,10 @@ type CredentialsCreateResponse struct {
 }
 
 type CredentialsCreateRequest struct {
-	Name             string `json:"credentials_name"`
-	VirtualClusterID string `json:"virtual_cluster_id"`
-	ClusterSuperuser bool   `json:"is_cluster_superuser"`
+	Name             string  `json:"credentials_name"`
+	VirtualClusterID string  `json:"virtual_cluster_id"`
+	ClusterSuperuser bool    `json:"is_cluster_superuser"`
+	ImportedPassword *string `json:"imported_password,omitempty"`
 }
 
 type CredentialsDeleteRequest struct {
@@ -44,11 +45,12 @@ type CredentialsDeleteRequest struct {
 }
 
 // CreateCredentials - Create new virtual cluster credentials.
-func (c *Client) CreateCredentials(name string, su bool, vc VirtualCluster) (*VirtualClusterCredentials, error) {
+func (c *Client) CreateCredentials(name string, su bool, importedPassword *string, vc VirtualCluster) (*VirtualClusterCredentials, error) {
 	payload, err := json.Marshal(CredentialsCreateRequest{
 		Name:             strings.TrimPrefix(name, "ccn_"),
 		VirtualClusterID: vc.ID,
 		ClusterSuperuser: su,
+		ImportedPassword: importedPassword,
 	})
 	if err != nil {
 		return nil, err
