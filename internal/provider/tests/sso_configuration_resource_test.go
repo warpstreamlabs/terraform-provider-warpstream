@@ -25,7 +25,7 @@ uhsPq7dQR7eCEQAYAiEAg5cP5C73BW8W8MaMVMYifHejaYer9QxLp739hege728=
 `
 )
 
-func TestAccSSOConfigurationResource(t *testing.T) {
+func TestAccAccountKeySequentialSSOConfigurationResource(t *testing.T) {
 	ssoIdentifierSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestAccSSOConfigurationResource(t *testing.T) {
 	})
 }
 
-func TestAccSSOConfigurationImport(t *testing.T) {
+func TestAccAccountKeySequentialSSOConfigurationImport(t *testing.T) {
 	ssoIdentifierSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)

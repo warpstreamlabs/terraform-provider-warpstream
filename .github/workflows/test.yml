@@ -87,16 +87,90 @@ jobs:
         run: go test -v -cover ./internal/provider/tests/ -skip TestAccAccountKey
         timeout-minutes: 10
         # Tests starting with TestAccAccountKey require an account key instead of an application key.
+        # and tests starting with TestAccAccountKeySequential needs to be run sequentially.
       - name: Run acceptance tests that require an account key
         env:
           TF_ACC: "1"
           WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_ACCOUNT_KEY }}
-        run: go test -v -cover ./internal/provider/tests/ -run TestAccAccountKey
+        run: go test -v -cover ./internal/provider/tests/ -run TestAccAccountKey -skip TestAccAccountKeySequential
+        timeout-minutes: 10
+
+  # Run acceptance tests in a matrix with Terraform CLI versions
+  test-sequential-1:
+    name: Terraform Provider Acceptance Tests Sequentially (1.0.x)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1 # v2.0.3
+        with:
+          terraform_version: '1.0.*'
+          terraform_wrapper: false
+      - run: go mod download
+      - name: Run acceptance tests that require an account key (sequential)
+        env:
+          TF_ACC: "1"
+          WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_ACCOUNT_KEY }}
+        run: go test -v -cover ./internal/provider/tests/ -run TestAccAccountKeySequential
+        timeout-minutes: 10
+
+  # Run acceptance tests in a matrix with Terraform CLI versions
+  test-sequential-2:
+    name: Terraform Provider Acceptance Tests Sequentially (1.2.x)
+    needs: [build, test-sequential-1]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1 # v2.0.3
+        with:
+          terraform_version: '1.2.*'
+          terraform_wrapper: false
+      - run: go mod download
+      - name: Run acceptance tests that require an account key (sequential)
+        env:
+          TF_ACC: "1"
+          WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_ACCOUNT_KEY }}
+        run: go test -v -cover ./internal/provider/tests/ -run TestAccAccountKeySequential
+        timeout-minutes: 10
+
+
+  # Run acceptance tests in a matrix with Terraform CLI versions
+  test-sequential-6:
+    name: Terraform Provider Acceptance Tests Sequentially (1.6.x)
+    needs: [build, test-sequential-2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1 # v2.0.3
+        with:
+          terraform_version: '1.6.*'
+          terraform_wrapper: false
+      - run: go mod download
+      - name: Run acceptance tests that require an account key (sequential)
+        env:
+          TF_ACC: "1"
+          WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_ACCOUNT_KEY }}
+        run: go test -v -cover ./internal/provider/tests/ -run TestAccAccountKeySequential
         timeout-minutes: 10
 
   finally:
     name: Finally
-    needs: [test, generate]
+    needs: [test, generate, test-sequential-6]
     runs-on: ubuntu-latest
     if: always()
 

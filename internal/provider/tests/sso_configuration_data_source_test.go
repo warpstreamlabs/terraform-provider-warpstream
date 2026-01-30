@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func TestAccAccountKeySSOConfigurationDataSource(t *testing.T) {
+func TestAccAccountKeySequentialSSOConfigurationDataSource(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
 
