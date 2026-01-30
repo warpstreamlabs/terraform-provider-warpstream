@@ -135,12 +135,13 @@ The WarpStream provider must be authenticated with an application key to consume
 				Computed:    true,
 			},
 			"password": schema.StringAttribute{
-				Description: "Password. Only available immediately after creation. Not retrievable. If importing, this value will be unset.",
+				Description: "Generated password from credential creation. If terraform importing, this value will be unset.",
 				Computed:    true,
 				Sensitive:   true,
+				Optional:    true,
 				PlanModifiers: []planmodifier.String{
-					utils.IgnoreDiffPlanModifier{},
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"cluster_superuser": schema.BoolAttribute{
@@ -184,7 +185,13 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 	}
 
 	// Create new virtual cluster credentials
-	c, err := r.client.CreateCredentials(plan.Name.ValueString(), plan.ClusterSuperuser.ValueBool(), *cluster)
+	var importedPassword *string
+
+	if !plan.Password.IsUnknown() && !plan.Password.IsNull() {
+		importedPassword = plan.Password.ValueStringPointer()
+	}
+
+	c, err := r.client.CreateCredentials(plan.Name.ValueString(), plan.ClusterSuperuser.ValueBool(), importedPassword, *cluster)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Virtual Cluster Credentials",

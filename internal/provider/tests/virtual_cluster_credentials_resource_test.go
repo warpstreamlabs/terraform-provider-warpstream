@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
@@ -134,6 +135,36 @@ func TestAccVirtualClusterCredentialsResource(t *testing.T) {
 	})
 }
 
+func TestAccVirtualClusterCredentialsResourcePassword(t *testing.T) {
+	nameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterCredentialsResource_withPassword(nameSuffix, "S3cureP@ssw0rd!"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccVirtualClusterCredentialsResourceCheck(false),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "password", "S3cureP@ssw0rd!"),
+				),
+			},
+			{
+				Config: testAccVirtualClusterCredentialsResource_withPassword(nameSuffix, "S3cureP@ssw0rd!!"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccVirtualClusterCredentialsResourceCheck(false),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "password", "S3cureP@ssw0rd!!"),
+				),
+				ExpectNonEmptyPlan: true,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_virtual_cluster_credentials.test", plancheck.ResourceActionDestroyBeforeCreate),
+					},
+				},
+			},
+		},
+	})
+}
+
 func testAccVirtualClusterCredentialsResource_withSuperuser(su bool) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
@@ -176,6 +207,21 @@ resource "warpstream_virtual_cluster_credentials" "test" {
 	cluster_superuser = false
   }
 `, nameSuffix, nameSuffix)
+}
+
+func testAccVirtualClusterCredentialsResource_withPassword(nameSuffix string, password string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+    tier = "dev"
+}
+
+resource "warpstream_virtual_cluster_credentials" "test" {
+	name            = "ccn_test_%s"
+	virtual_cluster_id = warpstream_virtual_cluster.default.id
+	password        = "%s"
+  }
+`, nameSuffix, nameSuffix, password)
 }
 
 func testAccVirtualClusterCredentialsResourceCheck(su bool) resource.TestCheckFunc {
