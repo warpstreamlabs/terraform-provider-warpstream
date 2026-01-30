@@ -220,6 +220,7 @@ resource "warpstream_virtual_cluster_credentials" "test" {
 	name            = "ccn_test_%s"
 	virtual_cluster_id = warpstream_virtual_cluster.default.id
 	password        = "%s"
+	cluster_superuser = false
   }
 `, nameSuffix, nameSuffix, password)
 }
