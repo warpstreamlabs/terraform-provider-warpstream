@@ -154,7 +154,6 @@ func TestAccVirtualClusterCredentialsResourcePassword(t *testing.T) {
 					testAccVirtualClusterCredentialsResourceCheckPassword(nameSuffix, "S3cureP@ssw0rd!!"),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "password", "S3cureP@ssw0rd!!"),
 				),
-				ExpectNonEmptyPlan: true,
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction("warpstream_virtual_cluster_credentials.test", plancheck.ResourceActionDestroyBeforeCreate),
