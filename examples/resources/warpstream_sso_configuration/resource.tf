@@ -1,0 +1,46 @@
+terraform {
+  required_providers {
+    warpstream = {
+      source = "warpstreamlabs/warpstream"
+    }
+  }
+}
+
+provider "warpstream" {
+  token = "aks_xxx"
+}
+
+resource "warpstream_user_role" "example_user_role_1" {
+  name = "example-user-role-admin-and-read-only"
+
+  access_grants = [
+    {
+      workspace_id = "wi_71e79f1a_ccf4_4836_9b4f_18c11dba9684"
+      grant_type   = "admin"
+    },
+    {
+      workspace_id = "wi_bd86729f_6520_49be_97e5_d65b11f978f6"
+      grant_type   = "read_only"
+    },
+  ]
+}
+
+
+resource "warpstream_sso_configuration" "example_sso_configuration" {
+  sso_identifier      = "sso-id"
+  entity_id           = "entity-id"
+  saml_url            = "https://saml.com"
+  default_role_id     = warpstream_user_role.example_user_role_1.id
+  signing_certificate = <<EOT
+-----BEGIN CERTIFICATE-----
+MIIBezCCASGgAwIBAgIRAJR1CDT7LFcGH5Ng2cmEjbowCgYIKoZIzj0EAwIwDjEM
+MAoGA1UEAxMDZm9vMB4XDTI1MDEwNjIyMjY0OFoXDTI1MDEwNzIyMjY0OFowDjEM
+MAoGA1UEAxMDZm9vMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnIgCPCTQm6FU
+xriWAYFvSjMJA81Y81A3KNnfMoqd2aIx0KRKSBCWk/c9RanVRDQJroWK9SWSsYEZ
+2mf0lR1S4KNgMF4wDgYDVR0PAQH/BAQDAgeAMB0GA1UdJQQWMBQGCCsGAQUFBwMB
+BggrBgEFBQcDAjAdBgNVHQ4EFgQUGlHohetoxg+FkYHMp4ctVtmejjMwDgYDVR0R
+BAcwBYIDZm9vMAoGCCqGSM49BAMCA0gAMEUCIB2/O4G7WFiFp3N8EpCS2JpabfhJ
+uhsPq7dQR7eCEQAYAiEAg5cP5C73BW8W8MaMVMYifHejaYer9QxLp739hege728=
+-----END CERTIFICATE-----
+EOT
+}
