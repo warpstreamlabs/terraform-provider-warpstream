@@ -47,4 +47,5 @@ Read-Only:
 - `id` (String)
 - `key` (String, Sensitive)
 - `name` (String)
+- `read_only` (Boolean)
 - `workspace_id` (String)

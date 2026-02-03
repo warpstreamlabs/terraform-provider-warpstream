@@ -8,7 +8,7 @@ terraform {
 
 provider "warpstream" {
   # Use a generic WarpStream API key here, not a cluster-specific Agent key.
-  token = "YOUR_API_KEY"
+  token = "aks_89efb025bf0ce1d074f9a04a493a7a11e565522a293a5dea66d22317d942f4cb"
 }
 
 # BYOC cluster with configuration.
@@ -51,6 +51,7 @@ resource "warpstream_topic" "topic" {
 resource "warpstream_agent_key" "example_agent_key" {
   virtual_cluster_id = warpstream_virtual_cluster.example.id
   name               = "akn_example_agent_key"
+  read_only          = true
 }
 
 # These are client credentials to authenticate with the WarpStream Agents if
@@ -60,4 +61,3 @@ resource "warpstream_virtual_cluster_credentials" "creds" {
 
   virtual_cluster_id = warpstream_virtual_cluster.example.id
 }
-
