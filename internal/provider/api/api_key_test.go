@@ -56,9 +56,24 @@ func TestAPIKey_IsReadOnly(t *testing.T) {
 			expected: false,
 		},
 		{
+			name: "read-only application key",
+			apiKey: APIKey{
+				ID:   "key_4",
+				Name: "aks_app_readonly",
+				AccessGrants: AccessGrants{
+					{
+						PrincipalKind: PrincipalKindApplicationReadOnly,
+						ResourceKind:  ResourceKindAny,
+						ResourceID:    ResourceIDAny,
+					},
+				},
+			},
+			expected: true,
+		},
+		{
 			name: "empty access grants",
 			apiKey: APIKey{
-				ID:           "key_4",
+				ID:           "key_5",
 				Name:         "akn_empty",
 				AccessGrants: AccessGrants{},
 			},

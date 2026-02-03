@@ -121,6 +121,63 @@ func TestAccAccountKeyApplicationKeyResourceWithWorkspaceID(t *testing.T) {
 	})
 }
 
+func TestAccApplicationKeyResourceReadOnly(t *testing.T) {
+	resourceName := "test"
+	keyName := "akn_test_application_key_readonly" + nameSuffix
+	workspaces := getWorkspacesNotEmpty(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccApplicationKeyResourceWithReadOnly(resourceName, keyName, true),
+				Check:  testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspaces[0].ID, "true"),
+			},
+		},
+	})
+}
+
+func TestAccApplicationKeyResourceNotReadOnly(t *testing.T) {
+	resourceName := "test"
+	keyName := "akn_test_application_key_not_readonly" + nameSuffix
+	workspaces := getWorkspacesNotEmpty(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccApplicationKeyResourceWithReadOnly(resourceName, keyName, false),
+				Check:  testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspaces[0].ID, "false"),
+			},
+		},
+	})
+}
+
+func TestAccApplicationKeyResourceReadOnlyRequiresReplace(t *testing.T) {
+	resourceName := "test"
+	keyName := "akn_test_application_key_replace" + nameSuffix
+	workspaces := getWorkspacesNotEmpty(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccApplicationKeyResourceWithReadOnly(resourceName, keyName, false),
+				Check:  testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspaces[0].ID, "false"),
+			},
+			{
+				Config: testAccApplicationKeyResourceWithReadOnly(resourceName, keyName, true),
+				Check:  testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspaces[0].ID, "true"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_application_key.test", plancheck.ResourceActionDestroyBeforeCreate),
+					},
+				},
+			},
+		},
+	})
+}
+
 func testAccApplicationKeyResource(resourceName, keyName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_application_key" "%s" {
@@ -164,6 +221,26 @@ func testAccApplicationKeyResourceCheckWithWorkspaceID(resourceName, keyName, wo
 	return resource.ComposeAggregateTestCheckFunc(
 		testAccApplicationKeyResourceCheck(resourceName, keyName),
 		resource.TestCheckResourceAttr(getApplicationKeyResourcePath(resourceName), "workspace_id", workspaceID),
+	)
+}
+
+func testAccApplicationKeyResourceWithReadOnly(resourceName, keyName string, readOnly bool) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_application_key" "%s" {
+  name      = "%s"
+  read_only = %t
+}`, resourceName, keyName, readOnly)
+}
+
+func testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspaceID, readOnly string) resource.TestCheckFunc {
+	resourcePath := getApplicationKeyResourcePath(resourceName)
+	return resource.ComposeAggregateTestCheckFunc(
+		resource.TestCheckResourceAttrSet(resourcePath, "id"),
+		resource.TestCheckResourceAttr(resourcePath, "name", keyName),
+		resource.TestCheckResourceAttrSet(resourcePath, "key"),
+		resource.TestCheckResourceAttr(resourcePath, "workspace_id", workspaceID),
+		resource.TestCheckResourceAttrSet(resourcePath, "created_at"),
+		resource.TestCheckResourceAttr(resourcePath, "read_only", readOnly),
 	)
 }
 

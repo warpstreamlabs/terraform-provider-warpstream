@@ -12,6 +12,7 @@ type ApplicationKey struct {
 	Key         types.String `tfsdk:"key"`
 	WorkspaceID types.String `tfsdk:"workspace_id"`
 	CreatedAt   types.String `tfsdk:"created_at"`
+	ReadOnly    types.Bool   `tfsdk:"read_only"`
 }
 
 // Ideally AgentKey and ApplicationKey would share fields by composing an APIKey struct.
@@ -37,6 +38,7 @@ func MapToApplicationKeys(apiKeysPtr *[]api.APIKey) *[]ApplicationKey {
 			Key:         types.StringValue(key.Key),
 			WorkspaceID: types.StringValue((key.AccessGrants.ReadWorkspaceIDSafe())),
 			CreatedAt:   types.StringValue(key.CreatedAt),
+			ReadOnly:    types.BoolValue(key.IsReadOnly()),
 		}
 
 		keyModels = append(keyModels, keyModel)

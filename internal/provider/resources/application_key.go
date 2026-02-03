@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -112,6 +113,18 @@ If the WarpStream provider is authenticated with an account key, it can access a
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"read_only": schema.BoolAttribute{
+				Description: "Whether the Application Key is read-only. " +
+					"Read-only keys have limited permissions and cannot perform write operations. " +
+					"Cannot be changed after creation.",
+				Optional: true,
+				// This is important for backwards compatibility otherwise existing Application Keys that
+				// were created before we added this field would see drift.
+				Computed: true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.RequiresReplace(),
+				},
+			},
 		},
 	}
 }
@@ -127,9 +140,14 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// Create new application key
+	readOnly := false
+	if !plan.ReadOnly.IsNull() {
+		readOnly = plan.ReadOnly.ValueBool()
+	}
 	apiKey, err := r.client.CreateApplicationKey(
 		plan.Name.ValueString(),
 		plan.WorkspaceID.ValueString(),
+		readOnly,
 	)
 
 	// TODO: Make client return an structured HTTP error and branch on the specific case where it's the workspace that's not found.
@@ -168,6 +186,7 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 		Key:         types.StringValue(apiKey.Key),
 		WorkspaceID: types.StringValue(apiKey.AccessGrants.ReadWorkspaceIDSafe()),
 		CreatedAt:   types.StringValue(apiKey.CreatedAt),
+		ReadOnly:    types.BoolValue(apiKey.IsReadOnly()),
 	}
 
 	// Set state to fully populated data
@@ -208,6 +227,7 @@ func (r *applicationKeyResource) Read(ctx context.Context, req resource.ReadRequ
 		Key:         types.StringValue(apiKey.Key),
 		WorkspaceID: types.StringValue(apiKey.AccessGrants.ReadWorkspaceIDSafe()),
 		CreatedAt:   types.StringValue(apiKey.CreatedAt),
+		ReadOnly:    types.BoolValue(apiKey.IsReadOnly()),
 	}
 
 	// Set state
