@@ -12,14 +12,15 @@ import (
 )
 
 const (
-	PrincipalKindAny           = "*"
-	PrincipalKindAgent         = "agent"
-	PrincipalKindAgentReadOnly = "agent_r"
-	PrincipalKindApplication   = "app"
-	ResourceKindVirtualCluster = "virtual_cluster"
-	ResourceKindAny            = "*"
-	ResourceIDAny              = "*"
-	WorkspaceIDAny             = "*"
+	PrincipalKindAny                 = "*"
+	PrincipalKindAgent               = "agent"
+	PrincipalKindAgentReadOnly       = "agent_r"
+	PrincipalKindApplication         = "app"
+	PrincipalKindApplicationReadOnly = "app_r"
+	ResourceKindVirtualCluster       = "virtual_cluster"
+	ResourceKindAny                  = "*"
+	ResourceIDAny                    = "*"
+	WorkspaceIDAny                   = "*"
 )
 
 type AccessGrants []AccessGrant
@@ -60,7 +61,8 @@ func (a APIKey) IsReadOnly() bool {
 		return false
 	}
 
-	return a.AccessGrants[0].PrincipalKind == PrincipalKindAgentReadOnly
+	principalKind := a.AccessGrants[0].PrincipalKind
+	return principalKind == PrincipalKindAgentReadOnly || principalKind == PrincipalKindApplicationReadOnly
 }
 
 type APIKeyListResponse struct {
@@ -101,9 +103,14 @@ func (c *Client) CreateAgentKey(name, virtualClusterID string, readOnly bool) (*
 	return c.createAPIKey(name, accessGrant, virtualClusterTypeOverride)
 }
 
-func (c *Client) CreateApplicationKey(name, workspaceID string) (*APIKey, error) {
+func (c *Client) CreateApplicationKey(name, workspaceID string, readOnly bool) (*APIKey, error) {
+	principalKind := PrincipalKindApplication
+	if readOnly {
+		principalKind = PrincipalKindApplicationReadOnly
+	}
+
 	accessGrant := map[string]string{
-		"principal_kind": PrincipalKindApplication,
+		"principal_kind": principalKind,
 		"resource_kind":  ResourceKindAny,
 		"resource_id":    ResourceIDAny,
 		"workspace_id":   workspaceID, // Can be empty.

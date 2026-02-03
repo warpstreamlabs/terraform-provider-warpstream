@@ -18,9 +18,9 @@ func TestAccAccountKeyWorkspaceDataSource(t *testing.T) {
 
 	appKey1Name := "akn_test_workspace_application_key_1_" + nameSuffix
 	appKey2Name := "akn_test_workspace_application_key_2_" + nameSuffix
-	_, err = client.CreateApplicationKey(appKey1Name, workspaceID)
+	_, err = client.CreateApplicationKey(appKey1Name, workspaceID, false)
 	require.NoError(t, err)
-	_, err = client.CreateApplicationKey(appKey2Name, workspaceID)
+	_, err = client.CreateApplicationKey(appKey2Name, workspaceID, false)
 	require.NoError(t, err)
 
 	defer func() {

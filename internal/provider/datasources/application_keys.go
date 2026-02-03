@@ -32,6 +32,9 @@ var (
 			"created_at": schema.StringAttribute{
 				Computed: true,
 			},
+			"read_only": schema.BoolAttribute{
+				Computed: true,
+			},
 		},
 	}
 )
@@ -99,7 +102,9 @@ func filterApplicationKeys(apiKeys []api.APIKey) []api.APIKey {
 
 	for _, apiKey := range apiKeys {
 		for _, grant := range apiKey.AccessGrants {
-			if grant.PrincipalKind == api.PrincipalKindApplication || grant.PrincipalKind == api.PrincipalKindAny {
+			if grant.PrincipalKind == api.PrincipalKindApplication ||
+				grant.PrincipalKind == api.PrincipalKindApplicationReadOnly ||
+				grant.PrincipalKind == api.PrincipalKindAny {
 				applicationKeys = append(applicationKeys, apiKey)
 				break
 			}
