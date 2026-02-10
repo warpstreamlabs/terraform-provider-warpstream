@@ -489,6 +489,205 @@ func testAccTopicAndClusterResource(clusterName string) string {
 	}`, clusterName)
 }
 
+func TestAccTopicResourceCleanupPolicyTransitionFromDelete(t *testing.T) {
+	var cluster = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Step 1: Create topic with cleanup.policy = "delete"
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+	tier = "dev"
+}
+
+resource "warpstream_topic" "topic" {
+  topic_name         = "test"
+  partition_count    = 1
+  virtual_cluster_id = warpstream_virtual_cluster.default.id
+
+  config {
+    name = "cleanup.policy"
+    value = "delete"
+  }
+}
+				`, cluster),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("name"), knownvalue.StringExact("cleanup.policy")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("delete")),
+				},
+			},
+			// Step 2: Try to change cleanup.policy from "delete" to "compact" — should fail
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+	tier = "dev"
+}
+
+resource "warpstream_topic" "topic" {
+  topic_name         = "test"
+  partition_count    = 1
+  virtual_cluster_id = warpstream_virtual_cluster.default.id
+
+  config {
+    name = "cleanup.policy"
+    value = "compact"
+  }
+}
+				`, cluster),
+				ExpectError: regexp.MustCompile("a non-compacted topic cannot be made compacted"),
+			},
+			// Step 3: Try to change cleanup.policy from "delete" to "compact,delete" — should fail
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+	tier = "dev"
+}
+
+resource "warpstream_topic" "topic" {
+  topic_name         = "test"
+  partition_count    = 1
+  virtual_cluster_id = warpstream_virtual_cluster.default.id
+
+  config {
+    name = "cleanup.policy"
+    value = "compact,delete"
+  }
+}
+				`, cluster),
+				ExpectError: regexp.MustCompile("a non-compacted topic cannot be made compacted"),
+			},
+			// Step 4: Allowed transition — "delete" stays "delete" (no-op, ensures state is clean)
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+	tier = "dev"
+}
+
+resource "warpstream_topic" "topic" {
+  topic_name         = "test"
+  partition_count    = 1
+  virtual_cluster_id = warpstream_virtual_cluster.default.id
+
+  config {
+    name = "cleanup.policy"
+    value = "delete"
+  }
+}
+				`, cluster),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
+			},
+		},
+	})
+}
+
+func TestAccTopicResourceCleanupPolicyTransitionFromCompact(t *testing.T) {
+	var cluster = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Step 1: Create topic with cleanup.policy = "compact"
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+	tier = "dev"
+}
+
+resource "warpstream_topic" "topic" {
+  topic_name         = "test"
+  partition_count    = 1
+  virtual_cluster_id = warpstream_virtual_cluster.default.id
+
+  config {
+    name = "cleanup.policy"
+    value = "compact"
+  }
+}
+				`, cluster),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("compact")),
+				},
+			},
+			// Step 2: Allowed — "compact" to "compact,delete"
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+	tier = "dev"
+}
+
+resource "warpstream_topic" "topic" {
+  topic_name         = "test"
+  partition_count    = 1
+  virtual_cluster_id = warpstream_virtual_cluster.default.id
+
+  config {
+    name = "cleanup.policy"
+    value = "compact,delete"
+  }
+}
+				`, cluster),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("compact,delete")),
+				},
+			},
+			// Step 3: Allowed — "compact,delete" back to "compact"
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+	tier = "dev"
+}
+
+resource "warpstream_topic" "topic" {
+  topic_name         = "test"
+  partition_count    = 1
+  virtual_cluster_id = warpstream_virtual_cluster.default.id
+
+  config {
+    name = "cleanup.policy"
+    value = "compact"
+  }
+}
+				`, cluster),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("compact")),
+				},
+			},
+			// Step 4: Blocked — "compact" to "delete"
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+	tier = "dev"
+}
+
+resource "warpstream_topic" "topic" {
+  topic_name         = "test"
+  partition_count    = 1
+  virtual_cluster_id = warpstream_virtual_cluster.default.id
+
+  config {
+    name = "cleanup.policy"
+    value = "delete"
+  }
+}
+				`, cluster),
+				ExpectError: regexp.MustCompile("a compacted topic cannot be made non-compacted"),
+			},
+		},
+	})
+}
+
 func TestAccTopicImport(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
