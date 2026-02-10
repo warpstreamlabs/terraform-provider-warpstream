@@ -489,6 +489,26 @@ func testAccTopicAndClusterResource(clusterName string) string {
 	}`, clusterName)
 }
 
+func testAccTopicWithCleanupPolicy(clusterName, cleanupPolicy string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+	tier = "dev"
+}
+
+resource "warpstream_topic" "topic" {
+  topic_name         = "test"
+  partition_count    = 1
+  virtual_cluster_id = warpstream_virtual_cluster.default.id
+
+  config {
+    name  = "cleanup.policy"
+    value = "%s"
+  }
+}
+`, clusterName, cleanupPolicy)
+}
+
 func TestAccTopicResourceCleanupPolicyTransitionFromDelete(t *testing.T) {
 	var cluster = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
@@ -496,23 +516,7 @@ func TestAccTopicResourceCleanupPolicyTransitionFromDelete(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Step 1: Create topic with cleanup.policy = "delete"
 			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
-	tier = "dev"
-}
-
-resource "warpstream_topic" "topic" {
-  topic_name         = "test"
-  partition_count    = 1
-  virtual_cluster_id = warpstream_virtual_cluster.default.id
-
-  config {
-    name = "cleanup.policy"
-    value = "delete"
-  }
-}
-				`, cluster),
+				Config: testAccTopicWithCleanupPolicy(cluster, "delete"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("name"), knownvalue.StringExact("cleanup.policy")),
 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("delete")),
@@ -520,65 +524,17 @@ resource "warpstream_topic" "topic" {
 			},
 			// Step 2: Try to change cleanup.policy from "delete" to "compact" — should fail
 			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
-	tier = "dev"
-}
-
-resource "warpstream_topic" "topic" {
-  topic_name         = "test"
-  partition_count    = 1
-  virtual_cluster_id = warpstream_virtual_cluster.default.id
-
-  config {
-    name = "cleanup.policy"
-    value = "compact"
-  }
-}
-				`, cluster),
+				Config:      testAccTopicWithCleanupPolicy(cluster, "compact"),
 				ExpectError: regexp.MustCompile("a non-compacted topic cannot be made compacted"),
 			},
 			// Step 3: Try to change cleanup.policy from "delete" to "compact,delete" — should fail
 			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
-	tier = "dev"
-}
-
-resource "warpstream_topic" "topic" {
-  topic_name         = "test"
-  partition_count    = 1
-  virtual_cluster_id = warpstream_virtual_cluster.default.id
-
-  config {
-    name = "cleanup.policy"
-    value = "compact,delete"
-  }
-}
-				`, cluster),
+				Config:      testAccTopicWithCleanupPolicy(cluster, "compact,delete"),
 				ExpectError: regexp.MustCompile("a non-compacted topic cannot be made compacted"),
 			},
 			// Step 4: Allowed transition — "delete" stays "delete" (no-op, ensures state is clean)
 			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
-	tier = "dev"
-}
-
-resource "warpstream_topic" "topic" {
-  topic_name         = "test"
-  partition_count    = 1
-  virtual_cluster_id = warpstream_virtual_cluster.default.id
-
-  config {
-    name = "cleanup.policy"
-    value = "delete"
-  }
-}
-				`, cluster),
+				Config: testAccTopicWithCleanupPolicy(cluster, "delete"),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectEmptyPlan(),
@@ -596,92 +552,28 @@ func TestAccTopicResourceCleanupPolicyTransitionFromCompact(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Step 1: Create topic with cleanup.policy = "compact"
 			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
-	tier = "dev"
-}
-
-resource "warpstream_topic" "topic" {
-  topic_name         = "test"
-  partition_count    = 1
-  virtual_cluster_id = warpstream_virtual_cluster.default.id
-
-  config {
-    name = "cleanup.policy"
-    value = "compact"
-  }
-}
-				`, cluster),
+				Config: testAccTopicWithCleanupPolicy(cluster, "compact"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("compact")),
 				},
 			},
 			// Step 2: Allowed — "compact" to "compact,delete"
 			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
-	tier = "dev"
-}
-
-resource "warpstream_topic" "topic" {
-  topic_name         = "test"
-  partition_count    = 1
-  virtual_cluster_id = warpstream_virtual_cluster.default.id
-
-  config {
-    name = "cleanup.policy"
-    value = "compact,delete"
-  }
-}
-				`, cluster),
+				Config: testAccTopicWithCleanupPolicy(cluster, "compact,delete"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("compact,delete")),
 				},
 			},
 			// Step 3: Allowed — "compact,delete" back to "compact"
 			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
-	tier = "dev"
-}
-
-resource "warpstream_topic" "topic" {
-  topic_name         = "test"
-  partition_count    = 1
-  virtual_cluster_id = warpstream_virtual_cluster.default.id
-
-  config {
-    name = "cleanup.policy"
-    value = "compact"
-  }
-}
-				`, cluster),
+				Config: testAccTopicWithCleanupPolicy(cluster, "compact"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("compact")),
 				},
 			},
 			// Step 4: Blocked — "compact" to "delete"
 			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
-	tier = "dev"
-}
-
-resource "warpstream_topic" "topic" {
-  topic_name         = "test"
-  partition_count    = 1
-  virtual_cluster_id = warpstream_virtual_cluster.default.id
-
-  config {
-    name = "cleanup.policy"
-    value = "delete"
-  }
-}
-				`, cluster),
+				Config:      testAccTopicWithCleanupPolicy(cluster, "delete"),
 				ExpectError: regexp.MustCompile("a compacted topic cannot be made non-compacted"),
 			},
 		},
