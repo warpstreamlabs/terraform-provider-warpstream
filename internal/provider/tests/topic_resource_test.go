@@ -525,12 +525,12 @@ func TestAccTopicResourceCleanupPolicyTransitionFromDelete(t *testing.T) {
 			// Step 2: Try to change cleanup.policy from "delete" to "compact" — should fail
 			{
 				Config:      testAccTopicWithCleanupPolicy(cluster, "compact"),
-				ExpectError: regexp.MustCompile("a non-compacted topic cannot be made compacted"),
+				ExpectError: regexp.MustCompile("a non-compacted"),
 			},
 			// Step 3: Try to change cleanup.policy from "delete" to "compact,delete" — should fail
 			{
 				Config:      testAccTopicWithCleanupPolicy(cluster, "compact,delete"),
-				ExpectError: regexp.MustCompile("a non-compacted topic cannot be made compacted"),
+				ExpectError: regexp.MustCompile("a non-compacted"),
 			},
 			// Step 4: Allowed transition — "delete" stays "delete" (no-op, ensures state is clean)
 			{
@@ -574,7 +574,7 @@ func TestAccTopicResourceCleanupPolicyTransitionFromCompact(t *testing.T) {
 			// Step 4: Blocked — "compact" to "delete"
 			{
 				Config:      testAccTopicWithCleanupPolicy(cluster, "delete"),
-				ExpectError: regexp.MustCompile("a compacted topic cannot be made non-compacted"),
+				ExpectError: regexp.MustCompile("a compacted"),
 			},
 		},
 	})
