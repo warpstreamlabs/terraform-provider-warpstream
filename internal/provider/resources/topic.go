@@ -162,36 +162,40 @@ func (r *topicResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanR
 		return
 	}
 
-	oldPolicy := getCleanupPolicy(state.Config)
-	newPolicy := getCleanupPolicy(plan.Config)
+	if err := validateCleanupPolicyChange(state.Config, plan.Config); err != nil {
+		resp.Diagnostics.AddError(
+			"Invalid cleanup.policy Transition",
+			err.Error(),
+		)
+		return
+	}
+}
+
+func validateCleanupPolicyChange(oldConfig, newConfig []models.TopicConfig) error {
+	oldPolicy := getCleanupPolicy(oldConfig)
+	newPolicy := getCleanupPolicy(newConfig)
 
 	// If either config doesn't specify cleanup.policy, skip validation.
 	// The API does not always return a default cleanup.policy, so we can only
 	// validate transitions when both the old and new configs explicitly set it.
 	if oldPolicy == "" || newPolicy == "" {
-		return
+		return nil
 	}
 
 	oldHasCompact := policyHasCompact(oldPolicy)
 	newHasCompact := policyHasCompact(newPolicy)
 
 	if oldHasCompact && !newHasCompact {
-		resp.Diagnostics.AddError(
-			"Invalid cleanup.policy Transition",
-			fmt.Sprintf(
-				"Cannot change cleanup.policy from %q to %q: a compacted topic cannot be made non-compacted.",
-				oldPolicy, newPolicy,
-			),
-		)
-	} else if !oldHasCompact && newHasCompact {
-		resp.Diagnostics.AddError(
-			"Invalid cleanup.policy Transition",
-			fmt.Sprintf(
-				"Cannot change cleanup.policy from %q to %q: a non-compacted topic cannot be made compacted.",
-				oldPolicy, newPolicy,
-			),
-		)
+		return fmt.Errorf(
+			"Cannot change cleanup.policy from %q to %q: a compacted topic cannot be made non-compacted.",
+			oldPolicy, newPolicy)
 	}
+	if !oldHasCompact && newHasCompact {
+		return fmt.Errorf(
+			"Cannot change cleanup.policy from %q to %q: a non-compacted topic cannot be made compacted.",
+			oldPolicy, newPolicy)
+	}
+	return nil
 }
 
 // getCleanupPolicy extracts the cleanup.policy value from a topic's config slice.
