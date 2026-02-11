@@ -26,10 +26,15 @@ const (
 	EnableDeletionProtectionConfigKey = "warpstream.deletion.protection.enabled"
 )
 
+const (
+	CleanupPolicyConfigKey = "cleanup.policy"
+)
+
 var (
 	_ resource.Resource                = &topicResource{}
 	_ resource.ResourceWithConfigure   = &topicResource{}
 	_ resource.ResourceWithImportState = &topicResource{}
+	_ resource.ResourceWithModifyPlan  = &topicResource{}
 )
 
 func NewTopicResource() resource.Resource {
@@ -137,6 +142,82 @@ The WarpStream provider must be authenticated with an application key to consume
 			},
 		},
 	}
+}
+
+func (r *topicResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// Skip validation on create (no prior state) or destroy (no plan).
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+
+	var plan models.Topic
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var state models.Topic
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err := validateCleanupPolicyChange(state.Config, plan.Config); err != nil {
+		resp.Diagnostics.AddError(
+			"Invalid cleanup.policy Transition",
+			err.Error(),
+		)
+		return
+	}
+}
+
+func validateCleanupPolicyChange(oldConfig, newConfig []models.TopicConfig) error {
+	oldPolicy := getCleanupPolicy(oldConfig)
+	newPolicy := getCleanupPolicy(newConfig)
+
+	// If either config doesn't specify cleanup.policy, skip validation.
+	// The API does not always return a default cleanup.policy, so we can only
+	// validate transitions when both the old and new configs explicitly set it.
+	if oldPolicy == "" || newPolicy == "" {
+		return nil
+	}
+
+	oldHasCompact := policyHasCompact(oldPolicy)
+	newHasCompact := policyHasCompact(newPolicy)
+
+	if oldHasCompact && !newHasCompact {
+		return fmt.Errorf(
+			"Cannot change cleanup.policy from %q to %q: a compacted topic cannot be made non-compacted.",
+			oldPolicy, newPolicy)
+	}
+	if !oldHasCompact && newHasCompact {
+		return fmt.Errorf(
+			"Cannot change cleanup.policy from %q to %q: a non-compacted topic cannot be made compacted.",
+			oldPolicy, newPolicy)
+	}
+	return nil
+}
+
+// getCleanupPolicy extracts the cleanup.policy value from a topic's config slice.
+// Returns an empty string if cleanup.policy is not set.
+func getCleanupPolicy(configs []models.TopicConfig) string {
+	for _, c := range configs {
+		if c.Name.ValueString() == CleanupPolicyConfigKey {
+			return c.Value.ValueString()
+		}
+	}
+	return ""
+}
+
+// policyHasCompact returns true if the cleanup.policy value contains "compact"
+// as one of its comma-separated components.
+func policyHasCompact(policy string) bool {
+	for _, part := range strings.Split(policy, ",") {
+		if strings.TrimSpace(part) == "compact" {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *topicResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
