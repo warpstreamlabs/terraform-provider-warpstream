@@ -165,8 +165,10 @@ func (r *topicResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanR
 	oldPolicy := getCleanupPolicy(state.Config)
 	newPolicy := getCleanupPolicy(plan.Config)
 
-	// If neither configs specify cleanup.policy, then there is nothing to validate.
-	if oldPolicy == "" && newPolicy == "" {
+	// If either config doesn't specify cleanup.policy, skip validation.
+	// The API does not always return a default cleanup.policy, so we can only
+	// validate transitions when both the old and new configs explicitly set it.
+	if oldPolicy == "" || newPolicy == "" {
 		return
 	}
 
