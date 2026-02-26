@@ -403,6 +403,14 @@ func TestTableflowPipelineResourceWithInputs(t *testing.T) {
 				Config: testTableflowPipelineWithInputs(),
 				Check:  testPipelineCheck(resources.TableflowPipelineType),
 			},
+			{
+				Config: testTableflowPipelineWithInputs(),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
+			},
 		},
 	})
 }
@@ -426,6 +434,15 @@ func TestTableflowPipelineResourceUpdateInputs(t *testing.T) {
 					},
 				},
 			},
+			// Re-apply same config to verify state has settled
+			{
+				Config: testTableflowPipelineWithInputsUpdated(),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
+			},
 		},
 	})
 }
@@ -437,6 +454,14 @@ func TestTableflowPipelineResourceInputsTreeStructure(t *testing.T) {
 			{
 				Config: testTableflowPipelineWithInputsTree(),
 				Check:  testPipelineCheck(resources.TableflowPipelineType),
+			},
+			{
+				Config: testTableflowPipelineWithInputsTree(),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
 			},
 		},
 	})
@@ -460,7 +485,10 @@ func TestTableflowPipelineResourceInputsValidation(t *testing.T) {
 	})
 }
 
-var tableflowInputsClusterSuffix = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+var (
+	tableflowInputsClusterSuffix     = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	tableflowInputsTreeClusterSuffix = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+)
 
 func testTableflowPipelineWithInputs() string {
 	tableflowClusterResource := fmt.Sprintf(`
@@ -566,7 +594,7 @@ resource "warpstream_tableflow_cluster" "test" {
     provider = "aws"
     region   = "us-east-1"
   }
-}`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+}`, tableflowInputsTreeClusterSuffix)
 	return providerConfig + tableflowClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {
   virtual_cluster_id = warpstream_tableflow_cluster.test.id
