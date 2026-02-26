@@ -170,5 +170,6 @@ func (p *warpstreamProvider) Resources(_ context.Context) []func() resource.Reso
 		resources.NewWorkspaceResource,
 		resources.NewACLResource,
 		resources.NewSSOConfigurationResource,
+		resources.NewTableFlowTableResource,
 	}
 }
