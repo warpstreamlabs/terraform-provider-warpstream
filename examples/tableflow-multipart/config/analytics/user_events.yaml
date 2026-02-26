@@ -1,0 +1,10 @@
+tables:
+  - source_cluster_name: kafka_cluster_1
+    source_topic: user_events
+    source_format: json
+    schema_mode: inline
+    schema:
+      fields:
+        - { name: user_id, type: string, id: 1 }
+        - { name: action, type: string, id: 2 }
+        - { name: timestamp, type: long, id: 3 }

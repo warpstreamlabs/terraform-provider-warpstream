@@ -395,6 +395,265 @@ EOT
 }`
 }
 
+func TestTableflowPipelineResourceWithInputs(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testTableflowPipelineWithInputs(),
+				Check:  testPipelineCheck(resources.TableflowPipelineType),
+			},
+		},
+	})
+}
+
+func TestTableflowPipelineResourceUpdateInputs(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with initial configuration_inputs
+			{
+				Config: testTableflowPipelineWithInputs(),
+				Check:  testPipelineCheck(resources.TableflowPipelineType),
+			},
+			// Update with modified configuration_inputs (add a table part)
+			{
+				Config: testTableflowPipelineWithInputsUpdated(),
+				Check:  testPipelineCheck(resources.TableflowPipelineType),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("warpstream_pipeline.test_pipeline", plancheck.ResourceActionUpdate),
+					},
+				},
+			},
+		},
+	})
+}
+
+func TestTableflowPipelineResourceInputsTreeStructure(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testTableflowPipelineWithInputsTree(),
+				Check:  testPipelineCheck(resources.TableflowPipelineType),
+			},
+		},
+	})
+}
+
+func TestTableflowPipelineResourceInputsValidation(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// configuration_inputs on a non-tableflow pipeline should fail validation
+			{
+				Config:      testBentoPipelineWithInputs(),
+				ExpectError: regexp.MustCompile("configuration_inputs is only supported for tableflow"),
+			},
+			// Both configuration_yaml and configuration_inputs should fail validation
+			{
+				Config:      testTableflowPipelineBothConfigAttrs(),
+				ExpectError: regexp.MustCompile("Cannot specify both"),
+			},
+		},
+	})
+}
+
+var tableflowInputsClusterSuffix = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+
+func testTableflowPipelineWithInputs() string {
+	tableflowClusterResource := fmt.Sprintf(`
+resource "warpstream_tableflow_cluster" "test" {
+  name = "vcn_dl_test_%s"
+  tier = "dev"
+  cloud = {
+    provider = "aws"
+    region   = "us-east-1"
+  }
+}`, tableflowInputsClusterSuffix)
+	return providerConfig + tableflowClusterResource + `
+resource "warpstream_pipeline" "test_pipeline" {
+  virtual_cluster_id = warpstream_tableflow_cluster.test.id
+  name               = "test_pipeline"
+  state              = "running"
+  type               = "tableflow"
+  configuration_inputs = {
+    "globals" = <<-YAML
+      source_clusters:
+        - name: kafka_cluster_1
+          bootstrap_brokers:
+            - hostname: localhost
+              port: 9092
+      destination_bucket_url: s3://test-tableflow-bucket?region=us-east-1
+    YAML
+    "tables/logs" = <<-YAML
+      tables:
+        - source_cluster_name: kafka_cluster_1
+          source_topic: logs
+          source_format: json
+          schema_mode: inline
+          schema:
+            fields:
+              - { name: environment, type: string, id: 1 }
+              - { name: service, type: string, id: 2 }
+              - { name: status, type: string, id: 3 }
+              - { name: message, type: string, id: 4 }
+    YAML
+  }
+}`
+}
+
+func testTableflowPipelineWithInputsUpdated() string {
+	tableflowClusterResource := fmt.Sprintf(`
+resource "warpstream_tableflow_cluster" "test" {
+  name = "vcn_dl_test_%s"
+  tier = "dev"
+  cloud = {
+    provider = "aws"
+    region   = "us-east-1"
+  }
+}`, tableflowInputsClusterSuffix)
+	return providerConfig + tableflowClusterResource + `
+resource "warpstream_pipeline" "test_pipeline" {
+  virtual_cluster_id = warpstream_tableflow_cluster.test.id
+  name               = "test_pipeline"
+  state              = "running"
+  type               = "tableflow"
+  configuration_inputs = {
+    "globals" = <<-YAML
+      source_clusters:
+        - name: kafka_cluster_1
+          bootstrap_brokers:
+            - hostname: localhost
+              port: 9092
+      destination_bucket_url: s3://test-tableflow-bucket?region=us-east-1
+    YAML
+    "tables/logs" = <<-YAML
+      tables:
+        - source_cluster_name: kafka_cluster_1
+          source_topic: logs
+          source_format: json
+          schema_mode: inline
+          schema:
+            fields:
+              - { name: environment, type: string, id: 1 }
+              - { name: service, type: string, id: 2 }
+              - { name: status, type: string, id: 3 }
+              - { name: message, type: string, id: 4 }
+    YAML
+    "tables/events" = <<-YAML
+      tables:
+        - source_cluster_name: kafka_cluster_1
+          source_topic: events
+          source_format: json
+          schema_mode: inline
+          schema:
+            fields:
+              - { name: event_id, type: string, id: 1 }
+              - { name: timestamp, type: long, id: 2 }
+    YAML
+  }
+}`
+}
+
+func testTableflowPipelineWithInputsTree() string {
+	tableflowClusterResource := fmt.Sprintf(`
+resource "warpstream_tableflow_cluster" "test" {
+  name = "vcn_dl_test_%s"
+  tier = "dev"
+  cloud = {
+    provider = "aws"
+    region   = "us-east-1"
+  }
+}`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+	return providerConfig + tableflowClusterResource + `
+resource "warpstream_pipeline" "test_pipeline" {
+  virtual_cluster_id = warpstream_tableflow_cluster.test.id
+  name               = "test_pipeline"
+  state              = "running"
+  type               = "tableflow"
+  configuration_inputs = {
+    "globals" = <<-YAML
+      source_clusters:
+        - name: kafka_cluster_1
+          bootstrap_brokers:
+            - hostname: localhost
+              port: 9092
+      destination_bucket_url: s3://test-tableflow-bucket?region=us-east-1
+    YAML
+    "analytics/user_events" = <<-YAML
+      tables:
+        - source_cluster_name: kafka_cluster_1
+          source_topic: user_events
+          source_format: json
+          schema_mode: inline
+          schema:
+            fields:
+              - { name: user_id, type: string, id: 1 }
+              - { name: action, type: string, id: 2 }
+    YAML
+    "logging/app_logs" = <<-YAML
+      tables:
+        - source_cluster_name: kafka_cluster_1
+          source_topic: app_logs
+          source_format: json
+          schema_mode: inline
+          schema:
+            fields:
+              - { name: level, type: string, id: 1 }
+              - { name: message, type: string, id: 2 }
+    YAML
+  }
+}`
+}
+
+func testBentoPipelineWithInputs() string {
+	virtualClusterResource := fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+	name = "vcn_test_acc_%s"
+    tier = "dev"
+}`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+	return providerConfig + virtualClusterResource + `
+resource "warpstream_pipeline" "test_pipeline" {
+  virtual_cluster_id = warpstream_virtual_cluster.test.id
+  name               = "test_pipeline"
+  state              = "running"
+  type               = "bento"
+  configuration_inputs = {
+    "default" = <<-YAML
+      input:
+        kafka_franz:
+          seed_brokers: ["localhost:9092"]
+          topics: ["test_topic"]
+    YAML
+  }
+}`
+}
+
+func testTableflowPipelineBothConfigAttrs() string {
+	tableflowClusterResource := fmt.Sprintf(`
+resource "warpstream_tableflow_cluster" "test" {
+  name = "vcn_dl_test_%s"
+  tier = "dev"
+  cloud = {
+    provider = "aws"
+    region   = "us-east-1"
+  }
+}`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
+	return providerConfig + tableflowClusterResource + `
+resource "warpstream_pipeline" "test_pipeline" {
+  virtual_cluster_id = warpstream_tableflow_cluster.test.id
+  name               = "test_pipeline"
+  state              = "running"
+  type               = "tableflow"
+  configuration_yaml = "source_clusters: []"
+  configuration_inputs = {
+    "globals" = "source_clusters: []"
+  }
+}`
+}
+
 func TestPipelineResourceImport(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
