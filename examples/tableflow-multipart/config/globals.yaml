@@ -1,0 +1,6 @@
+source_clusters:
+  - name: kafka_cluster_1
+    bootstrap_brokers:
+      - hostname: YOUR_KAFKA_HOSTNAME
+        port: 9092
+destination_bucket_url: s3://tableflow-bucket?region=us-east-1

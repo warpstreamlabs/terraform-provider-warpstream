@@ -105,13 +105,14 @@ resource "warpstream_pipeline" "example_schema_linking_pipeline" {
 
 ### Required
 
-- `configuration_yaml` (String) The YAML content defining the input sources, processing steps, and output destinations for the pipeline. This represents the complete configuration for this specific version. To understand how to set your configuration take a look at: https://docs.warpstream.com/warpstream/configuration/bento#getting-started
 - `name` (String) The unique human-readable name of the pipeline within the virtual cluster. This cannot be changed after creation.
 - `state` (String) The desired operational state of the pipeline. Valid values are 'running' or 'paused'.
 - `virtual_cluster_id` (String) The ID of the virtual cluster associated with the pipeline.
 
 ### Optional
 
+- `configuration_inputs` (Map of String) A map of named YAML configuration parts that are merged server-side into a single configuration. Map keys are part names (supporting '/' for tree hierarchy, e.g. 'analytics/tables'). Map values are YAML strings. Only supported for tableflow pipelines. Mutually exclusive with configuration_yaml.
+- `configuration_yaml` (String) The YAML content defining the complete pipeline configuration. Mutually exclusive with configuration_inputs. Required for non-tableflow pipeline types.
 - `type` (String) Pipeline type. Valid types are: `bento` (default), `orbit`, `schema_linking`, `tableflow`
 
 ### Read-Only

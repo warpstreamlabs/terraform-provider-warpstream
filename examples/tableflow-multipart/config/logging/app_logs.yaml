@@ -1,0 +1,10 @@
+tables:
+  - source_cluster_name: kafka_cluster_1
+    source_topic: app_logs
+    source_format: json
+    schema_mode: inline
+    schema:
+      fields:
+        - { name: level, type: string, id: 1 }
+        - { name: service, type: string, id: 2 }
+        - { name: message, type: string, id: 3 }

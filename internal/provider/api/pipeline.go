@@ -39,10 +39,16 @@ type HTTPCreatePipelineResponse struct {
 	PipelineDeployedConfigurationId string `json:"pipeline_deployed_configuration_id"`
 }
 
+type HTTPConfigurationInput struct {
+	Name string `json:"name,omitempty"`
+	Yaml string `json:"yaml"`
+}
+
 type HTTPCreatePipelineConfigurationRequest struct {
-	VirtualClusterID  string `json:"virtual_cluster_id"`
-	PipelineID        string `json:"pipeline_id"`
-	ConfigurationYAML string `json:"configuration_yaml"`
+	VirtualClusterID    string                   `json:"virtual_cluster_id"`
+	PipelineID          string                   `json:"pipeline_id"`
+	ConfigurationYAML   string                   `json:"configuration_yaml,omitempty"`
+	ConfigurationInputs []HTTPConfigurationInput `json:"configuration_inputs,omitempty"`
 }
 
 type HTTPCreatePipelineConfigurationResponse struct {
@@ -78,9 +84,10 @@ type HTTPDescribePipelineResponse struct {
 }
 
 type HTTPPipelineConfiguration struct {
-	ID                string `json:"id"`
-	Version           int    `json:"version"`
-	ConfigurationYAML string `json:"configuration_yaml"`
+	ID                  string                   `json:"id"`
+	Version             int                      `json:"version"`
+	ConfigurationYAML   string                   `json:"configuration_yaml"`
+	ConfigurationInputs []HTTPConfigurationInput `json:"configuration_inputs,omitempty"`
 }
 
 func (c *Client) CreatePipeline(
