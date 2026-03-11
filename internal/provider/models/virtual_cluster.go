@@ -125,14 +125,12 @@ func (m VirtualClusterCloud) DefaultObject() map[string]attr.Value {
 // EventTypeConfig represents per-event-type configuration.
 type EventTypeConfig struct {
 	Enabled              types.Bool  `tfsdk:"enabled"`
-	ShardCount           types.Int64 `tfsdk:"shard_count"`
 	RetentionPeriodNanos types.Int64 `tfsdk:"retention_period_nanos"`
 }
 
 func (m EventTypeConfig) AttributeTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"enabled":                types.BoolType,
-		"shard_count":            types.Int64Type,
 		"retention_period_nanos": types.Int64Type,
 	}
 }

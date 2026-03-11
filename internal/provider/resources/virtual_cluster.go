@@ -322,14 +322,6 @@ The WarpStream provider must be authenticated with an application key to consume
 										boolplanmodifier.UseStateForUnknown(),
 									},
 								},
-								"shard_count": schema.Int64Attribute{
-									Description: "Number of shards for this event type.",
-									Optional:    true,
-									Computed:    true,
-									PlanModifiers: []planmodifier.Int64{
-										int64planmodifier.UseStateForUnknown(),
-									},
-								},
 								"retention_period_nanos": schema.Int64Attribute{
 									Description: "Retention period in nanoseconds for this event type.",
 									Optional:    true,
@@ -892,12 +884,6 @@ func (r *virtualClusterResource) readEvents(ctx context.Context, cluster api.Vir
 				eventTypeAttrs["enabled"] = types.BoolNull()
 			}
 
-			if config.ShardCount != nil {
-				eventTypeAttrs["shard_count"] = types.Int64Value(int64(*config.ShardCount))
-			} else {
-				eventTypeAttrs["shard_count"] = types.Int64Null()
-			}
-
 			if config.RetentionPeriodNanos != nil {
 				eventTypeAttrs["retention_period_nanos"] = types.Int64Value(int64(*config.RetentionPeriodNanos))
 			} else {
@@ -995,11 +981,6 @@ func (r *virtualClusterResource) applyEvents(ctx context.Context, plan models.Vi
 			if !eventTypeConfig.Enabled.IsNull() && !eventTypeConfig.Enabled.IsUnknown() {
 				enabled := eventTypeConfig.Enabled.ValueBool()
 				apiConfig.Enabled = &enabled
-			}
-
-			if !eventTypeConfig.ShardCount.IsNull() && !eventTypeConfig.ShardCount.IsUnknown() {
-				shardCount := uint32(eventTypeConfig.ShardCount.ValueInt64())
-				apiConfig.ShardCount = &shardCount
 			}
 
 			if !eventTypeConfig.RetentionPeriodNanos.IsNull() && !eventTypeConfig.RetentionPeriodNanos.IsUnknown() {

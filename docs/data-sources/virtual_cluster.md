@@ -111,4 +111,3 @@ Read-Only:
 
 - `enabled` (Boolean) Whether this event type is enabled.
 - `retention_period_nanos` (Number) Retention period in nanoseconds for this event type.
-- `shard_count` (Number) Number of shards for this event type.

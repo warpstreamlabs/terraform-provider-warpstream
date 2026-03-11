@@ -56,12 +56,10 @@ resource "warpstream_virtual_cluster" "test_with_events" {
     event_types = {
       acl_logs = {
         enabled                = true
-        shard_count            = 3
         retention_period_nanos = 604800000000000 # 7 days in nanoseconds
       }
       pipeline_logs = {
         enabled                = false
-        shard_count            = 2
         retention_period_nanos = 259200000000000 # 3 days in nanoseconds
       }
     }

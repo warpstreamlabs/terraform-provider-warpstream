@@ -11,7 +11,6 @@ import (
 // EventTypeConfig represents per-event-type configuration.
 type EventTypeConfig struct {
 	Enabled              *bool   `json:"enabled,omitempty"`
-	ShardCount           *uint32 `json:"shard_count,omitempty"`
 	RetentionPeriodNanos *uint64 `json:"retention_period_nanos,omitempty"`
 }
 

@@ -400,11 +400,9 @@ func TestAccVirtualClusterResourceWithEventTypes(t *testing.T) {
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
 					// Check agent_logs
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "true"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.shard_count", "4"),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.retention_period_nanos", "604800000000000"),
 					// Check pipeline_logs
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.shard_count", "2"),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.retention_period_nanos", "259200000000000"),
 					// Verify acl_logs is not in state. Only configured event types should appear.
 					resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "events.event_types.acl_logs"),
@@ -417,7 +415,6 @@ func TestAccVirtualClusterResourceWithEventTypes(t *testing.T) {
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
 					// Check agent_logs is now disabled
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "false"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.shard_count", "2"),
 					// Check pipeline_logs is still enabled
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
 				),
@@ -487,22 +484,15 @@ resource "warpstream_virtual_cluster" "test" {
     event_types = {
       agent_logs = {
         enabled                = %t
-        shard_count            = %d
         retention_period_nanos = 604800000000000
       }
       pipeline_logs = {
         enabled                = %t
-        shard_count            = 2
         retention_period_nanos = 259200000000000
       }
     }
   }
-}`, vcNameSuffix, agentLogsEnabled || pipelineLogsEnabled, agentLogsEnabled, func() int {
-		if agentLogsEnabled {
-			return 4
-		}
-		return 2
-	}(), pipelineLogsEnabled)
+}`, vcNameSuffix, agentLogsEnabled || pipelineLogsEnabled, agentLogsEnabled, pipelineLogsEnabled)
 }
 
 func testAccVirtualClusterResource_withAllEventTypes(vcNameSuffix string) string {
@@ -515,17 +505,14 @@ resource "warpstream_virtual_cluster" "test" {
     event_types = {
       agent_logs = {
         enabled                = true
-        shard_count            = 4
         retention_period_nanos = 604800000000000
       }
       pipeline_logs = {
         enabled                = true
-        shard_count            = 2
         retention_period_nanos = 259200000000000
       }
       acl_logs = {
         enabled                = true
-        shard_count            = 3
         retention_period_nanos = 432000000000000
       }
     }
@@ -543,7 +530,6 @@ resource "warpstream_virtual_cluster" "test" {
     event_types = {
       invalid_event_type = {
         enabled                = true
-        shard_count            = 1
         retention_period_nanos = 86400000000000
       }
     }

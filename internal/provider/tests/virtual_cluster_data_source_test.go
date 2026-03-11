@@ -297,19 +297,14 @@ func TestAccVirtualClusterDataSourceWithEventTypes(t *testing.T) {
 					// Check resource has event types configured
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "true"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.shard_count", "4"),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.shard_count", "2"),
 					// Check data source shows events enabled and includes all event_types from API.
 					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.enabled", "true"),
 					resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled"),
-					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.agent_logs.shard_count", "4"),
 					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.agent_logs.retention_period_nanos", "604800000000000"),
 					resource.TestCheckResourceAttrSet("data.warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled"),
-					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.shard_count", "2"),
 					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.retention_period_nanos", "259200000000000"),
 					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.acl_logs.enabled", "false"),
-					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.acl_logs.shard_count", "1"),
 					resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "events.event_types.acl_logs.retention_period_nanos", "86400000000000"),
 				),
 			},
@@ -327,17 +322,14 @@ resource "warpstream_virtual_cluster" "test" {
     event_types = {
       agent_logs = {
         enabled                = true
-        shard_count            = 4
         retention_period_nanos = 604800000000000
       }
       pipeline_logs = {
         enabled                = true
-        shard_count            = 2
         retention_period_nanos = 259200000000000
       }
       acl_logs = {
         enabled                = false
-        shard_count            = 1
         retention_period_nanos = 86400000000000
       }
     }

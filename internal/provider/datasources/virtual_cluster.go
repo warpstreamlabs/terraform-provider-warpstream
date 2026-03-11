@@ -163,10 +163,6 @@ The WarpStream provider must be authenticated with an application key to read th
 									Description: "Whether this event type is enabled.",
 									Computed:    true,
 								},
-								"shard_count": schema.Int64Attribute{
-									Description: "Number of shards for this event type.",
-									Computed:    true,
-								},
 								"retention_period_nanos": schema.Int64Attribute{
 									Description: "Retention period in nanoseconds for this event type.",
 									Computed:    true,
@@ -394,12 +390,7 @@ func buildEventTypesMap(eventsState *api.EventsState) (types.Map, diag.Diagnosti
 	for eventTypeName, eventTypeConfig := range eventsState.EventTypes {
 		eventTypeAttrs := map[string]attr.Value{
 			"enabled":                types.BoolValue(eventTypeConfig.Enabled != nil && *eventTypeConfig.Enabled),
-			"shard_count":            types.Int64Value(0),
 			"retention_period_nanos": types.Int64Value(0),
-		}
-
-		if eventTypeConfig.ShardCount != nil {
-			eventTypeAttrs["shard_count"] = types.Int64Value(int64(*eventTypeConfig.ShardCount))
 		}
 
 		if eventTypeConfig.RetentionPeriodNanos != nil {
