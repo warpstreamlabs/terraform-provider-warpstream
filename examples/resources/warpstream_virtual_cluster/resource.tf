@@ -47,3 +47,21 @@ resource "warpstream_virtual_cluster" "test_cloud_region" {
     region   = "ap-southeast-1"
   }
 }
+
+resource "warpstream_virtual_cluster" "test_with_events" {
+  name = "vcn_test_with_events"
+  tier = "dev"
+  events = {
+    enabled = true
+    event_types = {
+      acl_logs = {
+        enabled                = true
+        retention_period_nanos = 604800000000000 # 7 days in nanoseconds
+      }
+      pipeline_logs = {
+        enabled                = false
+        retention_period_nanos = 259200000000000 # 3 days in nanoseconds
+      }
+    }
+  }
+}

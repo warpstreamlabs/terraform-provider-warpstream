@@ -50,6 +50,7 @@ output "vc_default_id" {
 - `cloud` (Attributes) (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) (see [below for nested schema](#nestedatt--configuration))
 - `created_at` (String)
+- `events` (Attributes) (see [below for nested schema](#nestedatt--events))
 - `id` (String) The ID of this resource.
 - `tags` (Map of String) Tags associated with the virtual cluster.
 - `tier` (String)
@@ -93,3 +94,20 @@ Read-Only:
 - `enable_deletion_protection` (Boolean)
 - `enable_soft_topic_deletion` (Boolean)
 - `soft_topic_deletion_ttl_millis` (Number)
+
+
+<a id="nestedatt--events"></a>
+### Nested Schema for `events`
+
+Read-Only:
+
+- `enabled` (Boolean)
+- `event_types` (Attributes Map) Per-event-type configuration. Map keys are event type names: `agent_logs`, `pipeline_logs`, `acl_logs`. (see [below for nested schema](#nestedatt--events--event_types))
+
+<a id="nestedatt--events--event_types"></a>
+### Nested Schema for `events.event_types`
+
+Read-Only:
+
+- `enabled` (Boolean) Whether this event type is enabled.
+- `retention_period_nanos` (Number) Retention period in nanoseconds for this event type.

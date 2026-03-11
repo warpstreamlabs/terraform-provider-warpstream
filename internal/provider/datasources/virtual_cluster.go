@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -148,6 +149,30 @@ The WarpStream provider must be authenticated with an application key to read th
 				},
 				Computed: true,
 			},
+			"events": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Computed: true,
+					},
+					"event_types": schema.MapNestedAttribute{
+						Description: fmt.Sprintf("Per-event-type configuration. Map keys are event type names: %s.", utils.ValidEventTypeNamesDescription),
+						Computed:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"enabled": schema.BoolAttribute{
+									Description: "Whether this event type is enabled.",
+									Computed:    true,
+								},
+								"retention_period_nanos": schema.Int64Attribute{
+									Description: "Retention period in nanoseconds for this event type.",
+									Computed:    true,
+								},
+							},
+						},
+					},
+				},
+				Computed: true,
+			},
 			"cloud": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"region": schema.StringAttribute{
@@ -225,6 +250,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		AgentPoolName: types.StringValue(vc.AgentPoolName),
 		CreatedAt:     types.StringValue(vc.CreatedAt),
 		Configuration: data.Configuration,
+		Events:        data.Events,
 		Cloud:         data.Cloud,
 		Tags:          data.Tags,
 		WorkspaceID:   types.StringValue(vc.WorkspaceID),
@@ -268,6 +294,27 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 
 	state.Tier = types.StringValue(cfg.Tier)
 
+	// Read virtual cluster events state
+	eventsState, err := d.client.GetEventsState(*vc)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read events state of Virtual Cluster with ID="+vc.ID,
+			err.Error(),
+		)
+		return
+	}
+
+	eventTypesMap, diags := buildEventTypesMap(eventsState)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	eventsModel := models.VirtualClusterEvents{
+		Enabled:    types.BoolValue(eventsState.Enabled),
+		EventTypes: eventTypesMap,
+	}
+
 	// Set state
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -287,6 +334,13 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	}
 
 	diags = resp.State.SetAttribute(ctx, path.Root("cloud"), cldState)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Set events state
+	diags = resp.State.SetAttribute(ctx, path.Root("events"), eventsModel)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -324,6 +378,35 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	if resp.Diagnostics.HasError() {
 		return
 	}
+}
+
+func buildEventTypesMap(eventsState *api.EventsState) (types.Map, diag.Diagnostics) {
+	if len(eventsState.EventTypes) < 1 {
+		return types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()}), diag.Diagnostics{}
+	}
+
+	eventTypesMap := make(map[string]attr.Value)
+
+	for eventTypeName, eventTypeConfig := range eventsState.EventTypes {
+		eventTypeAttrs := map[string]attr.Value{
+			"enabled":                types.BoolValue(eventTypeConfig.Enabled != nil && *eventTypeConfig.Enabled),
+			"retention_period_nanos": types.Int64Value(0),
+		}
+
+		if eventTypeConfig.RetentionPeriodNanos != nil {
+			eventTypeAttrs["retention_period_nanos"] = types.Int64Value(int64(*eventTypeConfig.RetentionPeriodNanos))
+		}
+
+		eventTypeObj, diags := types.ObjectValue(models.EventTypeConfig{}.AttributeTypes(), eventTypeAttrs)
+		if diags.HasError() {
+			return types.Map{}, diags
+		}
+
+		eventTypesMap[eventTypeName] = eventTypeObj
+	}
+
+	return types.MapValue(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()}, eventTypesMap)
+
 }
 
 // Configure adds the provider configured client to the data source.

@@ -19,6 +19,7 @@ type VirtualClusterDataSource struct {
 	Default       types.Bool   `tfsdk:"default"`
 	Tags          types.Map    `tfsdk:"tags"`
 	Configuration types.Object `tfsdk:"configuration"`
+	Events        types.Object `tfsdk:"events"`
 	Cloud         types.Object `tfsdk:"cloud"`
 	BootstrapURL  types.String `tfsdk:"bootstrap_url"`
 	WorkspaceID   types.String `tfsdk:"workspace_id"`
@@ -35,6 +36,7 @@ type VirtualClusterResource struct {
 	Default       types.Bool   `tfsdk:"default"`
 	Tags          types.Map    `tfsdk:"tags"`
 	Configuration types.Object `tfsdk:"configuration"`
+	Events        types.Object `tfsdk:"events"`
 	Cloud         types.Object `tfsdk:"cloud"`
 	BootstrapURL  types.String `tfsdk:"bootstrap_url"`
 	WorkspaceID   types.String `tfsdk:"workspace_id"`
@@ -117,5 +119,44 @@ func (m VirtualClusterCloud) DefaultObject() map[string]attr.Value {
 		"provider":     types.StringValue("aws"),
 		"region":       types.StringValue("us-east-1"),
 		"region_group": types.StringNull(),
+	}
+}
+
+// EventTypeConfig represents per-event-type configuration.
+type EventTypeConfig struct {
+	Enabled              types.Bool  `tfsdk:"enabled"`
+	RetentionPeriodNanos types.Int64 `tfsdk:"retention_period_nanos"`
+}
+
+func (m EventTypeConfig) AttributeTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"enabled":                types.BoolType,
+		"retention_period_nanos": types.Int64Type,
+	}
+}
+
+// VirtualClusterEvents represents the events configuration for a virtual cluster.
+type VirtualClusterEvents struct {
+	Enabled    types.Bool `tfsdk:"enabled"`
+	EventTypes types.Map  `tfsdk:"event_types"`
+}
+
+func (m VirtualClusterEvents) AttributeTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"enabled": types.BoolType,
+		"event_types": types.MapType{
+			ElemType: types.ObjectType{
+				AttrTypes: EventTypeConfig{}.AttributeTypes(),
+			},
+		},
+	}
+}
+
+func (m VirtualClusterEvents) DefaultObject() map[string]attr.Value {
+	return map[string]attr.Value{
+		"enabled": types.BoolValue(false),
+		"event_types": types.MapNull(types.ObjectType{
+			AttrTypes: EventTypeConfig{}.AttributeTypes(),
+		}),
 	}
 }

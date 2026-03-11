@@ -330,3 +330,209 @@ resource "warpstream_virtual_cluster" "test" {
   }
 }`, vcNameSuffix, topicType)
 }
+
+func TestAccVirtualClusterResourceWithEvents(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with events disabled (explicit)
+			{
+				Config: testAccVirtualClusterResource_withEvents(vcNameSuffix, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
+				),
+			},
+			// Update to enable events
+			{
+				Config: testAccVirtualClusterResource_withEvents(vcNameSuffix, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
+				),
+			},
+			// Update to disable events
+			{
+				Config: testAccVirtualClusterResource_withEvents(vcNameSuffix, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccVirtualClusterResourceWithEventsDefault(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create without events block - should default to disabled
+			{
+				Config: testAccVirtualClusterResource(vcNameSuffix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
+				),
+			},
+		},
+	})
+}
+
+func testAccVirtualClusterResource_withEvents(vcNameSuffix string, eventsEnabled bool) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = {
+    enabled = %t
+  }
+}`, vcNameSuffix, eventsEnabled)
+}
+
+func TestAccVirtualClusterResourceWithEventTypes(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with event types configured
+			{
+				Config: testAccVirtualClusterResource_withEventTypes(vcNameSuffix, true, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
+					// Check agent_logs
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.retention_period_nanos", "604800000000000"),
+					// Check pipeline_logs
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.retention_period_nanos", "259200000000000"),
+					// Verify acl_logs is not in state. Only configured event types should appear.
+					resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "events.event_types.acl_logs"),
+				),
+			},
+			// Update event types configuration
+			{
+				Config: testAccVirtualClusterResource_withEventTypes(vcNameSuffix, false, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
+					// Check agent_logs is now disabled
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "false"),
+					// Check pipeline_logs is still enabled
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
+				),
+			},
+			// Disable all events
+			{
+				Config: testAccVirtualClusterResource_withEventTypes(vcNameSuffix, false, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccVirtualClusterResourceEventTypesValidation(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccVirtualClusterResource_withInvalidEventType(vcNameSuffix),
+				ExpectError: regexp.MustCompile("Invalid Event Type Key"),
+			},
+		},
+	})
+}
+
+func TestAccVirtualClusterResourceEventTypesAllTypes(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with all three event types configured
+			{
+				Config: testAccVirtualClusterResource_withAllEventTypes(vcNameSuffix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "true"),
+					// Check all three event types are present
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.acl_logs.enabled", "true"),
+				),
+			},
+			// Remove one event type from config
+			{
+				Config: testAccVirtualClusterResource_withEventTypes(vcNameSuffix, true, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					// Only agent_logs and pipeline_logs should be in state now
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.agent_logs.enabled", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.event_types.pipeline_logs.enabled", "true"),
+					// acl_logs should not be in state
+					resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "events.event_types.acl_logs"),
+				),
+			},
+		},
+	})
+}
+
+func testAccVirtualClusterResource_withEventTypes(vcNameSuffix string, agentLogsEnabled bool, pipelineLogsEnabled bool) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = {
+    enabled = %t
+    event_types = {
+      agent_logs = {
+        enabled                = %t
+        retention_period_nanos = 604800000000000
+      }
+      pipeline_logs = {
+        enabled                = %t
+        retention_period_nanos = 259200000000000
+      }
+    }
+  }
+}`, vcNameSuffix, agentLogsEnabled || pipelineLogsEnabled, agentLogsEnabled, pipelineLogsEnabled)
+}
+
+func testAccVirtualClusterResource_withAllEventTypes(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = {
+    enabled = true
+    event_types = {
+      agent_logs = {
+        enabled                = true
+        retention_period_nanos = 604800000000000
+      }
+      pipeline_logs = {
+        enabled                = true
+        retention_period_nanos = 259200000000000
+      }
+      acl_logs = {
+        enabled                = true
+        retention_period_nanos = 432000000000000
+      }
+    }
+  }
+}`, vcNameSuffix)
+}
+
+func testAccVirtualClusterResource_withInvalidEventType(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = {
+    enabled = true
+    event_types = {
+      invalid_event_type = {
+        enabled                = true
+        retention_period_nanos = 86400000000000
+      }
+    }
+  }
+}`, vcNameSuffix)
+}

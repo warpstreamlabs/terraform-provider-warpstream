@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
@@ -292,6 +293,59 @@ The WarpStream provider must be authenticated with an application key to consume
 					utils.ACLModeMutualExclusion(),
 				},
 			},
+			"events": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Description: "Enable events for this virtual cluster. Defaults to `false`.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+						PlanModifiers: []planmodifier.Bool{
+							boolplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"event_types": schema.MapNestedAttribute{
+						Description: fmt.Sprintf("Per event type configuration. Map keys can be the names of any supported event type: %s.", utils.ValidEventTypeNamesDescription),
+						Optional:    true,
+						Computed:    true,
+						Validators:  []validator.Map{utils.ValidEventTypeKeys()},
+						PlanModifiers: []planmodifier.Map{
+							mapplanmodifier.UseStateForUnknown(),
+						},
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"enabled": schema.BoolAttribute{
+									Description: "Whether this event type is enabled.",
+									Optional:    true,
+									Computed:    true,
+									PlanModifiers: []planmodifier.Bool{
+										boolplanmodifier.UseStateForUnknown(),
+									},
+								},
+								"retention_period_nanos": schema.Int64Attribute{
+									Description: "Retention period in nanoseconds for this event type.",
+									Optional:    true,
+									Computed:    true,
+									PlanModifiers: []planmodifier.Int64{
+										int64planmodifier.UseStateForUnknown(),
+									},
+								},
+							},
+						},
+					},
+				},
+				Description: "Virtual Cluster Events Configuration.",
+				Optional:    true,
+				Computed:    true,
+				Default: objectdefault.StaticValue(
+					types.ObjectValueMust(
+						models.VirtualClusterEvents{}.AttributeTypes(),
+						models.VirtualClusterEvents{}.DefaultObject(),
+					)),
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"cloud": cloudSchema,
 			"bootstrap_url": schema.StringAttribute{
 				Description: "Bootstrap URL to connect to the Virtual Cluster.",
@@ -382,6 +436,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		Default:       types.BoolValue(cluster.Name == "vcn_default"),
 		WorkspaceID:   types.StringValue(cluster.WorkspaceID),
 		Configuration: plan.Configuration,
+		Events:        plan.Events,
 		Cloud:         cloudValue,
 		Tags:          plan.Tags,
 	}
@@ -403,6 +458,11 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	}
 
 	r.applyConfiguration(ctx, state, &resp.State, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	r.applyEvents(ctx, state, &resp.State, &resp.Diagnostics)
 }
 
 func getCloudValue(cluster *api.VirtualCluster) (basetypes.ObjectValue, diag.Diagnostics) {
@@ -527,6 +587,20 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		}
 	}
 
+	// Get current event types from state to filter API response.
+	eventTypesFilter := types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()})
+	if !state.Events.IsNull() {
+		// If events is not null, get the current event types from state to use as a filter.
+		var currentEvents models.VirtualClusterEvents
+		diags = state.Events.As(ctx, &currentEvents, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		eventTypesFilter = currentEvents.EventTypes
+	}
+
+	r.readEvents(ctx, *cluster, &resp.State, &resp.Diagnostics, eventTypesFilter)
 	r.readTags(ctx, *cluster, &resp.State, &resp.Diagnostics)
 }
 
@@ -568,6 +642,15 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 
 	// Update virtual cluster configuration
 	r.applyConfiguration(ctx, plan, &resp.State, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Update virtual cluster events
+	r.applyEvents(ctx, plan, &resp.State, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	// Update tags if they have changed
 	if !plan.Tags.IsUnknown() && !state.Tags.IsUnknown() && !plan.Tags.Equal(state.Tags) {
@@ -768,4 +851,157 @@ func (r *virtualClusterResource) applyTags(ctx context.Context, state models.Vir
 
 	// Read updated tags
 	r.readTags(ctx, cluster, respState, respDiags)
+}
+
+func (r *virtualClusterResource) readEvents(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics, planEventTypes types.Map) {
+	// Get virtual cluster events state
+	eventsState, err := r.client.GetEventsState(cluster)
+	if err != nil {
+		respDiags.AddError(
+			"Unable to Read events state of Virtual Cluster with ID="+cluster.ID,
+			err.Error(),
+		)
+		return
+	}
+	tflog.Debug(ctx, fmt.Sprintf("Events State: %+v", *eventsState))
+
+	// Convert event types from API to Terraform model
+	var eventTypesMap map[string]attr.Value
+	if len(eventsState.EventTypes) > 0 && !planEventTypes.IsNull() && !planEventTypes.IsUnknown() {
+		eventTypesMap = make(map[string]attr.Value)
+		planElements := planEventTypes.Elements()
+
+		for eventType, config := range eventsState.EventTypes {
+			// Only include this event type if it was in the plan
+			if _, inPlan := planElements[eventType]; !inPlan {
+				continue
+			}
+			eventTypeAttrs := map[string]attr.Value{}
+
+			if config.Enabled != nil {
+				eventTypeAttrs["enabled"] = types.BoolValue(*config.Enabled)
+			} else {
+				eventTypeAttrs["enabled"] = types.BoolNull()
+			}
+
+			if config.RetentionPeriodNanos != nil {
+				eventTypeAttrs["retention_period_nanos"] = types.Int64Value(int64(*config.RetentionPeriodNanos))
+			} else {
+				eventTypeAttrs["retention_period_nanos"] = types.Int64Null()
+			}
+
+			eventTypeObj, diags := types.ObjectValue(
+				models.EventTypeConfig{}.AttributeTypes(),
+				eventTypeAttrs,
+			)
+			respDiags.Append(diags...)
+			if respDiags.HasError() {
+				return
+			}
+			eventTypesMap[eventType] = eventTypeObj
+		}
+	}
+
+	var eventTypesValue types.Map
+	if eventTypesMap != nil {
+		var diags diag.Diagnostics
+		eventTypesValue, diags = types.MapValue(
+			types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()},
+			eventTypesMap,
+		)
+		respDiags.Append(diags...)
+		if respDiags.HasError() {
+			return
+		}
+	} else {
+		eventTypesValue = types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()})
+	}
+
+	eventsModel := models.VirtualClusterEvents{
+		Enabled:    types.BoolValue(eventsState.Enabled),
+		EventTypes: eventTypesValue,
+	}
+
+	// Set events state
+	diags := state.SetAttribute(ctx, path.Root("events"), eventsModel)
+	respDiags.Append(diags...)
+}
+
+func (r *virtualClusterResource) applyEvents(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics) {
+	cluster := plan.Cluster()
+
+	// If events plan is empty, just retrieve it from API
+	if plan.Events.IsNull() {
+		tflog.Info(ctx, "No virtual cluster events configuration provided")
+		// Pass null map to read all event types from API
+		r.readEvents(ctx, cluster, state, respDiags, types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()}))
+		return
+	}
+
+	// Retrieve events values from plan
+	var eventsPlan models.VirtualClusterEvents
+	diags := plan.Events.As(ctx, &eventsPlan, basetypes.ObjectAsOptions{})
+	respDiags.Append(diags...)
+	if respDiags.HasError() {
+		return
+	}
+
+	// Prepare enabled pointer
+	var enabledPtr *bool
+	if !eventsPlan.Enabled.IsNull() && !eventsPlan.Enabled.IsUnknown() {
+		enabled := eventsPlan.Enabled.ValueBool()
+		enabledPtr = &enabled
+	}
+
+	// Convert event types from Terraform model to API
+	var eventTypesMap map[string]api.EventTypeConfig
+	if !eventsPlan.EventTypes.IsNull() && !eventsPlan.EventTypes.IsUnknown() {
+		eventTypesMap = make(map[string]api.EventTypeConfig)
+
+		// Get the map elements
+		elements := eventsPlan.EventTypes.Elements()
+		for eventTypeName, eventTypeValue := range elements {
+			var eventTypeConfig models.EventTypeConfig
+			eventTypeObj, ok := eventTypeValue.(types.Object)
+			if !ok {
+				respDiags.AddError(
+					"Error Converting Event Type",
+					fmt.Sprintf("Expected event type %s to be an object, got %T", eventTypeName, eventTypeValue),
+				)
+				return
+			}
+			diags := eventTypeObj.As(ctx, &eventTypeConfig, basetypes.ObjectAsOptions{})
+			respDiags.Append(diags...)
+			if respDiags.HasError() {
+				return
+			}
+
+			apiConfig := api.EventTypeConfig{}
+
+			if !eventTypeConfig.Enabled.IsNull() && !eventTypeConfig.Enabled.IsUnknown() {
+				enabled := eventTypeConfig.Enabled.ValueBool()
+				apiConfig.Enabled = &enabled
+			}
+
+			if !eventTypeConfig.RetentionPeriodNanos.IsNull() && !eventTypeConfig.RetentionPeriodNanos.IsUnknown() {
+				retentionPeriod := uint64(eventTypeConfig.RetentionPeriodNanos.ValueInt64())
+				apiConfig.RetentionPeriodNanos = &retentionPeriod
+			}
+
+			eventTypesMap[eventTypeName] = apiConfig
+		}
+	}
+
+	// Update virtual cluster events state
+	err := r.client.UpdateEventsState(enabledPtr, eventTypesMap, cluster)
+	if err != nil {
+		respDiags.AddError(
+			"Error Updating WarpStream Virtual Cluster Events State",
+			"Could not update WarpStream Virtual Cluster Events State, unexpected error: "+err.Error(),
+		)
+		return
+	}
+
+	// Retrieve updated virtual cluster events state, filtering to only the event types in the plan
+	r.readEvents(ctx, cluster, state, respDiags, eventsPlan.EventTypes)
 }
