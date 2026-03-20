@@ -298,6 +298,90 @@ resource "warpstream_topic" "topic" {
 	})
 }
 
+func TestAccTopicResourceTopicTypeConfig(t *testing.T) {
+	var cluster = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccTopicAndClusterResource(cluster),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
+				),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("topic_name"), knownvalue.StringExact("test")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("partition_count"), knownvalue.Int64Exact(1)),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config"), knownvalue.ListSizeExact(0)),
+				},
+			},
+			{
+				Config: providerConfig + fmt.Sprintf(`
+			resource "warpstream_virtual_cluster" "default" {
+				name = "vcn_%s"
+			    tier = "dev"
+			}
+
+			resource "warpstream_topic" "topic" {
+			  topic_name         = "test"
+			  partition_count    = 1
+			  virtual_cluster_id = warpstream_virtual_cluster.default.id
+
+			  config {
+			    name  = "warpstream.topic.type"
+			    value = "classic"
+			  }
+
+			  config {
+			    name = "retention.ms"
+				value = "604800000"
+			  }
+			}
+							`, cluster),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
+				),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("topic_name"), knownvalue.StringExact("test")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("partition_count"), knownvalue.Int64Exact(1)),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config"), knownvalue.ListSizeExact(2)),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("name"), knownvalue.StringExact("retention.ms")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("604800000")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(1).AtMapKey("name"), knownvalue.StringExact("warpstream.topic.type")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(1).AtMapKey("value"), knownvalue.StringExact("classic")),
+				},
+			},
+			// Remove topic type config and make sure it gets removed properly
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+    tier = "dev"
+}
+
+resource "warpstream_topic" "topic" {
+  topic_name         = "test"
+  partition_count    = 1
+  virtual_cluster_id = warpstream_virtual_cluster.default.id
+
+  config {
+    name = "retention.ms"
+	value = "1604800000"
+  }
+}
+				`, cluster),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					utils.TestCheckResourceAttrStartsWith("warpstream_topic.topic", "virtual_cluster_id", "vci_"),
+				),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config"), knownvalue.ListSizeExact(1)),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("name"), knownvalue.StringExact("retention.ms")),
+					statecheck.ExpectKnownValue("warpstream_topic.topic", tfjsonpath.New("config").AtSliceIndex(0).AtMapKey("value"), knownvalue.StringExact("1604800000")),
+				},
+			},
+		},
+	})
+}
+
 func TestAccTopicResourceDeletePlan(t *testing.T) {
 	virtualClusterRandString := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	virtualClusterName := fmt.Sprintf("vcn_%s", virtualClusterRandString)

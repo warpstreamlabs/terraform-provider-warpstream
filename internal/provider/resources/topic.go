@@ -220,6 +220,24 @@ func policyHasCompact(policy string) bool {
 	return false
 }
 
+// filterConfigsToPlan filters API-returned configs to only include those
+// the user explicitly declared in their Terraform config. This prevents
+// Terraform from seeing "inconsistent result after apply" errors when the
+// API returns configs that weren't in the plan.
+func filterConfigsToPlan(apiConfigs map[string]*string, planConfigs []models.TopicConfig) map[string]*string {
+	planned := make(map[string]struct{}, len(planConfigs))
+	for _, c := range planConfigs {
+		planned[c.Name.ValueString()] = struct{}{}
+	}
+	filtered := make(map[string]*string, len(planConfigs))
+	for k, v := range apiConfigs {
+		if _, ok := planned[k]; ok {
+			filtered[k] = v
+		}
+	}
+	return filtered
+}
+
 func (r *topicResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
 	var plan models.Topic
@@ -266,7 +284,8 @@ func (r *topicResource) Create(ctx context.Context, req resource.CreateRequest, 
 		PartitionCount:            types.Int64Value(int64(topic.PartitionCount)),
 	}
 
-	for configName, configValue := range topic.Configs {
+	filteredConfigs := filterConfigsToPlan(topic.Configs, plan.Config)
+	for configName, configValue := range filteredConfigs {
 		name := types.StringValue(configName)
 		value := types.StringPointerValue(configValue)
 		state.Config = append(state.Config, models.TopicConfig{
@@ -328,6 +347,7 @@ func (r *topicResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
+	previousConfig := state.Config
 	state = models.Topic{
 		ID:               state.ID,
 		VirtualClusterID: state.VirtualClusterID,
@@ -336,7 +356,8 @@ func (r *topicResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	}
 	state.DeletionProtectionEnabled = types.BoolValue(r.parseTopicDeletionEnableFromConfigs(topic.Configs))
 
-	for configName, configValue := range topic.Configs {
+	filteredConfigs := filterConfigsToPlan(topic.Configs, previousConfig)
+	for configName, configValue := range filteredConfigs {
 		name := types.StringValue(configName)
 		value := types.StringPointerValue(configValue)
 		state.Config = append(state.Config, models.TopicConfig{
@@ -409,7 +430,8 @@ func (r *topicResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		PartitionCount:   types.Int64Value(int64(topic.PartitionCount)),
 	}
 	state.DeletionProtectionEnabled = types.BoolValue(r.parseTopicDeletionEnableFromConfigs(topic.Configs))
-	for configName, configValue := range topic.Configs {
+	filteredConfigs := filterConfigsToPlan(topic.Configs, plan.Config)
+	for configName, configValue := range filteredConfigs {
 		name := types.StringValue(configName)
 		value := types.StringPointerValue(configValue)
 		state.Config = append(state.Config, models.TopicConfig{
