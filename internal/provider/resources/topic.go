@@ -225,13 +225,10 @@ func policyHasCompact(policy string) bool {
 // Terraform from seeing "inconsistent result after apply" errors when the
 // API returns configs that weren't in the plan.
 func filterConfigsToPlan(apiConfigs map[string]*string, planConfigs []models.TopicConfig) map[string]*string {
-	planned := make(map[string]struct{}, len(planConfigs))
-	for _, c := range planConfigs {
-		planned[c.Name.ValueString()] = struct{}{}
-	}
 	filtered := make(map[string]*string, len(planConfigs))
-	for k, v := range apiConfigs {
-		if _, ok := planned[k]; ok {
+	for _, c := range planConfigs {
+		k := c.Name.ValueString()
+		if v, ok := apiConfigs[k]; ok {
 			filtered[k] = v
 		}
 	}
