@@ -698,3 +698,35 @@ func TestPipelineResourceImport(t *testing.T) {
 		},
 	})
 }
+
+func TestPipelineResourceConfigurationYAMLFromVariable(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:             testPipelineConfigYAMLFromVariable(),
+				Check:              testPipelineCheck(resources.TableflowPipelineType),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
+func testPipelineConfigYAMLFromVariable() string {
+	return providerConfig + `
+variable "configuration_yaml" {
+  type    = string
+  default = <<-EOT
+    input: {}
+    output: {}
+  EOT
+}
+resource "warpstream_pipeline" "test_pipeline" {
+  virtual_cluster_id = "vci_1234567890"
+  name               = "test_pipeline"
+  state              = "paused"
+  configuration_yaml = var.configuration_yaml
+}`
+}
