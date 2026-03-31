@@ -186,47 +186,55 @@ func (r *pipelineResource) ValidateConfig(ctx context.Context, req resource.Vali
 		return
 	}
 
-	hasYAML := !config.ConfigurationYAML.IsNull() && !config.ConfigurationYAML.IsUnknown()
-	hasInputs := !config.ConfigurationInputs.IsNull() && !config.ConfigurationInputs.IsUnknown()
+	yamlIsNull := config.ConfigurationYAML.IsNull()
+	yamlIsUnknown := config.ConfigurationYAML.IsUnknown()
+	inputsIsNull := config.ConfigurationInputs.IsNull()
+	inputsIsUnknown := config.ConfigurationInputs.IsUnknown()
+	yamlKnown := !yamlIsUnknown
+	inputsKnown := !inputsIsUnknown
+	hasYAML := !yamlIsNull
+	hasInputs := !inputsIsNull
 
-	if hasYAML && hasInputs {
-		resp.Diagnostics.AddError(
-			"Invalid Pipeline Configuration",
-			"Cannot specify both configuration_yaml and configuration_inputs. Use one or the other.",
-		)
-		return
-	}
-
-	if !hasYAML && !hasInputs {
-		resp.Diagnostics.AddError(
-			"Missing Pipeline Configuration",
-			"Either configuration_yaml or configuration_inputs must be provided.",
-		)
-		return
-	}
-
-	if hasInputs {
-		pipelineType := config.Type.ValueString()
-		// Type defaults to "bento" when not set, but during validation it may be unknown.
-		if !config.Type.IsNull() && !config.Type.IsUnknown() && pipelineType != TableflowPipelineType {
+	if yamlKnown && inputsKnown {
+		if hasYAML && hasInputs {
 			resp.Diagnostics.AddError(
 				"Invalid Pipeline Configuration",
-				"configuration_inputs is only supported for tableflow pipelines. Use configuration_yaml instead.",
+				"Cannot specify both configuration_yaml and configuration_inputs. Use one or the other.",
 			)
 			return
 		}
 
-		for key, elem := range config.ConfigurationInputs.Elements() {
-			strVal, ok := elem.(types.String)
-			if !ok || strVal.IsNull() || strVal.IsUnknown() {
-				continue
-			}
-			if _, err := utils.NormalizeYAML(strVal.ValueString()); err != nil {
-				resp.Diagnostics.AddAttributeError(
-					path.Root("configuration_inputs").AtMapKey(key),
-					"Invalid YAML Value",
-					fmt.Sprintf("The value for key %q is not valid YAML: %s", key, err.Error()),
+		if !hasYAML && !hasInputs {
+			resp.Diagnostics.AddError(
+				"Missing Pipeline Configuration",
+				"Either configuration_yaml or configuration_inputs must be provided.",
+			)
+			return
+		}
+
+		if hasInputs {
+			pipelineType := config.Type.ValueString()
+			// Type defaults to "bento" when not set, but during validation it may be unknown.
+			if !config.Type.IsNull() && !config.Type.IsUnknown() && pipelineType != TableflowPipelineType {
+				resp.Diagnostics.AddError(
+					"Invalid Pipeline Configuration",
+					"configuration_inputs is only supported for tableflow pipelines. Use configuration_yaml instead.",
 				)
+				return
+			}
+
+			for key, elem := range config.ConfigurationInputs.Elements() {
+				strVal, ok := elem.(types.String)
+				if !ok || strVal.IsNull() || strVal.IsUnknown() {
+					continue
+				}
+				if _, err := utils.NormalizeYAML(strVal.ValueString()); err != nil {
+					resp.Diagnostics.AddAttributeError(
+						path.Root("configuration_inputs").AtMapKey(key),
+						"Invalid YAML Value",
+						fmt.Sprintf("The value for key %q is not valid YAML: %s", key, err.Error()),
+					)
+				}
 			}
 		}
 	}
