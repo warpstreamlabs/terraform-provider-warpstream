@@ -384,12 +384,17 @@ tables:
     source_topic: logs
     source_format: json
     schema_mode: inline
-    schema:
-      fields:
-        - { name: environment, type: string, id: 1}
-        - { name: service, type: string, id: 2}
-        - { name: status, type: string, id: 3}
-        - { name: message, type: string, id: 4}
+    input_schema: |
+      {
+        "type": "object",
+        "properties": {
+          "environment": { "type": "string" },
+          "service": { "type": "string" },
+          "status": { "type": "string" },
+          "message": { "type": "string" }
+        },
+        "required": ["environment", "service", "status", "message"]
+      }
 destination_bucket_url: s3://test-tableflow-bucket?region=us-east-1
 EOT
 }`
@@ -521,12 +526,17 @@ resource "warpstream_pipeline" "test_pipeline" {
           source_topic: logs
           source_format: json
           schema_mode: inline
-          schema:
-            fields:
-              - { name: environment, type: string, id: 1 }
-              - { name: service, type: string, id: 2 }
-              - { name: status, type: string, id: 3 }
-              - { name: message, type: string, id: 4 }
+          input_schema: |
+            {
+              "type": "object",
+              "properties": {
+                "environment": { "type": "string" },
+                "service": { "type": "string" },
+                "status": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["environment", "service", "status", "message"]
+            }
     YAML
   }
 }`
@@ -563,12 +573,17 @@ resource "warpstream_pipeline" "test_pipeline" {
           source_topic: logs
           source_format: json
           schema_mode: inline
-          schema:
-            fields:
-              - { name: environment, type: string, id: 1 }
-              - { name: service, type: string, id: 2 }
-              - { name: status, type: string, id: 3 }
-              - { name: message, type: string, id: 4 }
+          input_schema: |
+            {
+              "type": "object",
+              "properties": {
+                "environment": { "type": "string" },
+                "service": { "type": "string" },
+                "status": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["environment", "service", "status", "message"]
+            }
     YAML
     "tables/events" = <<-YAML
       tables:
@@ -576,10 +591,15 @@ resource "warpstream_pipeline" "test_pipeline" {
           source_topic: events
           source_format: json
           schema_mode: inline
-          schema:
-            fields:
-              - { name: event_id, type: string, id: 1 }
-              - { name: timestamp, type: long, id: 2 }
+          input_schema: |
+            {
+              "type": "object",
+              "properties": {
+                "event_id": { "type": "string" },
+                "timestamp": { "type": "integer" }
+              },
+              "required": ["event_id", "timestamp"]
+            }
     YAML
   }
 }`
@@ -616,10 +636,15 @@ resource "warpstream_pipeline" "test_pipeline" {
           source_topic: user_events
           source_format: json
           schema_mode: inline
-          schema:
-            fields:
-              - { name: user_id, type: string, id: 1 }
-              - { name: action, type: string, id: 2 }
+          input_schema: |
+            {
+              "type": "object",
+              "properties": {
+                "user_id": { "type": "string" },
+                "action": { "type": "string" }
+              },
+              "required": ["user_id", "action"]
+            }
     YAML
     "logging/app_logs" = <<-YAML
       tables:
@@ -627,10 +652,15 @@ resource "warpstream_pipeline" "test_pipeline" {
           source_topic: app_logs
           source_format: json
           schema_mode: inline
-          schema:
-            fields:
-              - { name: level, type: string, id: 1 }
-              - { name: message, type: string, id: 2 }
+          input_schema: |
+            {
+              "type": "object",
+              "properties": {
+                "level": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["level", "message"]
+            }
     YAML
   }
 }`

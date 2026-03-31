@@ -3,8 +3,13 @@ tables:
     source_topic: user_events
     source_format: json
     schema_mode: inline
-    schema:
-      fields:
-        - { name: user_id, type: string, id: 1 }
-        - { name: action, type: string, id: 2 }
-        - { name: timestamp, type: long, id: 3 }
+    input_schema: |
+      {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "string" },
+          "action": { "type": "string" },
+          "timestamp": { "type": "long" }
+        },
+        "required": ["user_id", "action", "timestamp"]
+      }

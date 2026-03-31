@@ -48,12 +48,17 @@ tables:
       source_topic: logs
       source_format: json
       schema_mode: inline
-      schema:
-        fields:
-          - { name: environment, type: string, id: 1}
-          - { name: service, type: string, id: 2}
-          - { name: status, type: string, id: 3}
-          - { name: message, type: string, id: 4}
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "environment": { "type": "string" },
+            "service": { "type": "string" },
+            "status": { "type": "string" },
+            "message": { "type": "string" }
+          },
+          "required": ["environment", "service", "status", "message"]
+        }
 destination_bucket_url: s3://tableflow-bucket?region=us-east-1
   EOT
 }
