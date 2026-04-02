@@ -118,7 +118,6 @@ func (p *warpstreamProvider) Configure(ctx context.Context, req provider.Configu
 
 	// Create a new WarpStream client using the configuration values
 	client, err := api.NewClient(host, &token)
-
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Create Warpstream API Client",
