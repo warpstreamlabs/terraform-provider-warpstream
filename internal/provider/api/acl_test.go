@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestClientListACLsCachesPerVirtualCluster(t *testing.T) {
@@ -112,6 +113,105 @@ func TestClientGetACLUsesCacheIndex(t *testing.T) {
 
 	if got := state.listCalls["vc-1"]; got != 1 {
 		t.Fatalf("expected GetACL to use the warmed cache, got %d list calls", got)
+	}
+}
+
+func TestClientGetACLUsesListSnapshotAfterCacheInvalidation(t *testing.T) {
+	t.Parallel()
+
+	targetACL := testACLResponse("orders", "User:alice", "READ")
+	state := newACLTestServerState(map[string][]ACLResponse{
+		"vc-1": {
+			targetACL,
+			testACLResponse("payments", "User:bob", "WRITE"),
+		},
+	})
+
+	listRequestStarted := make(chan struct{})
+	allowListResponse := make(chan struct{})
+	listResponseSent := make(chan struct{})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/virtual_clusters/acls/list":
+			var req ACLListRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			state.mu.Lock()
+			state.listCalls[req.VirtualClusterID]++
+			acls := cloneACLResponses(state.aclsByVC[req.VirtualClusterID])
+			state.mu.Unlock()
+
+			close(listRequestStarted)
+			<-allowListResponse
+
+			writeACLTestResponse(w, ACLListResponse{ACLs: acls})
+			close(listResponseSent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := newACLTestClient(t, server.URL)
+
+	type getACLResult struct {
+		acl *ACLResponse
+		err error
+	}
+
+	resultCh := make(chan getACLResult, 1)
+	go func() {
+		acl, err := client.GetACL("vc-1", ACLRequest(targetACL))
+		resultCh <- getACLResult{acl: acl, err: err}
+	}()
+
+	<-listRequestStarted
+
+	client.aclsCache.mu.Lock()
+	close(allowListResponse)
+	<-listResponseSent
+
+	// Hold the cache lock long enough for ListACLs() to block in set(), then
+	// queue an invalidation behind it. The cold miss path should still succeed
+	// because it uses the fetched ACL slice directly.
+	time.Sleep(20 * time.Millisecond)
+
+	invalidated := make(chan struct{})
+	go func() {
+		client.aclsCache.invalidate("vc-1")
+		close(invalidated)
+	}()
+
+	time.Sleep(20 * time.Millisecond)
+	client.aclsCache.mu.Unlock()
+
+	<-invalidated
+
+	client.aclsCache.mu.Lock()
+	_, cacheEntryStillPresent := client.aclsCache.entriesByVC["vc-1"]
+	client.aclsCache.mu.Unlock()
+	if cacheEntryStillPresent {
+		t.Fatal("expected test invalidation to remove the warm cache entry")
+	}
+
+	result := <-resultCh
+	if result.err != nil {
+		t.Fatalf("expected GetACL to succeed from fetched snapshot, got error: %v", result.err)
+	}
+
+	if result.acl == nil || *result.acl != targetACL {
+		t.Fatalf("expected GetACL to return %v from fetched snapshot, got %v", targetACL, result.acl)
+	}
+
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	if got := state.listCalls["vc-1"]; got != 1 {
+		t.Fatalf("expected GetACL cold miss to issue one list call, got %d", got)
 	}
 }
 

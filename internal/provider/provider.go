@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -128,8 +127,6 @@ func (p *warpstreamProvider) Configure(ctx context.Context, req provider.Configu
 		)
 		return
 	}
-
-	fmt.Printf("provider configure new client=%p host=%q\n", client, client.HostURL)
 
 	if resp.Diagnostics.HasError() {
 		return

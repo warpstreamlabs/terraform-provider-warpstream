@@ -59,8 +59,6 @@ func (a *aclResource) Configure(ctx context.Context, req resource.ConfigureReque
 		return
 	}
 
-	fmt.Printf("acl resource configure resource=%p client=%p\n", a, client)
-
 	a.client = client
 }
 

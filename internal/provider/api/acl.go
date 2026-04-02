@@ -135,13 +135,12 @@ func (c *Client) GetACL(vcID string, targetACL ACLRequest) (*ACLResponse, error)
 		return &acl, nil
 	}
 
-	fmt.Printf("acl cache miss client=%p cache=%p vc=%s acl=%s\n", c, &c.aclsCache, vcID, targetACL.ID())
-
-	if _, err := c.ListACLs(vcID); err != nil {
+	acls, err := c.ListACLs(vcID)
+	if err != nil {
 		return nil, fmt.Errorf("failed to list ACLs: %w", err)
 	}
 
-	acl, _, found = c.aclsCache.getACL(vcID, targetACL)
+	acl, found = findACL(acls, targetACL)
 	if !found {
 		return nil, ErrNotFound
 	}
@@ -177,8 +176,6 @@ func (c *Client) ListACLs(vcID string) ([]ACLResponse, error) {
 	}
 
 	c.aclsCache.set(vcID, res.ACLs)
-	fmt.Printf("acl cache load client=%p cache=%p vc=%s count=%d\n", c, &c.aclsCache, vcID, len(res.ACLs))
-
 	return cloneACLResponses(res.ACLs), nil
 }
 
@@ -225,6 +222,16 @@ func aclsEqual(a ACLRequest, b ACLResponse) bool {
 		a.Host == b.Host &&
 		a.Operation == b.Operation &&
 		a.PermissionType == b.PermissionType
+}
+
+func findACL(acls []ACLResponse, targetACL ACLRequest) (ACLResponse, bool) {
+	for _, acl := range acls {
+		if aclsEqual(targetACL, acl) {
+			return acl, true
+		}
+	}
+
+	return ACLResponse{}, false
 }
 
 // Some users have thousands or even tens of thousands of ACLs and when they
@@ -307,8 +314,6 @@ func (c *aclsCache) invalidate(vcID string) {
 	if c.entriesByVC == nil {
 		return
 	}
-
-	fmt.Printf("acl cache invalidate cache=%p vc=%s\n", c, vcID)
 
 	delete(c.entriesByVC, vcID)
 }
