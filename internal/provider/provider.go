@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -118,7 +119,6 @@ func (p *warpstreamProvider) Configure(ctx context.Context, req provider.Configu
 
 	// Create a new WarpStream client using the configuration values
 	client, err := api.NewClient(host, &token)
-
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Create Warpstream API Client",
@@ -128,6 +128,8 @@ func (p *warpstreamProvider) Configure(ctx context.Context, req provider.Configu
 		)
 		return
 	}
+
+	fmt.Printf("provider configure new client=%p host=%q\n", client, client.HostURL)
 
 	if resp.Diagnostics.HasError() {
 		return

@@ -57,6 +57,64 @@ func TestClientListACLsCachesPerVirtualCluster(t *testing.T) {
 	}
 }
 
+func TestClientGetACLUsesCacheIndex(t *testing.T) {
+	t.Parallel()
+
+	targetACL := testACLResponse("orders", "User:alice", "READ")
+	state := newACLTestServerState(map[string][]ACLResponse{
+		"vc-1": {
+			targetACL,
+			testACLResponse("payments", "User:bob", "WRITE"),
+		},
+	})
+
+	server := newACLTestServer(state)
+	defer server.Close()
+
+	client := newACLTestClient(t, server.URL)
+
+	if _, err := client.ListACLs("vc-1"); err != nil {
+		t.Fatalf("ListACLs returned error: %v", err)
+	}
+
+	client.aclsCache.mu.Lock()
+	entry, ok := client.aclsCache.entriesByVC["vc-1"]
+	client.aclsCache.mu.Unlock()
+
+	if !ok {
+		t.Fatal("expected ACL cache entry to be populated for vc-1")
+	}
+
+	if len(entry.aclsByID) != 2 {
+		t.Fatalf("expected ACL cache index to contain 2 entries, got %d", len(entry.aclsByID))
+	}
+
+	indexedACL, found := entry.aclsByID[ACLRequest(targetACL).ID()]
+	if !found {
+		t.Fatal("expected ACL cache index to contain the target ACL")
+	}
+
+	if indexedACL != targetACL {
+		t.Fatalf("expected indexed ACL to match target ACL, got %v", indexedACL)
+	}
+
+	gotACL, err := client.GetACL("vc-1", ACLRequest(targetACL))
+	if err != nil {
+		t.Fatalf("GetACL returned error: %v", err)
+	}
+
+	if *gotACL != targetACL {
+		t.Fatalf("expected GetACL to return %v, got %v", targetACL, *gotACL)
+	}
+
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	if got := state.listCalls["vc-1"]; got != 1 {
+		t.Fatalf("expected GetACL to use the warmed cache, got %d list calls", got)
+	}
+}
+
 func TestClientCreateAndDeleteACLInvalidateCache(t *testing.T) {
 	t.Parallel()
 

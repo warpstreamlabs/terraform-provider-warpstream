@@ -33,14 +33,38 @@ type ACLResponse struct {
 // ID generates a unique identifier for the ACL based on its fields.
 // Note that the ID changes any time a field is changed, which results in Terraform planning to recreate the resource-
 // this is acceptable for our use case since ACLs are immutable and any change requires deletion and recreation.
-func (a *ACLResponse) ID() string {
-	rawID := a.ResourceType + "|" +
-		a.ResourceName + "|" +
-		a.PatternType + "|" +
-		a.Principal + "|" +
-		a.Host + "|" +
-		a.Operation + "|" +
-		a.PermissionType
+func (a ACLResponse) ID() string {
+	return aclID(
+		a.ResourceType,
+		a.ResourceName,
+		a.PatternType,
+		a.Principal,
+		a.Host,
+		a.Operation,
+		a.PermissionType,
+	)
+}
+
+func (a ACLRequest) ID() string {
+	return aclID(
+		a.ResourceType,
+		a.ResourceName,
+		a.PatternType,
+		a.Principal,
+		a.Host,
+		a.Operation,
+		a.PermissionType,
+	)
+}
+
+func aclID(resourceType, resourceName, patternType, principal, host, operation, permissionType string) string {
+	rawID := resourceType + "|" +
+		resourceName + "|" +
+		patternType + "|" +
+		principal + "|" +
+		host + "|" +
+		operation + "|" +
+		permissionType
 
 	hash := sha256.Sum256([]byte(rawID))
 	return hex.EncodeToString(hash[:])
@@ -102,18 +126,27 @@ func (c *Client) CreateACL(vcID string, acl ACLRequest) (*ACLResponse, error) {
 
 // GetACL retrieves a specific ACL by its ID within the specified virtual cluster.
 func (c *Client) GetACL(vcID string, targetACL ACLRequest) (*ACLResponse, error) {
-	acls, err := c.ListACLs(vcID)
-	if err != nil {
+	acl, cached, found := c.aclsCache.getACL(vcID, targetACL)
+	if cached {
+		if !found {
+			return nil, ErrNotFound
+		}
+
+		return &acl, nil
+	}
+
+	fmt.Printf("acl cache miss client=%p cache=%p vc=%s acl=%s\n", c, &c.aclsCache, vcID, targetACL.ID())
+
+	if _, err := c.ListACLs(vcID); err != nil {
 		return nil, fmt.Errorf("failed to list ACLs: %w", err)
 	}
 
-	for _, acl := range acls {
-		if aclsEqual(targetACL, acl) {
-			return &acl, nil
-		}
+	acl, _, found = c.aclsCache.getACL(vcID, targetACL)
+	if !found {
+		return nil, ErrNotFound
 	}
 
-	return nil, ErrNotFound
+	return &acl, nil
 }
 
 // ListACLs retrieves all ACLs for a given virtual cluster.
@@ -144,6 +177,7 @@ func (c *Client) ListACLs(vcID string) ([]ACLResponse, error) {
 	}
 
 	c.aclsCache.set(vcID, res.ACLs)
+	fmt.Printf("acl cache load client=%p cache=%p vc=%s count=%d\n", c, &c.aclsCache, vcID, len(res.ACLs))
 
 	return cloneACLResponses(res.ACLs), nil
 }
@@ -204,46 +238,79 @@ func aclsEqual(a ACLRequest, b ACLResponse) bool {
 // to list all the ACLs in the cluster and then we keep it up to date as
 // mutations occur
 type aclsCache struct {
-	mu       sync.Mutex
-	aclsByVC map[string][]ACLResponse
+	mu          sync.Mutex
+	entriesByVC map[string]aclsCacheEntry
+}
+
+type aclsCacheEntry struct {
+	acls     []ACLResponse
+	aclsByID map[string]ACLResponse
 }
 
 func (c *aclsCache) get(vcID string) ([]ACLResponse, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.aclsByVC == nil {
+	if c.entriesByVC == nil {
 		return nil, false
 	}
 
-	acls, ok := c.aclsByVC[vcID]
+	entry, ok := c.entriesByVC[vcID]
 	if !ok {
 		return nil, false
 	}
 
-	return cloneACLResponses(acls), true
+	return cloneACLResponses(entry.acls), true
+}
+
+func (c *aclsCache) getACL(vcID string, targetACL ACLRequest) (ACLResponse, bool, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.entriesByVC == nil {
+		return ACLResponse{}, false, false
+	}
+
+	entry, ok := c.entriesByVC[vcID]
+	if !ok {
+		return ACLResponse{}, false, false
+	}
+
+	acl, found := entry.aclsByID[targetACL.ID()]
+	return acl, true, found
 }
 
 func (c *aclsCache) set(vcID string, acls []ACLResponse) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.aclsByVC == nil {
-		c.aclsByVC = make(map[string][]ACLResponse)
+	if c.entriesByVC == nil {
+		c.entriesByVC = make(map[string]aclsCacheEntry)
 	}
 
-	c.aclsByVC[vcID] = cloneACLResponses(acls)
+	clonedACLs := cloneACLResponses(acls)
+	aclIndex := make(map[string]ACLResponse, len(clonedACLs))
+	for _, acl := range clonedACLs {
+		aclIndex[acl.ID()] = acl
+	}
+
+	c.entriesByVC[vcID] = aclsCacheEntry{
+		acls:     clonedACLs,
+		aclsByID: aclIndex,
+	}
 }
 
 func (c *aclsCache) invalidate(vcID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.aclsByVC == nil {
+	if c.entriesByVC == nil {
 		return
 	}
 
-	delete(c.aclsByVC, vcID)
+	fmt.Printf("acl cache invalidate cache=%p vc=%s\n", c, vcID)
+
+	delete(c.entriesByVC, vcID)
 }
 
 func cloneACLResponses(acls []ACLResponse) []ACLResponse {
