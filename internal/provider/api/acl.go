@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 )
 
 type ACLRequest struct {
@@ -94,6 +95,8 @@ func (c *Client) CreateACL(vcID string, acl ACLRequest) (*ACLResponse, error) {
 		return nil, err
 	}
 
+	c.aclsCache.invalidate(vcID)
+
 	return &aclCreateResp.ACL, nil
 }
 
@@ -115,6 +118,10 @@ func (c *Client) GetACL(vcID string, targetACL ACLRequest) (*ACLResponse, error)
 
 // ListACLs retrieves all ACLs for a given virtual cluster.
 func (c *Client) ListACLs(vcID string) ([]ACLResponse, error) {
+	if acls, ok := c.aclsCache.get(vcID); ok {
+		return acls, nil
+	}
+
 	payload, err := json.Marshal(ACLListRequest{VirtualClusterID: vcID})
 	if err != nil {
 		return nil, err
@@ -136,7 +143,9 @@ func (c *Client) ListACLs(vcID string) ([]ACLResponse, error) {
 		return nil, err
 	}
 
-	return res.ACLs, nil
+	c.aclsCache.set(vcID, res.ACLs)
+
+	return cloneACLResponses(res.ACLs), nil
 }
 
 // DeleteACL deletes an ACL by its ID within the specified virtual cluster.
@@ -168,6 +177,8 @@ func (c *Client) DeleteACL(vcID string, acl ACLRequest) error {
 		return fmt.Errorf("expected 1 ACL to be deleted, got %d", len(deleteResp.ACLs))
 	}
 
+	c.aclsCache.invalidate(vcID)
+
 	return nil
 }
 
@@ -180,4 +191,61 @@ func aclsEqual(a ACLRequest, b ACLResponse) bool {
 		a.Host == b.Host &&
 		a.Operation == b.Operation &&
 		a.PermissionType == b.PermissionType
+}
+
+// Some users have thousands or even tens of thousands of ACLs and when they
+// run a terraform plan/apply it would take forever because each ACL lookup
+// requires fetching all of the ACLs from the cluster and then filtering them
+// client side. We could solve that problem by adding a "get one ACL" API to
+// the backend, but that would not reduce the amount of time it takes to do a
+// large plan/apply as each ACL lookup would still take ~100ms at minimum.
+//
+// As a result, we have this "smart cache" that is seeded by a single API call
+// to list all the ACLs in the cluster and then we keep it up to date as
+// mutations occur
+type aclsCache struct {
+	mu       sync.Mutex
+	aclsByVC map[string][]ACLResponse
+}
+
+func (c *aclsCache) get(vcID string) ([]ACLResponse, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.aclsByVC == nil {
+		return nil, false
+	}
+
+	acls, ok := c.aclsByVC[vcID]
+	if !ok {
+		return nil, false
+	}
+
+	return cloneACLResponses(acls), true
+}
+
+func (c *aclsCache) set(vcID string, acls []ACLResponse) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.aclsByVC == nil {
+		c.aclsByVC = make(map[string][]ACLResponse)
+	}
+
+	c.aclsByVC[vcID] = cloneACLResponses(acls)
+}
+
+func (c *aclsCache) invalidate(vcID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.aclsByVC == nil {
+		return
+	}
+
+	delete(c.aclsByVC, vcID)
+}
+
+func cloneACLResponses(acls []ACLResponse) []ACLResponse {
+	return append([]ACLResponse(nil), acls...)
 }

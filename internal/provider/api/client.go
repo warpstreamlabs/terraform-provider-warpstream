@@ -24,6 +24,7 @@ type Client struct {
 	HostURL    string
 	HTTPClient *retryablehttp.Client
 	Token      string
+	aclsCache  aclsCache
 }
 
 // NewClient.
