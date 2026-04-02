@@ -243,7 +243,7 @@ func findACL(acls []ACLResponse, targetACL ACLRequest) (ACLResponse, bool) {
 //
 // As a result, we have this "smart cache" that is seeded by a single API call
 // to list all the ACLs in the cluster and then we keep it up to date as
-// mutations occur
+// mutations occur.
 type aclsCache struct {
 	mu          sync.Mutex
 	entriesByVC map[string]aclsCacheEntry
