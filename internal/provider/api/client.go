@@ -31,6 +31,14 @@ type Client struct {
 func NewClient(host string, token *string) (*Client, error) {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 5
+	retryClient.ErrorHandler = func(resp *http.Response, err error, numTries int) (*http.Response, error) {
+		if err == nil {
+			err = fmt.Errorf("%s giving up after %d attempt(s)", resp.Request.URL, numTries)
+		} else {
+			err = fmt.Errorf("%s giving up after %d attempt(s): %w", resp.Request.URL, numTries, err)
+		}
+		return resp, err
+	}
 	retryClient.StandardClient().Timeout = 10 * time.Second
 	c := Client{
 		HTTPClient: retryClient,
@@ -74,6 +82,13 @@ func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error)
 
 	res, err := c.HTTPClient.Do(retryReq)
 	if err != nil {
+		if res != nil {
+			defer res.Body.Close()
+			body, readErr := io.ReadAll(res.Body)
+			if readErr == nil {
+				return nil, fmt.Errorf("%w: status: %d, body: %s", err, res.StatusCode, body)
+			}
+		}
 		return nil, err
 	}
 	defer res.Body.Close()
