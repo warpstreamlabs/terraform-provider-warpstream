@@ -33,9 +33,9 @@ func NewClient(host string, token *string) (*Client, error) {
 	retryClient.RetryMax = 5
 	retryClient.ErrorHandler = func(resp *http.Response, err error, numTries int) (*http.Response, error) {
 		if err == nil {
-			err = fmt.Errorf("%s giving up after %d attempt(s)", resp.Request.URL, numTries)
+			err = fmt.Errorf("%s %s giving up after %d attempt(s)", resp.Request.Method, resp.Request.URL, numTries)
 		} else {
-			err = fmt.Errorf("%s giving up after %d attempt(s): %w", resp.Request.URL, numTries, err)
+			err = fmt.Errorf("%s %s giving up after %d attempt(s): %w", resp.Request.Method, resp.Request.URL, numTries, err)
 		}
 		return resp, err
 	}
