@@ -155,7 +155,7 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/create_virtual_cluster", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/create_virtual_cluster", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func (c *Client) RenameVirtualCluster(id string, newName string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/rename_virtual_cluster", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/rename_virtual_cluster", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ func (c *Client) DeleteVirtualCluster(id string, name string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/delete_virtual_cluster", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/delete_virtual_cluster", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -238,7 +238,7 @@ func (c *Client) DeleteVirtualCluster(id string, name string) error {
 
 // GetVirtualClusters - Returns list of virtual clusters.
 func (c *Client) GetVirtualClusters() ([]VirtualCluster, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/list_virtual_clusters", c.HostURL), nil)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/list_virtual_clusters", c.HostURL), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func (c *Client) UpdateVirtualClusterTier(id string, tier string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/update_virtual_cluster_tier", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/update_virtual_cluster_tier", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}

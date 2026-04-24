@@ -54,7 +54,7 @@ func (c *Client) CreateTopic(virtualClusterID string, topicName string, partitio
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/create_topic", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/create_topic", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (c *Client) DescribeTopic(virtualClusterID string, topicName string) (*Topi
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/describe_topic", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/describe_topic", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (c *Client) UpdateTopic(virtualClusterID string, topicName string, partitio
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/update_topic", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/update_topic", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func (c *Client) DeleteTopic(virtualClusterID string, topicName string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/delete_topic", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/delete_topic", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}

@@ -39,7 +39,7 @@ func (c *Client) CreateWorkspace(name string) (string, error) {
 		return "", err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/create_workspace", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/create_workspace", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return "", err
 	}
@@ -67,7 +67,7 @@ func (c *Client) DeleteWorkspace(id string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/delete_workspace", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/delete_workspace", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (c *Client) DeleteWorkspace(id string) error {
 
 // GetWorkspaces - Returns list of Workspaces.
 func (c *Client) GetWorkspaces() ([]Workspace, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/list_workspaces", c.HostURL), nil)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/list_workspaces", c.HostURL), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (c *Client) RenameWorkspace(workspaceID string, newName string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/rename_workspace", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/rename_workspace", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}

@@ -41,7 +41,7 @@ func (c *Client) CreateUserRole(name string, grants []AccessGrant) (string, erro
 		return "", err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/create_user_role", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/create_user_role", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return "", err
 	}
@@ -68,7 +68,7 @@ func (c *Client) UpdateUserRole(id string, name string, grants []AccessGrant) er
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/update_user_role", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/update_user_role", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func (c *Client) DeleteUserRole(id string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/delete_user_role", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/delete_user_role", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func (c *Client) DeleteUserRole(id string) error {
 
 // getUserRoles - Returns list of User Roles.
 func (c *Client) getUserRoles() ([]UserRole, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/list_user_roles", c.HostURL), nil)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/list_user_roles", c.HostURL), nil)
 	if err != nil {
 		return nil, err
 	}

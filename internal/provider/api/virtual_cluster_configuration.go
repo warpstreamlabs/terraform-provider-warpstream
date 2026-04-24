@@ -71,7 +71,7 @@ func (c *Client) UpdateConfiguration(cfg VirtualClusterConfiguration, vc Virtual
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/update_virtual_cluster_configuration", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/update_virtual_cluster_configuration", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}

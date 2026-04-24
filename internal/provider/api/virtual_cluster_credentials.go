@@ -56,7 +56,7 @@ func (c *Client) CreateCredentials(name string, su bool, importedPassword *strin
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/create_virtual_cluster_credentials", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/create_virtual_cluster_credentials", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func (c *Client) DeleteCredentials(id string, vc VirtualCluster) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/delete_virtual_cluster_credentials", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/delete_virtual_cluster_credentials", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}

@@ -52,7 +52,7 @@ func (c *Client) CreateSSOConfiguration(
 		return "", fmt.Errorf("failed to marshal SSO configuration create request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/create_sso_configuration", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/create_sso_configuration", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return "", fmt.Errorf("failed to create SSO configuration create request: %w", err)
 	}
@@ -80,7 +80,7 @@ func (c *Client) DeleteSSOConfiguration(id string) error {
 		return fmt.Errorf("failed to marshal SSO configuration delete request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/delete_sso_configuration", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/delete_sso_configuration", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("failed to create SSO configuration delete request: %w", err)
 	}
@@ -104,7 +104,7 @@ func (c *Client) UpdateSSOConfiguration(updateRequest SSOConfigurationUpdateRequ
 		return fmt.Errorf("failed to marshal SSO configuration update request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/update_sso_configuration", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/update_sso_configuration", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("failed to create SSO configuration update request: %w", err)
 	}
@@ -123,7 +123,7 @@ func (c *Client) UpdateSSOConfiguration(updateRequest SSOConfigurationUpdateRequ
 
 // GetSSOConfiguration - Return the current SSO configuration for the tenant if it matches the provided ID.
 func (c *Client) GetSSOConfiguration(ssoConfigurationID string) (*SSOConfiguration, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/get_sso_configuration", c.HostURL), nil)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/get_sso_configuration", c.HostURL), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SSO configuration get request: %w", err)
 	}
@@ -152,7 +152,7 @@ func (c *Client) GetSSOConfiguration(ssoConfigurationID string) (*SSOConfigurati
 
 // GetSSOConfigurationWithoutID - Return the current SSO configuration for the tenant. Can return nil, nil if none exists.
 func (c *Client) GetSSOConfigurationWithoutID() (*SSOConfiguration, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/get_sso_configuration", c.HostURL), nil)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/get_sso_configuration", c.HostURL), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SSO configuration get request: %w", err)
 	}
