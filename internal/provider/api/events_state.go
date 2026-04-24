@@ -45,7 +45,7 @@ func (c *Client) GetEventsState(vc VirtualCluster) (*EventsState, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/get_events_state", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/get_events_state", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
