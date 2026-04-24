@@ -133,7 +133,7 @@ func (c *Client) createAPIKey(
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/create_api_key", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/create_api_key", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func (c *Client) DeleteAPIKey(id string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/delete_api_key", c.HostURL), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/delete_api_key", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func (c *Client) DeleteAPIKey(id string) error {
 
 // GetAPIKeys - Returns list of API keys.
 func (c *Client) GetAPIKeys() ([]APIKey, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/list_api_keys", c.HostURL), nil)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/list_api_keys", c.HostURL), nil)
 	if err != nil {
 		return nil, err
 	}
