@@ -180,14 +180,16 @@ func TestAccClientMetricsSubscriptionResource_ConfigValidation(t *testing.T) {
 			expectError: regexp.MustCompile(`(?i)illegal client matching pattern`),
 		},
 		{
+			// Terraform word-wraps diagnostic details, so use \s+ for
+			// phrases that can be split across lines in rendered errors.
 			name:        "match_unknown_selector",
 			body:        `match = "unknown_selector_key=foo"`,
-			expectError: regexp.MustCompile(`(?i)unknown selector key`),
+			expectError: regexp.MustCompile(`(?i)unknown\s+selector\s+key`),
 		},
 		{
 			name:        "match_invalid_regex",
 			body:        `match = "client_id=[invalid"`,
-			expectError: regexp.MustCompile(`(?i)not a valid regular expression`),
+			expectError: regexp.MustCompile(`(?i)not\s+a\s+valid\s+regular\s+expression`),
 		},
 	}
 
@@ -248,7 +250,6 @@ func TestAccClientMetricsSubscriptionResource_DriftRecreate(t *testing.T) {
 
 					require.NoError(t, client.DeleteClientMetricsSubscriptions(vc.ID, []string{"producers"}))
 				},
-				Config:             testAccCMSConfigAllFields(vcRand),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
 				RefreshState:       true,
