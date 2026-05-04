@@ -31,6 +31,8 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+      - name: Scan for hard-coded secrets
+        run: go run ./scripts/secret_scan -files="$(git ls-files | tr '\n' ',')"
       - run: go mod download
       - run: go build -v .
       - name: Run linters
