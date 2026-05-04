@@ -19,9 +19,7 @@ var (
 		"sks_[0-9a-f]{20,}",
 	}
 
-	allowedKeys = map[string]struct{}{
-		"aks_89efb025bf0ce1d074f9a04a493a7a11e565522a293a5dea66d22317d942f4cb": {},
-	}
+	allowedKeys = map[string]struct{}{}
 )
 
 func main() {
@@ -82,7 +80,7 @@ func main() {
 	}
 
 	if hasIssues {
-		fmt.Println("Illegal prefixes (potential secret?) found. If you think this is a false positive (the secret is not an actual secret, or its just used for staging/tests etc.) then run the git commit command again with the --no-verify flag.")
+		fmt.Println("Illegal prefixes (potential secret?) found.")
 		os.Exit(1)
 	}
 }
