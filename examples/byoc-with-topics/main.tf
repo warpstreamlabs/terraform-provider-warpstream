@@ -8,7 +8,7 @@ terraform {
 
 provider "warpstream" {
   # Use a generic WarpStream API key here, not a cluster-specific Agent key.
-  token = "aks_xxx"
+  token = "YOUR_API_KEY"
 }
 
 # BYOC cluster with configuration.
