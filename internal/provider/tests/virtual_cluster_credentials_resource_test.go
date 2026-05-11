@@ -241,5 +241,6 @@ func testAccVirtualClusterCredentialsResourceCheck(su bool) resource.TestCheckFu
 		// resource.TestCheckResourceAttrSet("warpstream_virtual_cluster_credentials.test", "created_at"),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "name", "ccn_test_"+nameSuffix),
 		resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "cluster_superuser", fmt.Sprintf("%t", su)),
+		resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "read_only", "false"),
 	)
 }

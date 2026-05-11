@@ -47,6 +47,7 @@ type virtualClusterCredentialsModel struct {
 	VirtualClusterID    types.String `tfsdk:"virtual_cluster_id"`
 	VirtualClusterIDOld types.String `tfsdk:"virtual_cluster"`
 	ClusterSuperuser    types.Bool   `tfsdk:"cluster_superuser"`
+	ReadOnly            types.Bool   `tfsdk:"read_only"`
 }
 
 // Configure adds the provider configured client to the data source.
@@ -153,6 +154,15 @@ The WarpStream provider must be authenticated with an application key to consume
 					boolplanmodifier.RequiresReplace(),
 				},
 			},
+			"read_only": schema.BoolAttribute{
+				Description: "Whether the credentials are restricted to read-only operations. If `true`, any write or admin operation will be rejected. Only supported for Schema Registry clusters. Cannot be combined with `cluster_superuser = true`.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.RequiresReplace(),
+				},
+			},
 		},
 	}
 }
@@ -191,7 +201,7 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 		importedPassword = plan.Password.ValueStringPointer()
 	}
 
-	c, err := r.client.CreateCredentials(plan.Name.ValueString(), plan.ClusterSuperuser.ValueBool(), importedPassword, *cluster)
+	c, err := r.client.CreateCredentials(plan.Name.ValueString(), plan.ClusterSuperuser.ValueBool(), plan.ReadOnly.ValueBool(), importedPassword, *cluster)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Virtual Cluster Credentials",
@@ -209,6 +219,7 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 		UserName:         types.StringValue(c.UserName),
 		Password:         types.StringValue(c.Password),
 		ClusterSuperuser: types.BoolValue(c.ClusterSuperuser),
+		ReadOnly:         types.BoolValue(c.ReadOnly),
 	}
 
 	setVirtualClusterIDWithDeprecation(plan, &newPlan)
@@ -277,6 +288,7 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 		AgentPoolID:      state.AgentPoolID,
 		CreatedAt:        types.StringValue(c.CreatedAt),
 		ClusterSuperuser: types.BoolValue(c.ClusterSuperuser),
+		ReadOnly:         types.BoolValue(c.ReadOnly),
 	}
 
 	setVirtualClusterIDWithDeprecation(state, &newState)
