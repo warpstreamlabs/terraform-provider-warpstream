@@ -164,6 +164,30 @@ func TestAccVirtualClusterCredentialsResourcePassword(t *testing.T) {
 	})
 }
 
+func TestAccVirtualClusterCredentialsResourceReadOnly(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterCredentialsResource_withReadOnly(true),
+				Check:  testAccVirtualClusterCredentialsResourceCheckReadOnly(true),
+			},
+		},
+	})
+}
+
+func TestAccVirtualClusterCredentialsResourceNotReadOnly(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterCredentialsResource_withReadOnly(false),
+				Check:  testAccVirtualClusterCredentialsResourceCheckReadOnly(false),
+			},
+		},
+	})
+}
+
 func testAccVirtualClusterCredentialsResource_withSuperuser(su bool) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
@@ -177,6 +201,32 @@ resource "warpstream_virtual_cluster_credentials" "test" {
 	cluster_superuser = %t
   }
 `, nameSuffix, nameSuffix, su)
+}
+
+func testAccVirtualClusterCredentialsResource_withReadOnly(ro bool) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "default" {
+	name = "vcn_%s"
+    tier = "dev"
+}
+
+resource "warpstream_virtual_cluster_credentials" "test" {
+	name            = "ccn_test_%s"
+	virtual_cluster_id = warpstream_virtual_cluster.default.id
+	cluster_superuser = false
+	read_only = %t
+  }
+`, nameSuffix, nameSuffix, ro)
+}
+
+func testAccVirtualClusterCredentialsResourceCheckReadOnly(ro bool) resource.TestCheckFunc {
+	return resource.ComposeAggregateTestCheckFunc(
+		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster_credentials.test", "username"),
+		resource.TestCheckResourceAttrSet("warpstream_virtual_cluster_credentials.test", "password"),
+		resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "name", "ccn_test_"+nameSuffix),
+		resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "cluster_superuser", "false"),
+		resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "read_only", fmt.Sprintf("%t", ro)),
+	)
 }
 
 func testAccVirtualClusterCredentialsResource_vcField(vcFieldName string) string {
