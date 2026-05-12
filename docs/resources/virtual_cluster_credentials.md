@@ -57,6 +57,7 @@ resource "warpstream_virtual_cluster_credentials" "test-imported" {
 - `agent_pool` (String, Deprecated) Deprecated.
 - `cluster_superuser` (Boolean) Whether the user is cluster superuser. If `true`, the credentials will be created with superuser privileges which enables ACL management via the Kafka Admin APIs. If `false`, and cluster ACLs are enabled, and no `ALLOW` ACLs are set, then these credentials will not be able to access the cluster.
 - `password` (String, Sensitive) Generated password from credential creation. If terraform importing, this value will be unset.
+- `read_only` (Boolean) Whether the credentials are restricted to read-only operations. If `true`, any write or admin operation will be rejected. Only supported for Schema Registry clusters. Cannot be combined with `cluster_superuser = true`.
 - `virtual_cluster` (String, Deprecated) Virtual Cluster ID. Deprecated in favor of `virtual_cluster_id`.
 - `virtual_cluster_id` (String) Virtual Cluster ID. Required unless `virtual_cluster` is set.
 
