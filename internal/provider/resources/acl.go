@@ -386,6 +386,12 @@ type aclImportID struct {
 }
 
 func parseACLImportID(id string) (aclImportID, bool) {
+	// Split only the first four separators:
+	// virtual_cluster_id/resource_type/resource_name/pattern_type/<rest>
+	// The <rest> segment starts with principal, which can contain additional
+	// "/" characters for URL/path-style values such as:
+	// User:spiffe://example.test/ns/default/sa/service-account.
+	// Parse <rest> separately below so those slashes stay part of principal.
 	parts := strings.SplitN(id, "/", 5)
 	if len(parts) != 5 {
 		return aclImportID{}, false
