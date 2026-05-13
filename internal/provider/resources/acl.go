@@ -388,57 +388,38 @@ type aclImportID struct {
 func parseACLImportID(id string) (aclImportID, bool) {
 	// Split only the first four separators:
 	// virtual_cluster_id/resource_type/resource_name/pattern_type/<rest>
-	// The <rest> segment starts with principal, which can contain additional
-	// "/" characters for URL/path-style values such as:
-	// User:spiffe://example.test/ns/default/sa/service-account.
-	// Parse <rest> separately below so those slashes stay part of principal.
 	parts := strings.SplitN(id, "/", 5)
 	if len(parts) != 5 {
 		return aclImportID{}, false
 	}
 
-	// Principals can contain "/" characters, for example:
-	// User:spiffe://example.test/ns/default/sa/service-account.
-	// The first four fields are fixed-width, and host/operation/permission_type
-	// are fixed-width from the right, so everything between them is the principal.
-	principal, host, operation, permissionType, ok := parseACLImportIDSuffix(parts[4])
-	if !ok {
+	suffixParts := strings.Split(parts[4], "/")
+	if len(suffixParts) < 4 {
 		return aclImportID{}, false
 	}
+
+	// Principals can contain "/" characters, for example:
+	// User:spiffe://example.test/ns/default/sa/service-account.
+	// The first four fields are always single slash-delimited fields, and the
+	// last three suffix fields are always host/operation/permission_type, so
+	// everything between them is the principal.
+	var (
+		principalParts = suffixParts[:len(suffixParts)-3]
+		host           = suffixParts[len(suffixParts)-3]
+		operation      = suffixParts[len(suffixParts)-2]
+		permissionType = suffixParts[len(suffixParts)-1]
+	)
 
 	return aclImportID{
 		virtualClusterID: parts[0],
 		resourceType:     parts[1],
 		resourceName:     parts[2],
 		patternType:      parts[3],
-		principal:        principal,
+		principal:        strings.Join(principalParts, "/"),
 		host:             host,
 		operation:        operation,
 		permissionType:   permissionType,
 	}, true
-}
-
-func parseACLImportIDSuffix(suffix string) (principal, host, operation, permissionType string, ok bool) {
-	permissionSeparator := strings.LastIndex(suffix, "/")
-	if permissionSeparator == -1 {
-		return "", "", "", "", false
-	}
-
-	operationSeparator := strings.LastIndex(suffix[:permissionSeparator], "/")
-	if operationSeparator == -1 {
-		return "", "", "", "", false
-	}
-
-	hostSeparator := strings.LastIndex(suffix[:operationSeparator], "/")
-	if hostSeparator == -1 {
-		return "", "", "", "", false
-	}
-
-	return suffix[:hostSeparator],
-		suffix[hostSeparator+1 : operationSeparator],
-		suffix[operationSeparator+1 : permissionSeparator],
-		suffix[permissionSeparator+1:],
-		true
 }
 
 // formatDuplicateACLError creates a detailed error message for duplicate ACL detection.
