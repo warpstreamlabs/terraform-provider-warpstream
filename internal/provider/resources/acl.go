@@ -351,8 +351,8 @@ func (a *aclResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 // ImportState imports an ACL resource into Terraform state.
 // The import ID format is: virtual_cluster_id/resource_type/resource_name/pattern_type/principal/host/operation/permission_type.
 func (a *aclResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.Split(req.ID, "/")
-	if len(parts) != 8 {
+	importID, ok := parseACLImportID(req.ID)
+	if !ok {
 		resp.Diagnostics.AddError(
 			"Invalid Import ID",
 			"Expected an ID in the format: virtual_cluster_id/resource_type/resource_name/pattern_type/principal/host/operation/permission_type",
@@ -360,28 +360,79 @@ func (a *aclResource) ImportState(ctx context.Context, req resource.ImportStateR
 		return
 	}
 
-	// Parse the import ID parts
-	virtualClusterID := parts[0]
-	resourceType := parts[1]
-	resourceName := parts[2]
-	patternType := parts[3]
-	principal := parts[4]
-	host := parts[5]
-	operation := parts[6]
-	permissionType := parts[7]
-
 	// Set all the attributes in state
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("virtual_cluster_id"), virtualClusterID)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("resource_type"), resourceType)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("resource_name"), resourceName)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("pattern_type"), patternType)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal"), principal)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("host"), host)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("operation"), operation)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("permission_type"), permissionType)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("virtual_cluster_id"), importID.virtualClusterID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("resource_type"), importID.resourceType)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("resource_name"), importID.resourceName)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("pattern_type"), importID.patternType)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal"), importID.principal)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("host"), importID.host)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("operation"), importID.operation)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("permission_type"), importID.permissionType)...)
 
 	// The ID will be computed during the subsequent Read() call
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+type aclImportID struct {
+	virtualClusterID string
+	resourceType     string
+	resourceName     string
+	patternType      string
+	principal        string
+	host             string
+	operation        string
+	permissionType   string
+}
+
+func parseACLImportID(id string) (aclImportID, bool) {
+	parts := strings.SplitN(id, "/", 5)
+	if len(parts) != 5 {
+		return aclImportID{}, false
+	}
+
+	// Principals can contain "/" characters, for example:
+	// User:spiffe://example.test/ns/default/sa/service-account.
+	// The first four fields are fixed-width, and host/operation/permission_type
+	// are fixed-width from the right, so everything between them is the principal.
+	principal, host, operation, permissionType, ok := parseACLImportIDSuffix(parts[4])
+	if !ok {
+		return aclImportID{}, false
+	}
+
+	return aclImportID{
+		virtualClusterID: parts[0],
+		resourceType:     parts[1],
+		resourceName:     parts[2],
+		patternType:      parts[3],
+		principal:        principal,
+		host:             host,
+		operation:        operation,
+		permissionType:   permissionType,
+	}, true
+}
+
+func parseACLImportIDSuffix(suffix string) (principal, host, operation, permissionType string, ok bool) {
+	permissionSeparator := strings.LastIndex(suffix, "/")
+	if permissionSeparator == -1 {
+		return "", "", "", "", false
+	}
+
+	operationSeparator := strings.LastIndex(suffix[:permissionSeparator], "/")
+	if operationSeparator == -1 {
+		return "", "", "", "", false
+	}
+
+	hostSeparator := strings.LastIndex(suffix[:operationSeparator], "/")
+	if hostSeparator == -1 {
+		return "", "", "", "", false
+	}
+
+	return suffix[:hostSeparator],
+		suffix[hostSeparator+1 : operationSeparator],
+		suffix[operationSeparator+1 : permissionSeparator],
+		suffix[permissionSeparator+1:],
+		true
 }
 
 // formatDuplicateACLError creates a detailed error message for duplicate ACL detection.
