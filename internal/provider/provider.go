@@ -151,6 +151,7 @@ func (p *warpstreamProvider) DataSources(_ context.Context) []func() datasource.
 		datasources.NewTableFlowDataSource,
 		datasources.NewWorkspaceDataSource,
 		datasources.NewSSOConfigurationDataSource,
+		datasources.NewClientMetricsSubscriptionsDataSource,
 	}
 }
 
@@ -169,5 +170,6 @@ func (p *warpstreamProvider) Resources(_ context.Context) []func() resource.Reso
 		resources.NewWorkspaceResource,
 		resources.NewACLResource,
 		resources.NewSSOConfigurationResource,
+		resources.NewClientMetricsSubscriptionResource,
 	}
 }

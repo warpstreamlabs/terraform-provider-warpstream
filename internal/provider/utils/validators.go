@@ -290,3 +290,118 @@ func ValidEventTypeKeys() validator.Map {
 		allowedKeys: ValidEventTypeNames,
 	}
 }
+
+// ClientMetricsMatchAllowedParams is the set of selector keys accepted on
+// the left-hand side of each entry in a client metrics subscription `match`
+// string. Mirrors clientMetricsAllowedMatchParams in
+// pkg/kafka/common/client_metrics.go on the WarpStream backend.
+var ClientMetricsMatchAllowedParams = []string{
+	"client_instance_id",
+	"client_id",
+	"client_software_name",
+	"client_software_version",
+	"client_source_address",
+	"client_source_port",
+}
+
+// ClientMetricsMatchAllowedParamsDescription is the valid-selectors list in
+// a form that's nicely rendered inside schema attribute descriptions.
+var ClientMetricsMatchAllowedParamsDescription = strings.Join(
+	func() []string {
+		quoted := make([]string, len(ClientMetricsMatchAllowedParams))
+		for i, name := range ClientMetricsMatchAllowedParams {
+			quoted[i] = fmt.Sprintf("`%s`", name)
+		}
+		return quoted
+	}(),
+	", ",
+)
+
+type clientMetricsMatchValidator struct{}
+
+func (v clientMetricsMatchValidator) Description(_ context.Context) string {
+	return fmt.Sprintf(
+		"must be a comma-separated list of <key>=<regex> pairs, where <key> is one of %s, and <regex> is a valid Go regular expression",
+		strings.Join(ClientMetricsMatchAllowedParams, ", "),
+	)
+}
+
+func (v clientMetricsMatchValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+// ValidateString mirrors ValidateMatchPatterns in
+// pkg/kafka/common/client_metrics.go on the WarpStream backend.
+func (v clientMetricsMatchValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	matchStr := req.ConfigValue.ValueString()
+	if matchStr == "" {
+		return
+	}
+
+	allowed := make(map[string]struct{}, len(ClientMetricsMatchAllowedParams))
+	for _, p := range ClientMetricsMatchAllowedParams {
+		allowed[p] = struct{}{}
+	}
+
+	for _, pattern := range strings.Split(matchStr, ",") {
+		trimmed := strings.TrimSpace(pattern)
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) != 2 {
+			resp.Diagnostics.AddAttributeError(
+				req.Path,
+				"Invalid client metrics match pattern",
+				fmt.Sprintf(
+					"illegal client matching pattern %q: expected `<key>=<regex>`; valid keys are %s",
+					trimmed,
+					strings.Join(ClientMetricsMatchAllowedParams, ", "),
+				),
+			)
+			return
+		}
+
+		key := strings.TrimSpace(parts[0])
+		if _, ok := allowed[key]; !ok {
+			resp.Diagnostics.AddAttributeError(
+				req.Path,
+				"Invalid client metrics match pattern",
+				fmt.Sprintf(
+					"illegal client matching pattern %q: unknown selector key %q; valid keys are %s",
+					trimmed, key, strings.Join(ClientMetricsMatchAllowedParams, ", "),
+				),
+			)
+			return
+		}
+
+		if _, err := regexp.Compile(strings.TrimSpace(parts[1])); err != nil {
+			resp.Diagnostics.AddAttributeError(
+				req.Path,
+				"Invalid client metrics match pattern",
+				fmt.Sprintf(
+					"illegal client matching pattern %q: value is not a valid regular expression: %s",
+					trimmed, err.Error(),
+				),
+			)
+			return
+		}
+	}
+}
+
+// ValidClientMetricsMatchPattern validates the `match` field of a client
+// metrics subscription, mirroring the server-side ValidateMatchPatterns in
+// pkg/kafka/common/client_metrics.go so that bad patterns fail at plan time
+// instead of as an HTTP 400 during apply.
+func ValidClientMetricsMatchPattern() validator.String {
+	return clientMetricsMatchValidator{}
+}
+
+// Client metrics subscription push-interval bounds (inclusive). Mirrors
+// pkg/kafka/common/client_metrics.go: ClientMetricsPushIntervalMsMin /
+// ClientMetricsPushIntervalMsMax.
+const (
+	ClientMetricsPushIntervalMsMin int64 = 100
+	ClientMetricsPushIntervalMsMax int64 = 3_600_000
+)
