@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -32,14 +33,21 @@ func NewClient(host string, token *string) (*Client, error) {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 5
 	retryClient.ErrorHandler = func(resp *http.Response, err error, numTries int) (*http.Response, error) {
-		if err == nil {
-			err = fmt.Errorf("%s %s giving up after %d attempt(s)", resp.Request.Method, resp.Request.URL, numTries)
+		if resp != nil && resp.Request != nil {
+			if err == nil {
+				err = fmt.Errorf("%s %s giving up after %d attempt(s)", resp.Request.Method, resp.Request.URL, numTries)
+			} else {
+				err = fmt.Errorf("%s %s giving up after %d attempt(s): %w", resp.Request.Method, resp.Request.URL, numTries, err)
+			}
+		} else if err == nil {
+			err = fmt.Errorf("giving up after %d attempt(s)", numTries)
 		} else {
-			err = fmt.Errorf("%s %s giving up after %d attempt(s): %w", resp.Request.Method, resp.Request.URL, numTries, err)
+			err = fmt.Errorf("giving up after %d attempt(s): %w", numTries, err)
 		}
 		return resp, err
 	}
-	retryClient.StandardClient().Timeout = 10 * time.Second
+	retryClient.HTTPClient.Timeout = 30 * time.Second
+	retryClient.CheckRetry = checkRetryPolicy
 	c := Client{
 		HTTPClient: retryClient,
 		// Default Warpstream URL
@@ -57,6 +65,24 @@ func NewClient(host string, token *string) (*Client, error) {
 
 	c.Token = *token
 	return &c, nil
+}
+
+// checkRetryPolicy extends the default retry policy to also retry on HTTP 499
+// (client-side cancellation). The WarpStream API returns 499 with
+// "context_canceled" when the server detects the client connection was dropped
+// before the response could be sent. This is transient and safe to retry.
+func checkRetryPolicy(ctx context.Context, resp *http.Response, err error) (bool, error) {
+	shouldRetry, checkErr := retryablehttp.DefaultRetryPolicy(ctx, resp, err)
+	if shouldRetry {
+		return true, checkErr
+	}
+	if ctx.Err() != nil {
+		return false, ctx.Err()
+	}
+	if resp != nil && resp.StatusCode == 499 {
+		return true, nil
+	}
+	return false, checkErr
 }
 
 func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error) {
