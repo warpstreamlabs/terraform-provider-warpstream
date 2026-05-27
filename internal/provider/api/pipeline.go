@@ -168,7 +168,7 @@ func (c *Client) doJSONHTTP(
 	path string,
 	resp any,
 ) error {
-	ctx, cc := context.WithTimeout(ctx, 2*time.Minute)
+	ctx, cc := context.WithTimeout(ctx, 4*time.Minute)
 	defer cc()
 
 	marshaled, err := json.Marshal(&req)
