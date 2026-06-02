@@ -32,10 +32,18 @@ func NewClient(host string, token *string) (*Client, error) {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 5
 	retryClient.ErrorHandler = func(resp *http.Response, err error, numTries int) (*http.Response, error) {
+		var (
+			method string
+			url    string
+		)
+		if resp != nil && resp.Request != nil {
+			method = resp.Request.Method
+			url = resp.Request.URL.String()
+		}
 		if err == nil {
-			err = fmt.Errorf("%s %s giving up after %d attempt(s)", resp.Request.Method, resp.Request.URL, numTries)
+			err = fmt.Errorf("%s %s giving up after %d attempt(s)", method, url, numTries)
 		} else {
-			err = fmt.Errorf("%s %s giving up after %d attempt(s): %w", resp.Request.Method, resp.Request.URL, numTries, err)
+			err = fmt.Errorf("%s %s giving up after %d attempt(s): %w", method, url, numTries, err)
 		}
 		return resp, err
 	}
