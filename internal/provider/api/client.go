@@ -20,16 +20,23 @@ var ErrNotFound = errors.New("Resource Not Found")
 // HostURL - Default Warpstream URL.
 const HostURL string = "https://api.prod.us-east-1.warpstream.com/api/v1"
 
+// devVersion is used in the User-Agent for local builds and tests.
+const devVersion string = "dev"
+
 // Client.
 type Client struct {
 	HostURL    string
 	HTTPClient *retryablehttp.Client
 	Token      string
+	UserAgent  string
 	aclsCache  aclsCache
 }
 
 // NewClient.
-func NewClient(host string, token *string) (*Client, error) {
+func NewClient(host string, token *string, version string) (*Client, error) {
+	if version == "" {
+		version = "unset" // should never happen
+	}
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 5
 	retryClient.ErrorHandler = func(resp *http.Response, err error, numTries int) (*http.Response, error) {
@@ -53,7 +60,8 @@ func NewClient(host string, token *string) (*Client, error) {
 	c := Client{
 		HTTPClient: retryClient,
 		// Default Warpstream URL
-		HostURL: HostURL,
+		HostURL:   HostURL,
+		UserAgent: fmt.Sprintf("terraform-provider-warpstream/%s", version),
 	}
 
 	if host != "" {
@@ -102,6 +110,7 @@ func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error)
 
 	req.Header.Set("warpstream-api-key", token)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", c.UserAgent)
 
 	retryReq, err := retryablehttp.FromRequest(req)
 	if err != nil {
@@ -154,5 +163,5 @@ func NewClientDefault() (*Client, error) {
 	token := os.Getenv("WARPSTREAM_API_KEY")
 	host := os.Getenv("WARPSTREAM_API_URL")
 
-	return NewClient(host, &token)
+	return NewClient(host, &token, devVersion)
 }
