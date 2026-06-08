@@ -385,7 +385,7 @@ func newACLTestClient(t *testing.T, host string) *Client {
 	t.Helper()
 
 	token := "test-token"
-	client, err := NewClient(host, &token)
+	client, err := NewClient(host, &token, "test")
 	if err != nil {
 		t.Fatalf("NewClient returned error: %v", err)
 	}
