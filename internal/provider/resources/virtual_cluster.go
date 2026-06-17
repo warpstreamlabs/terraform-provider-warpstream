@@ -305,10 +305,9 @@ The WarpStream provider must be authenticated with an application key to consume
 						},
 					},
 					"event_types": schema.MapNestedAttribute{
-						Description: fmt.Sprintf("Per event type configuration. Map keys can be the names of any supported event type: %s.", utils.ValidEventTypeNamesDescription),
+						Description: "Per event type configuration. Map keys are event type names. Refer to the Events tab of the WarpStream web console for the list of valid event types.",
 						Optional:    true,
 						Computed:    true,
-						Validators:  []validator.Map{utils.ValidEventTypeKeys()},
 						PlanModifiers: []planmodifier.Map{
 							mapplanmodifier.UseStateForUnknown(),
 						},

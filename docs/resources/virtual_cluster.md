@@ -143,7 +143,7 @@ Optional:
 Optional:
 
 - `enabled` (Boolean) Enable events for this virtual cluster. Defaults to `false`.
-- `event_types` (Attributes Map) Per event type configuration. Map keys can be the names of any supported event type: `agent_logs`, `pipeline_logs`, `acl_logs`. (see [below for nested schema](#nestedatt--events--event_types))
+- `event_types` (Attributes Map) Per event type configuration. Map keys are event type names. Refer to the Events tab of the WarpStream web console for the list of valid event types. (see [below for nested schema](#nestedatt--events--event_types))
 
 <a id="nestedatt--events--event_types"></a>
 ### Nested Schema for `events.event_types`

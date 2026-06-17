@@ -430,19 +430,6 @@ func TestAccVirtualClusterResourceWithEventTypes(t *testing.T) {
 	})
 }
 
-func TestAccVirtualClusterResourceEventTypesValidation(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config:      testAccVirtualClusterResource_withInvalidEventType(vcNameSuffix),
-				ExpectError: regexp.MustCompile("Invalid Event Type Key"),
-			},
-		},
-	})
-}
-
 func TestAccVirtualClusterResourceEventTypesAllTypes(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
@@ -514,23 +501,6 @@ resource "warpstream_virtual_cluster" "test" {
       acl_logs = {
         enabled                = true
         retention_period_nanos = 432000000000000
-      }
-    }
-  }
-}`, vcNameSuffix)
-}
-
-func testAccVirtualClusterResource_withInvalidEventType(vcNameSuffix string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
-  tier = "fundamentals"
-  events = {
-    enabled = true
-    event_types = {
-      invalid_event_type = {
-        enabled                = true
-        retention_period_nanos = 86400000000000
       }
     }
   }
