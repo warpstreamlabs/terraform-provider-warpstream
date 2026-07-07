@@ -202,7 +202,7 @@ func (c *Client) GetAPIKey(apiKeyID string) (*APIKey, error) {
 	keys, err := c.GetAPIKeys()
 
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get API keys list: %w", err)
+		return nil, fmt.Errorf("failed to get API keys list: %w", err)
 	}
 
 	for _, key := range keys {

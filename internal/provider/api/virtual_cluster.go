@@ -134,11 +134,12 @@ type ClusterParameters struct {
 // CreateVirtualCluster - Create new virtual cluster.
 func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*VirtualCluster, error) {
 	var trimmed string
-	if opts.Type == VirtualClusterTypeSchemaRegistry {
+	switch opts.Type {
+	case VirtualClusterTypeSchemaRegistry:
 		trimmed = strings.TrimPrefix(name, "vcn_sr_")
-	} else if opts.Type == VirtualClusterTypeTableFlow {
+	case VirtualClusterTypeTableFlow:
 		trimmed = strings.TrimPrefix(name, "vcn_dl_")
-	} else {
+	default:
 		trimmed = strings.TrimPrefix(name, "vcn_")
 	}
 	payload, err := json.Marshal(VirtualClusterCreateRequest{
