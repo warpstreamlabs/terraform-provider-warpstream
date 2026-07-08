@@ -187,12 +187,12 @@ func validateCleanupPolicyChange(oldConfig, newConfig []models.TopicConfig) erro
 
 	if oldHasCompact && !newHasCompact {
 		return fmt.Errorf(
-			"Cannot change cleanup.policy from %q to %q: a compacted topic cannot be made non-compacted.",
+			"cannot change cleanup.policy from %q to %q: a compacted topic cannot be made non-compacted",
 			oldPolicy, newPolicy)
 	}
 	if !oldHasCompact && newHasCompact {
 		return fmt.Errorf(
-			"Cannot change cleanup.policy from %q to %q: a non-compacted topic cannot be made compacted.",
+			"cannot change cleanup.policy from %q to %q: a non-compacted topic cannot be made compacted",
 			oldPolicy, newPolicy)
 	}
 	return nil

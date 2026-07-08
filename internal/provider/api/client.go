@@ -15,7 +15,7 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 )
 
-var ErrNotFound = errors.New("Resource Not Found")
+var ErrNotFound = errors.New("resource not found")
 
 // HostURL - Default Warpstream URL.
 const HostURL string = "https://api.prod.us-east-1.warpstream.com/api/v1"

@@ -79,7 +79,7 @@ func testAccVirtualClustersDataSource_withAgentKeys(vcs []*api.VirtualCluster, a
 	for i, vc := range vcs {
 		dep := fmt.Sprintf("warpstream_agent_key.ak%d", i)
 		deps = append(deps, dep)
-		b.WriteString(fmt.Sprintf(`
+		fmt.Fprintf(&b, `
 			resource "warpstream_agent_key" "ak%d" {
 				name = "%s"
 				virtual_cluster_id = "%s"
@@ -88,15 +88,15 @@ func testAccVirtualClustersDataSource_withAgentKeys(vcs []*api.VirtualCluster, a
 			i,
 			agentKeyNames[i],
 			vc.ID,
-		))
+		)
 	}
 
-	b.WriteString(fmt.Sprintf(`
+	fmt.Fprintf(&b, `
 		data "warpstream_virtual_clusters" "test" {
 			depends_on = [%s]
 		}`,
 		strings.Join(deps, ",\n"),
-	))
+	)
 
 	return b.String()
 }
