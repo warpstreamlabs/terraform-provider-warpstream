@@ -183,7 +183,18 @@ func (r *workloadIdentityFederationResource) Create(ctx context.Context, req res
 		return
 	}
 
-	state := models.MapToWorkloadIdentityFederation(created)
+	// Re-read so state reflects the persisted values (e.g. created_at at the database's timestamp
+	// precision) rather than the create response, keeping state stable across refreshes and imports.
+	fed, err := r.client.GetWorkloadIdentityFederation(created.VirtualClusterID, created.ID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Reading WarpStream Workload Identity Federation",
+			"Could not read WarpStream Workload Identity Federation ID "+created.ID+": "+err.Error(),
+		)
+		return
+	}
+
+	state := models.MapToWorkloadIdentityFederation(fed)
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
