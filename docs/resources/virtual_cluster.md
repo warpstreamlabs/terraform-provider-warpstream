@@ -57,6 +57,22 @@ resource "warpstream_virtual_cluster" "test_soft_deletion" {
   }
 }
 
+resource "warpstream_virtual_cluster" "test_broker_config" {
+  name = "vcn_test_broker_config"
+  tier = "dev"
+
+  # Generic cluster/broker settings that don't have a dedicated typed attribute.
+  # Keys are Kafka-style names.
+  config {
+    name  = "message.max.bytes"
+    value = "1048576"
+  }
+  config {
+    name  = "delete.topic.enable"
+    value = "true"
+  }
+}
+
 resource "warpstream_virtual_cluster" "test_cloud_region" {
   name = "vcn_test_cloud_region"
   tier = "dev"
@@ -96,6 +112,7 @@ resource "warpstream_virtual_cluster" "test_with_events" {
 ### Optional
 
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
+- `config` (Block Set) Generic cluster/broker configuration as name/value pairs, for settings that don't have a dedicated typed attribute under `configuration`. Keys are Kafka-style names (e.g. `message.max.bytes`, `delete.topic.enable`). Setting the same underlying setting via both a typed `configuration` attribute and this block is not allowed. (see [below for nested schema](#nestedblock--config))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
 - `events` (Attributes) Virtual Cluster Events Configuration. (see [below for nested schema](#nestedatt--events))
 - `tags` (Map of String) Tags associated with the virtual cluster.
@@ -119,6 +136,15 @@ Optional:
 - `provider` (String) Cloud Provider. Valid providers are: `aws` (default), `gcp`, and `azure`.
 - `region` (String) Cloud Region. Defaults to null. Can't be set if `region_group` is set.
 - `region_group` (String) Cloud Region Group. Defaults to null. Can't be set if `region` is set.
+
+
+<a id="nestedblock--config"></a>
+### Nested Schema for `config`
+
+Required:
+
+- `name` (String)
+- `value` (String)
 
 
 <a id="nestedatt--configuration"></a>

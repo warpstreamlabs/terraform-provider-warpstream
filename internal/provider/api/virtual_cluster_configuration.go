@@ -23,6 +23,11 @@ type VirtualClusterConfiguration struct {
 	// The api returns the raw time.Duration value so we have to parse it accordingly.
 	// Unlike default_retention_millis which is returned from the api in milliseconds.
 	SoftTopicDeletionTTL *time.Duration `json:"inactive_topics_ttl,omitempty"`
+
+	// Configs is a generic passthrough for any backend-supported cluster/broker config
+	// keyed by its Kafka-style name (e.g. "message.max.bytes"). The provider forwards it
+	// blindly; the WarpStream API validates keys/values and rejects unknown ones.
+	Configs map[string]*string `json:"configs,omitempty"`
 }
 
 type ConfigurationDescribeRequest struct {

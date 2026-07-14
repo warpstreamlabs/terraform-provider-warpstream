@@ -39,6 +39,22 @@ resource "warpstream_virtual_cluster" "test_soft_deletion" {
   }
 }
 
+resource "warpstream_virtual_cluster" "test_broker_config" {
+  name = "vcn_test_broker_config"
+  tier = "dev"
+
+  # Generic cluster/broker settings that don't have a dedicated typed attribute.
+  # Keys are Kafka-style names.
+  config {
+    name  = "message.max.bytes"
+    value = "1048576"
+  }
+  config {
+    name  = "delete.topic.enable"
+    value = "true"
+  }
+}
+
 resource "warpstream_virtual_cluster" "test_cloud_region" {
   name = "vcn_test_cloud_region"
   tier = "dev"

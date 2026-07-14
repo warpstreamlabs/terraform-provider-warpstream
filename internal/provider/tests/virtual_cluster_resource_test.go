@@ -230,6 +230,103 @@ func testAccVirtualClusterResourceCheck(acls bool, aclShadowing bool, autoTopic 
 
 }
 
+// TestAccVirtualClusterResourceGenericConfig exercises the generic `config {}` block.
+// It requires a backend that supports the generic cluster-config passthrough (the `configs`
+// field on the cluster configuration API). Like all resource.Test cases it only runs when
+// TF_ACC is set.
+func TestAccVirtualClusterResourceGenericConfig(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with two generic configs.
+			{
+				Config: testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, "1048576"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "config.#", "2"),
+					resource.TestCheckTypeSetElemNestedAttrs("warpstream_virtual_cluster.test", "config.*", map[string]string{
+						"name":  "message.max.bytes",
+						"value": "1048576",
+					}),
+					resource.TestCheckTypeSetElemNestedAttrs("warpstream_virtual_cluster.test", "config.*", map[string]string{
+						"name":  "delete.topic.enable",
+						"value": "true",
+					}),
+				),
+			},
+			// Re-apply identical config: expect no drift.
+			{
+				Config: testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, "1048576"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
+			},
+			// Update a value.
+			{
+				Config: testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, "2097152"),
+				Check: resource.TestCheckTypeSetElemNestedAttrs("warpstream_virtual_cluster.test", "config.*", map[string]string{
+					"name":  "message.max.bytes",
+					"value": "2097152",
+				}),
+			},
+			// Remove the generic config block entirely.
+			{
+				Config: testAccVirtualClusterResource(vcNameSuffix),
+				Check:  resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "config.#", "0"),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceGenericConfigConflict verifies that setting the same
+// underlying setting via both a typed attribute and the generic block is rejected at plan
+// time by ModifyPlan (this check runs without a backend round-trip).
+func TestAccVirtualClusterResourceGenericConfigConflict(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccVirtualClusterResource_withConflictingConfig(vcNameSuffix),
+				ExpectError: regexp.MustCompile("Conflicting virtual cluster configuration"),
+			},
+		},
+	})
+}
+
+func testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, messageMaxBytes string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  config {
+    name  = "message.max.bytes"
+    value = "%s"
+  }
+  config {
+    name  = "delete.topic.enable"
+    value = "true"
+  }
+}`, vcNameSuffix, messageMaxBytes)
+}
+
+func testAccVirtualClusterResource_withConflictingConfig(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  configuration = {
+    default_retention_millis = 86400000
+  }
+  config {
+    name  = "log.retention.ms"
+    value = "86400000"
+  }
+}`, vcNameSuffix)
+}
+
 func TestAccVirtualClusterImport(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{

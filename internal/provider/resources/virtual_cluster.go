@@ -38,7 +38,48 @@ var (
 	_ resource.Resource                = &virtualClusterResource{}
 	_ resource.ResourceWithConfigure   = &virtualClusterResource{}
 	_ resource.ResourceWithImportState = &virtualClusterResource{}
+	_ resource.ResourceWithModifyPlan  = &virtualClusterResource{}
 )
+
+// typedConfigToBrokerKeys maps a typed `configuration` attribute (by its tfsdk name) to
+// the generic broker-config key(s) that control the SAME underlying cluster setting. It is
+// used by ModifyPlan to reject setting the same setting via both a typed attribute and the
+// generic `config` block. Only typed attributes that have a generic-key equivalent are
+// listed; the ACL and deletion-protection attributes have no broker-config form and can
+// never collide.
+var typedConfigToBrokerKeys = map[string][]string{
+	"auto_create_topic":              {"auto.create.topics.enable"},
+	"default_num_partitions":         {"num.partitions"},
+	"default_retention_millis":       {"log.retention.ms", "log.retention.minutes", "log.retention.hours"},
+	"default_topic_type":             {"warpstream.default.topic.type"},
+	"enable_soft_topic_deletion":     {"warpstream.soft.delete.topic.enable"},
+	"soft_topic_deletion_ttl_millis": {"warpstream.soft.delete.topic.ttl.hours"},
+}
+
+// configCollision is a typed `configuration` attribute that conflicts with a generic
+// `config` block key because both control the same underlying cluster setting.
+type configCollision struct {
+	TypedAttr  string
+	GenericKey string
+}
+
+// findConfigCollisions returns every conflict between an explicitly-set typed configuration
+// attribute and a generic config block key. It is pure so it can be unit-tested without the
+// plugin-framework plan machinery.
+func findConfigCollisions(explicitTypedAttrs map[string]struct{}, genericKeys map[string]struct{}) []configCollision {
+	var out []configCollision
+	for typedName, keys := range typedConfigToBrokerKeys {
+		if _, set := explicitTypedAttrs[typedName]; !set {
+			continue
+		}
+		for _, k := range keys {
+			if _, dup := genericKeys[k]; dup {
+				out = append(out, configCollision{TypedAttr: typedName, GenericKey: k})
+			}
+		}
+	}
+	return out
+}
 
 // NewVirtualClusterResource is a helper function to simplify the provider implementation.
 func NewVirtualClusterResource() resource.Resource {
@@ -73,6 +114,52 @@ func (r *virtualClusterResource) Configure(_ context.Context, req resource.Confi
 // Metadata returns the resource type name.
 func (r *virtualClusterResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
+}
+
+// ModifyPlan rejects configuring the same cluster setting via both a typed `configuration`
+// attribute and the generic `config` block, which would otherwise result in two conflicting
+// writes for the same underlying setting.
+func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// Nothing to validate on destroy.
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+
+	// Generic config block entries come from the plan (they are user-authored, no defaults).
+	var plan models.VirtualClusterResource
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() || len(plan.Config) == 0 {
+		return
+	}
+	genericKeys := make(map[string]struct{}, len(plan.Config))
+	for _, c := range plan.Config {
+		genericKeys[c.Name.ValueString()] = struct{}{}
+	}
+
+	// Read the typed configuration from the raw *config* (not the plan) so that Computed
+	// defaults are not mistaken for values the user explicitly set.
+	var cfgObj types.Object
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("configuration"), &cfgObj)...)
+	if resp.Diagnostics.HasError() || cfgObj.IsNull() || cfgObj.IsUnknown() {
+		return
+	}
+	explicitTypedAttrs := make(map[string]struct{})
+	for name, v := range cfgObj.Attributes() {
+		if v != nil && !v.IsNull() && !v.IsUnknown() {
+			explicitTypedAttrs[name] = struct{}{}
+		}
+	}
+
+	for _, c := range findConfigCollisions(explicitTypedAttrs, genericKeys) {
+		resp.Diagnostics.AddError(
+			"Conflicting virtual cluster configuration",
+			fmt.Sprintf(
+				"The setting controlled by the typed `configuration.%s` attribute is also set "+
+					"via the generic `config` block key %q. Set it only one way.",
+				c.TypedAttr, c.GenericKey,
+			),
+		)
+	}
 }
 
 var (
@@ -355,6 +442,27 @@ The WarpStream provider must be authenticated with an application key to consume
 			},
 			"workspace_id": shared.VirtualClusterWorkspaceIDSchema,
 		},
+		Blocks: map[string]schema.Block{
+			// Using a set because cluster configs don't have any defined order so a list
+			// can't be used. This mirrors the topic resource's config block.
+			"config": schema.SetNestedBlock{
+				Description: "Generic cluster/broker configuration as name/value pairs, for " +
+					"settings that don't have a dedicated typed attribute under `configuration`. " +
+					"Keys are Kafka-style names (e.g. `message.max.bytes`, `delete.topic.enable`). " +
+					"Setting the same underlying setting via both a typed `configuration` attribute " +
+					"and this block is not allowed.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Required: true,
+						},
+						"value": schema.StringAttribute{
+							Required: true,
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -435,6 +543,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		Default:       types.BoolValue(cluster.Name == "vcn_default"),
 		WorkspaceID:   types.StringValue(cluster.WorkspaceID),
 		Configuration: plan.Configuration,
+		Config:        plan.Config,
 		Events:        plan.Events,
 		Cloud:         cloudValue,
 		Tags:          plan.Tags,
@@ -568,7 +677,7 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		}
 	}
 
-	r.readConfiguration(ctx, *cluster, &resp.State, &resp.Diagnostics)
+	r.readConfiguration(ctx, *cluster, state.Config, &resp.State, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -689,7 +798,27 @@ func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.I
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {
+// filterClusterConfigsToDeclared filters the API-returned generic configs down to only
+// the keys the user explicitly declared in their `config` blocks. This prevents Terraform
+// from seeing "inconsistent result after apply" or perpetual drift when the API returns
+// configs that weren't in the plan/state. It mirrors filterConfigsToPlan on the topic
+// resource. The returned slice is always non-nil so an absent block reads back as an empty
+// set rather than null.
+func filterClusterConfigsToDeclared(apiConfigs map[string]*string, declared []models.VirtualClusterConfig) []models.VirtualClusterConfig {
+	out := make([]models.VirtualClusterConfig, 0, len(declared))
+	for _, c := range declared {
+		k := c.Name.ValueString()
+		if v, ok := apiConfigs[k]; ok {
+			out = append(out, models.VirtualClusterConfig{
+				Name:  types.StringValue(k),
+				Value: types.StringPointerValue(v),
+			})
+		}
+	}
+	return out
+}
+
+func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster, declared []models.VirtualClusterConfig, state *tfsdk.State, respDiags *diag.Diagnostics) {
 	// Get virtual cluster configuration
 	cfg, err := r.client.GetConfiguration(cluster)
 	if err != nil {
@@ -725,6 +854,12 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	diags := state.SetAttribute(ctx, path.Root("configuration"), cfgState)
 	respDiags.Append(diags...)
 
+	// Set generic config block, filtered to the keys the user declared so the API's full
+	// config set doesn't cause perpetual drift.
+	filtered := filterClusterConfigsToDeclared(cfg.Configs, declared)
+	diags = state.SetAttribute(ctx, path.Root("config"), filtered)
+	respDiags.Append(diags...)
+
 	// Set tier
 	diags = state.SetAttribute(ctx, path.Root("tier"), types.StringValue(cfg.Tier))
 	respDiags.Append(diags...)
@@ -733,39 +868,50 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics) {
 	cluster := plan.Cluster()
 
-	// If configuration plan is empty, just retrieve it from API
-	if plan.Configuration.IsNull() {
+	// If neither the typed configuration nor the generic config block is set, just
+	// retrieve the current configuration from the API.
+	if plan.Configuration.IsNull() && len(plan.Config) == 0 {
 		tflog.Info(ctx, "No virtual cluster configuration provided")
-		r.readConfiguration(ctx, cluster, state, respDiags)
+		r.readConfiguration(ctx, cluster, plan.Config, state, respDiags)
 		return
 	}
 
-	// Retrieve configuration values from plan
+	cfg := &api.VirtualClusterConfiguration{}
+
+	// Retrieve typed configuration values from plan, if present.
 	var cfgPlan models.VirtualClusterConfiguration
-	diags := plan.Configuration.As(ctx, &cfgPlan, basetypes.ObjectAsOptions{})
-	respDiags.Append(diags...)
-	if respDiags.HasError() {
-		return
+	if !plan.Configuration.IsNull() {
+		diags := plan.Configuration.As(ctx, &cfgPlan, basetypes.ObjectAsOptions{})
+		respDiags.Append(diags...)
+		if respDiags.HasError() {
+			return
+		}
+
+		cfg.AclsEnabled = cfgPlan.AclsEnabled.ValueBool()
+		cfg.ACLShadowingEnabled = cfgPlan.ACLShadowingEnabled.ValueBool()
+		cfg.AutoCreateTopic = cfgPlan.AutoCreateTopic.ValueBool()
+		cfg.DefaultNumPartitions = cfgPlan.DefaultNumPartitions.ValueInt64()
+		cfg.DefaultRetentionMillis = cfgPlan.DefaultRetention.ValueInt64()
+		cfg.EnableDeletionProtection = cfgPlan.EnableDeletionProtection.ValueBool()
+		cfg.EnableSoftTopicDeletion = cfgPlan.EnableSoftTopicDeletion.ValueBool()
+		if !cfgPlan.DefaultTopicType.IsNull() && !cfgPlan.DefaultTopicType.IsUnknown() {
+			topicTypeValue := cfgPlan.DefaultTopicType.ValueString()
+			cfg.DefaultTopicType = &topicTypeValue
+		}
+		if !cfgPlan.SoftTopicDeletionTTL.IsNull() && !cfgPlan.SoftTopicDeletionTTL.IsUnknown() {
+			ttlValue := cfgPlan.SoftTopicDeletionTTL.ValueInt64()
+			duration := time.Duration(ttlValue) * time.Millisecond
+			cfg.SoftTopicDeletionTTL = &duration
+		}
 	}
 
-	// Update virtual cluster configuration
-	cfg := &api.VirtualClusterConfiguration{
-		AclsEnabled:              cfgPlan.AclsEnabled.ValueBool(),
-		ACLShadowingEnabled:      cfgPlan.ACLShadowingEnabled.ValueBool(),
-		AutoCreateTopic:          cfgPlan.AutoCreateTopic.ValueBool(),
-		DefaultNumPartitions:     cfgPlan.DefaultNumPartitions.ValueInt64(),
-		DefaultRetentionMillis:   cfgPlan.DefaultRetention.ValueInt64(),
-		EnableDeletionProtection: cfgPlan.EnableDeletionProtection.ValueBool(),
-		EnableSoftTopicDeletion:  cfgPlan.EnableSoftTopicDeletion.ValueBool(),
-	}
-	if !cfgPlan.DefaultTopicType.IsNull() && !cfgPlan.DefaultTopicType.IsUnknown() {
-		topicTypeValue := cfgPlan.DefaultTopicType.ValueString()
-		cfg.DefaultTopicType = &topicTypeValue
-	}
-	if !cfgPlan.SoftTopicDeletionTTL.IsNull() && !cfgPlan.SoftTopicDeletionTTL.IsUnknown() {
-		ttlValue := cfgPlan.SoftTopicDeletionTTL.ValueInt64()
-		duration := time.Duration(ttlValue) * time.Millisecond
-		cfg.SoftTopicDeletionTTL = &duration
+	// Attach generic config block entries. The provider forwards these blindly; the API
+	// validates the keys/values and rejects unknown ones.
+	if len(plan.Config) > 0 {
+		cfg.Configs = make(map[string]*string, len(plan.Config))
+		for _, c := range plan.Config {
+			cfg.Configs[c.Name.ValueString()] = c.Value.ValueStringPointer()
+		}
 	}
 
 	cfg.Tier = plan.Tier.ValueString()
@@ -779,7 +925,7 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 	}
 
 	// Retrieve updated virtual cluster configuration
-	r.readConfiguration(ctx, cluster, state, respDiags)
+	r.readConfiguration(ctx, cluster, plan.Config, state, respDiags)
 	if respDiags.HasError() {
 		return
 	}
@@ -789,7 +935,7 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 	// Terraform state to distinguish between "explicitly set to classic" and "using default".
 	if cfgPlan.DefaultTopicType.IsNull() || cfgPlan.DefaultTopicType.IsUnknown() {
 		var cfgState models.VirtualClusterConfiguration
-		diags = state.GetAttribute(ctx, path.Root("configuration"), &cfgState)
+		diags := state.GetAttribute(ctx, path.Root("configuration"), &cfgState)
 		if !diags.HasError() {
 			cfgState.DefaultTopicType = types.StringNull()
 			diags = state.SetAttribute(ctx, path.Root("configuration"), cfgState)
