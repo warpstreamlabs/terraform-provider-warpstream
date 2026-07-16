@@ -273,11 +273,11 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	cfgState := models.VirtualClusterConfiguration{
 		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
 		ACLShadowingEnabled:      types.BoolValue(cfg.ACLShadowingEnabled),
-		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
-		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
-		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
+		AutoCreateTopic:          types.BoolPointerValue(cfg.AutoCreateTopic),
+		DefaultNumPartitions:     types.Int64PointerValue(cfg.DefaultNumPartitions),
+		DefaultRetention:         types.Int64PointerValue(cfg.DefaultRetentionMillis),
 		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
-		EnableSoftTopicDeletion:  types.BoolValue(cfg.EnableSoftTopicDeletion),
+		EnableSoftTopicDeletion:  types.BoolPointerValue(cfg.EnableSoftTopicDeletion),
 	}
 	if cfg.SoftTopicDeletionTTL != nil {
 		cfgState.SoftTopicDeletionTTL = types.Int64Value(cfg.SoftTopicDeletionTTL.Milliseconds())

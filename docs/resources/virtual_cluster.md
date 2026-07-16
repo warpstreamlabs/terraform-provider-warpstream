@@ -61,15 +61,12 @@ resource "warpstream_virtual_cluster" "test_broker_config" {
   name = "vcn_test_broker_config"
   tier = "dev"
 
-  # Generic cluster/broker settings that don't have a dedicated typed attribute.
-  # Keys are Kafka-style names.
-  config {
-    name  = "message.max.bytes"
-    value = "1048576"
-  }
-  config {
-    name  = "delete.topic.enable"
-    value = "true"
+  # Generic cluster/broker settings, as a map of Kafka-style config names to values.
+  # A given setting must be set via either its typed `configuration` attribute or this
+  # map, never both.
+  broker_configuration = {
+    "message.max.bytes"   = "1048576"
+    "delete.topic.enable" = "true"
   }
 }
 
@@ -111,8 +108,8 @@ resource "warpstream_virtual_cluster" "test_with_events" {
 
 ### Optional
 
+- `broker_configuration` (Map of String) Generic cluster/broker configuration as a map of Kafka-style config names to values (e.g. `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`). Use this for settings that don't have a dedicated typed attribute under `configuration`, or to manage them generically. A given setting must be set via either its typed `configuration` attribute or this map, never both. Retention must be given as `log.retention.ms` (the `log.retention.minutes` / `log.retention.hours` aliases are not accepted). Values must be written in their canonical string form or Terraform will show drift on the next plan.
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
-- `config` (Block Set) Generic cluster/broker configuration as name/value pairs, for settings that don't have a dedicated typed attribute under `configuration`. Keys are Kafka-style names (e.g. `message.max.bytes`, `delete.topic.enable`). Setting the same underlying setting via both a typed `configuration` attribute and this block is not allowed. (see [below for nested schema](#nestedblock--config))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
 - `events` (Attributes) Virtual Cluster Events Configuration. (see [below for nested schema](#nestedatt--events))
 - `tags` (Map of String) Tags associated with the virtual cluster.
@@ -136,15 +133,6 @@ Optional:
 - `provider` (String) Cloud Provider. Valid providers are: `aws` (default), `gcp`, and `azure`.
 - `region` (String) Cloud Region. Defaults to null. Can't be set if `region_group` is set.
 - `region_group` (String) Cloud Region Group. Defaults to null. Can't be set if `region` is set.
-
-
-<a id="nestedblock--config"></a>
-### Nested Schema for `config`
-
-Required:
-
-- `name` (String)
-- `value` (String)
 
 
 <a id="nestedatt--configuration"></a>

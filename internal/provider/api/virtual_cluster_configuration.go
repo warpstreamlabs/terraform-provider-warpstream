@@ -10,14 +10,21 @@ import (
 )
 
 type VirtualClusterConfiguration struct {
-	AclsEnabled              bool    `json:"are_acls_enabled"`
-	ACLShadowingEnabled      bool    `json:"acl_shadowing_enabled"`
-	AutoCreateTopic          bool    `json:"is_auto_create_topic_enabled"`
-	DefaultNumPartitions     int64   `json:"default_num_partitions"`
-	DefaultRetentionMillis   int64   `json:"default_retention_millis"`
+	AclsEnabled         bool `json:"are_acls_enabled"`
+	ACLShadowingEnabled bool `json:"acl_shadowing_enabled"`
+
+	// The following fields have a generic broker-config equivalent. 
+	// They are pointers with omitempty so the provider can
+	// omit them when the same setting is managed via the generic `broker_configuration`
+	// map: the WarpStream API rejects a config that is set via both a typed field and
+	// the map, so we must send exactly one of them.
+	AutoCreateTopic         *bool  `json:"is_auto_create_topic_enabled,omitempty"`
+	DefaultNumPartitions    *int64 `json:"default_num_partitions,omitempty"`
+	DefaultRetentionMillis  *int64 `json:"default_retention_millis,omitempty"`
+	EnableSoftTopicDeletion *bool  `json:"soft_delete_topics_enabled,omitempty"`
+
 	DefaultTopicType         *string `json:"default_topic_type,omitempty"`
 	EnableDeletionProtection bool    `json:"enable_deletion_protection"`
-	EnableSoftTopicDeletion  bool    `json:"soft_delete_topics_enabled"`
 	Tier                     string  `json:"tier,omitempty"`
 
 	// The api returns the raw time.Duration value so we have to parse it accordingly.

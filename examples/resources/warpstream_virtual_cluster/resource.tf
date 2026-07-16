@@ -43,15 +43,12 @@ resource "warpstream_virtual_cluster" "test_broker_config" {
   name = "vcn_test_broker_config"
   tier = "dev"
 
-  # Generic cluster/broker settings that don't have a dedicated typed attribute.
-  # Keys are Kafka-style names.
-  config {
-    name  = "message.max.bytes"
-    value = "1048576"
-  }
-  config {
-    name  = "delete.topic.enable"
-    value = "true"
+  # Generic cluster/broker settings, as a map of Kafka-style config names to values.
+  # A given setting must be set via either its typed `configuration` attribute or this
+  # map, never both.
+  broker_configuration = {
+    "message.max.bytes"   = "1048576"
+    "delete.topic.enable" = "true"
   }
 }
 

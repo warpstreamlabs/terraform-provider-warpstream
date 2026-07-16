@@ -230,10 +230,6 @@ func testAccVirtualClusterResourceCheck(acls bool, aclShadowing bool, autoTopic 
 
 }
 
-// TestAccVirtualClusterResourceGenericConfig exercises the generic `config {}` block.
-// It requires a backend that supports the generic cluster-config passthrough (the `configs`
-// field on the cluster configuration API). Like all resource.Test cases it only runs when
-// TF_ACC is set.
 func TestAccVirtualClusterResourceGenericConfig(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
@@ -243,15 +239,9 @@ func TestAccVirtualClusterResourceGenericConfig(t *testing.T) {
 			{
 				Config: testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, "1048576"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "config.#", "2"),
-					resource.TestCheckTypeSetElemNestedAttrs("warpstream_virtual_cluster.test", "config.*", map[string]string{
-						"name":  "message.max.bytes",
-						"value": "1048576",
-					}),
-					resource.TestCheckTypeSetElemNestedAttrs("warpstream_virtual_cluster.test", "config.*", map[string]string{
-						"name":  "delete.topic.enable",
-						"value": "true",
-					}),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.%", "2"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.message.max.bytes", "1048576"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.delete.topic.enable", "true"),
 				),
 			},
 			// Re-apply identical config: expect no drift.
@@ -266,23 +256,57 @@ func TestAccVirtualClusterResourceGenericConfig(t *testing.T) {
 			// Update a value.
 			{
 				Config: testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, "2097152"),
-				Check: resource.TestCheckTypeSetElemNestedAttrs("warpstream_virtual_cluster.test", "config.*", map[string]string{
-					"name":  "message.max.bytes",
-					"value": "2097152",
-				}),
+				Check:  resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.message.max.bytes", "2097152"),
 			},
-			// Remove the generic config block entirely.
+			// Remove the generic config map entirely.
 			{
 				Config: testAccVirtualClusterResource(vcNameSuffix),
-				Check:  resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "config.#", "0"),
+				Check:  resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.message.max.bytes"),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigTypedOverlap sets a setting that also has a typed
+// attribute (retention) via the map, and verifies the typed attribute reflects the same
+// value (ascribed from the API) and that a re-apply shows no drift.
+func TestAccVirtualClusterResourceBrokerConfigTypedOverlap(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with retention set via the map.
+			{
+				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "3600000"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", "3600000"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", "3600000"),
+				),
+			},
+			// Re-apply identical config: expect no drift.
+			{
+				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "3600000"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
+			},
+			// Change the value; both the map and the typed attribute should reflect it.
+			{
+				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "7200000"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", "7200000"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", "7200000"),
+				),
 			},
 		},
 	})
 }
 
 // TestAccVirtualClusterResourceGenericConfigConflict verifies that setting the same
-// underlying setting via both a typed attribute and the generic block is rejected at plan
-// time by ModifyPlan (this check runs without a backend round-trip).
+// underlying setting via both a typed attribute and the map is rejected at plan time by
+// ModifyPlan (this check runs without a backend round-trip).
 func TestAccVirtualClusterResourceGenericConfigConflict(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
@@ -296,20 +320,53 @@ func TestAccVirtualClusterResourceGenericConfigConflict(t *testing.T) {
 	})
 }
 
+// TestAccVirtualClusterResourceRetentionAliasRejected verifies the retention ms-only rule:
+// the minutes/hours aliases are rejected at plan time to avoid drift.
+func TestAccVirtualClusterResourceRetentionAliasRejected(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccVirtualClusterResource_withRetentionAlias(vcNameSuffix),
+				ExpectError: regexp.MustCompile("specify retention as `log.retention.ms`"),
+			},
+		},
+	})
+}
+
 func testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, messageMaxBytes string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test_acc_%s"
   tier = "fundamentals"
-  config {
-    name  = "message.max.bytes"
-    value = "%s"
-  }
-  config {
-    name  = "delete.topic.enable"
-    value = "true"
+  broker_configuration = {
+    "message.max.bytes"   = "%s"
+    "delete.topic.enable" = "true"
   }
 }`, vcNameSuffix, messageMaxBytes)
+}
+
+func testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, retentionMillis string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  broker_configuration = {
+    "log.retention.ms" = "%s"
+  }
+}`, vcNameSuffix, retentionMillis)
+}
+
+func testAccVirtualClusterResource_withRetentionAlias(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  broker_configuration = {
+    "log.retention.hours" = "24"
+  }
+}`, vcNameSuffix)
 }
 
 func testAccVirtualClusterResource_withConflictingConfig(vcNameSuffix string) string {
@@ -320,9 +377,8 @@ resource "warpstream_virtual_cluster" "test" {
   configuration = {
     default_retention_millis = 86400000
   }
-  config {
-    name  = "log.retention.ms"
-    value = "86400000"
+  broker_configuration = {
+    "log.retention.ms" = "86400000"
   }
 }`, vcNameSuffix)
 }

@@ -116,50 +116,158 @@ func (r *virtualClusterResource) Metadata(_ context.Context, req resource.Metada
 	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
 }
 
-// ModifyPlan rejects configuring the same cluster setting via both a typed `configuration`
-// attribute and the generic `config` block, which would otherwise result in two conflicting
-// writes for the same underlying setting.
+// retentionAliasKeys are the broker-config retention aliases we reject in
+// `broker_configuration`: the WarpStream API always returns retention as
+// `log.retention.ms`, so accepting the minutes/hours aliases would cause perpetual drift.
+var retentionAliasKeys = []string{"log.retention.minutes", "log.retention.hours"}
+
+// ModifyPlan validates and reconciles the generic `broker_configuration` map against the
+// typed `configuration` attribute. It (1) rejects unsupported retention aliases, (2) rejects
+// configuring the same underlying setting via both a typed attribute and the map (which the
+// API rejects too), and (3) marks a typed attribute known-after-apply when its generic key
+// is being added or changed, so the API-provided value can be read back without a spurious
+// diff or an "inconsistent result after apply" error.
 func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	// Nothing to validate on destroy.
 	if req.Plan.Raw.IsNull() {
 		return
 	}
 
-	// Generic config block entries come from the plan (they are user-authored, no defaults).
 	var plan models.VirtualClusterResource
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	if resp.Diagnostics.HasError() || len(plan.Config) == 0 {
+	if resp.Diagnostics.HasError() {
 		return
 	}
-	genericKeys := make(map[string]struct{}, len(plan.Config))
-	for _, c := range plan.Config {
-		genericKeys[c.Name.ValueString()] = struct{}{}
+	planBroker := brokerConfigMap(ctx, plan.BrokerConfiguration, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() || len(planBroker) == 0 {
+		return
+	}
+
+	// Reject retention aliases; only `log.retention.ms` is accepted.
+	for _, alias := range retentionAliasKeys {
+		if _, ok := planBroker[alias]; ok {
+			resp.Diagnostics.AddError(
+				"Invalid broker configuration",
+				fmt.Sprintf("`broker_configuration` key %q is not supported; specify retention as `log.retention.ms`.", alias),
+			)
+		}
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	genericKeys := make(map[string]struct{}, len(planBroker))
+	for k := range planBroker {
+		genericKeys[k] = struct{}{}
 	}
 
 	// Read the typed configuration from the raw *config* (not the plan) so that Computed
 	// defaults are not mistaken for values the user explicitly set.
 	var cfgObj types.Object
 	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("configuration"), &cfgObj)...)
-	if resp.Diagnostics.HasError() || cfgObj.IsNull() || cfgObj.IsUnknown() {
+	if resp.Diagnostics.HasError() {
 		return
 	}
 	explicitTypedAttrs := make(map[string]struct{})
-	for name, v := range cfgObj.Attributes() {
-		if v != nil && !v.IsNull() && !v.IsUnknown() {
-			explicitTypedAttrs[name] = struct{}{}
+	if !cfgObj.IsNull() && !cfgObj.IsUnknown() {
+		for name, v := range cfgObj.Attributes() {
+			if v != nil && !v.IsNull() && !v.IsUnknown() {
+				explicitTypedAttrs[name] = struct{}{}
+			}
 		}
 	}
 
-	for _, c := range findConfigCollisions(explicitTypedAttrs, genericKeys) {
+	collisions := findConfigCollisions(explicitTypedAttrs, genericKeys)
+	for _, c := range collisions {
 		resp.Diagnostics.AddError(
 			"Conflicting virtual cluster configuration",
 			fmt.Sprintf(
 				"The setting controlled by the typed `configuration.%s` attribute is also set "+
-					"via the generic `config` block key %q. Set it only one way.",
+					"via the generic `broker_configuration` key %q. Set it only one way.",
 				c.TypedAttr, c.GenericKey,
 			),
 		)
 	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Prior state's map (null on create).
+	var stateBroker map[string]string
+	if !req.State.Raw.IsNull() {
+		var state models.VirtualClusterResource
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		stateBroker = brokerConfigMap(ctx, state.BrokerConfiguration, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	invalidate := typedAttrsToInvalidate(planBroker, stateBroker)
+	if len(invalidate) == 0 {
+		return
+	}
+
+	// Mark the affected typed attributes known-after-apply in the plan.
+	var planCfg types.Object
+	resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, path.Root("configuration"), &planCfg)...)
+	if resp.Diagnostics.HasError() || planCfg.IsNull() || planCfg.IsUnknown() {
+		return
+	}
+	attrs := make(map[string]attr.Value, len(planCfg.Attributes()))
+	for name, v := range planCfg.Attributes() {
+		attrs[name] = v
+	}
+	for name := range invalidate {
+		switch attrs[name].(type) {
+		case types.Bool:
+			attrs[name] = types.BoolUnknown()
+		case types.Int64:
+			attrs[name] = types.Int64Unknown()
+		case types.String:
+			attrs[name] = types.StringUnknown()
+		}
+	}
+	newObj, diags := types.ObjectValue(planCfg.AttributeTypes(ctx), attrs)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("configuration"), newObj)...)
+}
+
+// brokerConfigMap extracts a types.Map of strings into a Go map, returning nil when the
+// attribute is null or unknown.
+func brokerConfigMap(ctx context.Context, m types.Map, diags *diag.Diagnostics) map[string]string {
+	if m.IsNull() || m.IsUnknown() {
+		return nil
+	}
+	out := make(map[string]string, len(m.Elements()))
+	diags.Append(m.ElementsAs(ctx, &out, false)...)
+	return out
+}
+
+// typedAttrsToInvalidate returns the set of typed `configuration` attribute names whose
+// generic broker key is being added or changed in the plan's broker_configuration map
+// (compared to prior state). Those attributes must be marked known-after-apply so the
+// API-provided value can be read back without a spurious diff.
+func typedAttrsToInvalidate(planBroker, stateBroker map[string]string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for typedAttr, keys := range typedConfigToBrokerKeys {
+		for _, k := range keys {
+			planVal, inPlan := planBroker[k]
+			if !inPlan {
+				continue
+			}
+			if stateVal, inState := stateBroker[k]; !inState || stateVal != planVal {
+				out[typedAttr] = struct{}{}
+			}
+		}
+	}
+	return out
 }
 
 var (
@@ -441,26 +549,18 @@ The WarpStream provider must be authenticated with an application key to consume
 				},
 			},
 			"workspace_id": shared.VirtualClusterWorkspaceIDSchema,
-		},
-		Blocks: map[string]schema.Block{
-			// Using a set because cluster configs don't have any defined order so a list
-			// can't be used. This mirrors the topic resource's config block.
-			"config": schema.SetNestedBlock{
-				Description: "Generic cluster/broker configuration as name/value pairs, for " +
-					"settings that don't have a dedicated typed attribute under `configuration`. " +
-					"Keys are Kafka-style names (e.g. `message.max.bytes`, `delete.topic.enable`). " +
-					"Setting the same underlying setting via both a typed `configuration` attribute " +
-					"and this block is not allowed.",
-				NestedObject: schema.NestedBlockObject{
-					Attributes: map[string]schema.Attribute{
-						"name": schema.StringAttribute{
-							Required: true,
-						},
-						"value": schema.StringAttribute{
-							Required: true,
-						},
-					},
-				},
+			"broker_configuration": schema.MapAttribute{
+				Description: "Generic cluster/broker configuration as a map of Kafka-style " +
+					"config names to values (e.g. `message.max.bytes = \"1048576\"`, " +
+					"`delete.topic.enable = \"true\"`). Use this for settings that don't have a " +
+					"dedicated typed attribute under `configuration`, or to manage them generically. " +
+					"A given setting must be set via either its typed `configuration` attribute or " +
+					"this map, never both. Retention must be given as `log.retention.ms` " +
+					"(the `log.retention.minutes` / `log.retention.hours` aliases are not accepted). " +
+					"Values must be written in their canonical string form or Terraform will show " +
+					"drift on the next plan.",
+				Optional:    true,
+				ElementType: types.StringType,
 			},
 		},
 	}
@@ -534,19 +634,19 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 
 	// Map response body to schema and populate Computed attribute values
 	state := models.VirtualClusterResource{
-		ID:            types.StringValue(cluster.ID),
-		Name:          types.StringValue(cluster.Name),
-		Type:          types.StringValue(cluster.Type),
-		AgentPoolID:   types.StringValue(cluster.AgentPoolID),
-		AgentPoolName: types.StringValue(cluster.AgentPoolName),
-		CreatedAt:     types.StringValue(cluster.CreatedAt),
-		Default:       types.BoolValue(cluster.Name == "vcn_default"),
-		WorkspaceID:   types.StringValue(cluster.WorkspaceID),
-		Configuration: plan.Configuration,
-		Config:        plan.Config,
-		Events:        plan.Events,
-		Cloud:         cloudValue,
-		Tags:          plan.Tags,
+		ID:                  types.StringValue(cluster.ID),
+		Name:                types.StringValue(cluster.Name),
+		Type:                types.StringValue(cluster.Type),
+		AgentPoolID:         types.StringValue(cluster.AgentPoolID),
+		AgentPoolName:       types.StringValue(cluster.AgentPoolName),
+		CreatedAt:           types.StringValue(cluster.CreatedAt),
+		Default:             types.BoolValue(cluster.Name == "vcn_default"),
+		WorkspaceID:         types.StringValue(cluster.WorkspaceID),
+		Configuration:       plan.Configuration,
+		BrokerConfiguration: plan.BrokerConfiguration,
+		Events:              plan.Events,
+		Cloud:               cloudValue,
+		Tags:                plan.Tags,
 	}
 
 	if cluster.BootstrapURL != nil {
@@ -677,15 +777,23 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		}
 	}
 
-	r.readConfiguration(ctx, *cluster, state.Config, &resp.State, &resp.Diagnostics)
+	r.readConfiguration(ctx, *cluster, state.BrokerConfiguration, &resp.State, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	// Whether default_topic_type is managed via broker_configuration; if so we let the
+	// API-provided value stand rather than forcing it back to null.
+	brokerState := brokerConfigMap(ctx, state.BrokerConfiguration, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	_, topicTypeOwnedByMap := brokerState["warpstream.default.topic.type"]
+
 	// Preserve null value for default_topic_type if it was null in the previous state.
 	// The API returns "classic" as the default, but we want to keep it as null in the
 	// Terraform state to distinguish between "explicitly set to classic" and "using default".
-	if hadNullDefaultTopicType {
+	if hadNullDefaultTopicType && !topicTypeOwnedByMap {
 		var cfgState models.VirtualClusterConfiguration
 		diags = resp.State.GetAttribute(ctx, path.Root("configuration"), &cfgState)
 		if !diags.HasError() {
@@ -799,26 +907,33 @@ func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.I
 }
 
 // filterClusterConfigsToDeclared filters the API-returned generic configs down to only
-// the keys the user explicitly declared in their `config` blocks. This prevents Terraform
-// from seeing "inconsistent result after apply" or perpetual drift when the API returns
-// configs that weren't in the plan/state. It mirrors filterConfigsToPlan on the topic
-// resource. The returned slice is always non-nil so an absent block reads back as an empty
-// set rather than null.
-func filterClusterConfigsToDeclared(apiConfigs map[string]*string, declared []models.VirtualClusterConfig) []models.VirtualClusterConfig {
-	out := make([]models.VirtualClusterConfig, 0, len(declared))
-	for _, c := range declared {
-		k := c.Name.ValueString()
+// the keys the user declared in `broker_configuration`, with the API-provided value. This
+// prevents Terraform from seeing perpetual drift when the API returns configs (including
+// typed-backed ones) that weren't declared. It returns a null map when nothing is declared,
+// so an absent attribute round-trips to null. It mirrors filterConfigsToPlan on the topic
+// resource.
+func filterClusterConfigsToDeclared(ctx context.Context, apiConfigs map[string]*string, declared types.Map, respDiags *diag.Diagnostics) types.Map {
+	declaredKeys := brokerConfigMap(ctx, declared, respDiags)
+	if respDiags.HasError() || len(declaredKeys) == 0 {
+		return types.MapNull(types.StringType)
+	}
+
+	out := make(map[string]attr.Value, len(declaredKeys))
+	for k := range declaredKeys {
 		if v, ok := apiConfigs[k]; ok {
-			out = append(out, models.VirtualClusterConfig{
-				Name:  types.StringValue(k),
-				Value: types.StringPointerValue(v),
-			})
+			out[k] = types.StringPointerValue(v)
 		}
 	}
-	return out
+	if len(out) == 0 {
+		return types.MapNull(types.StringType)
+	}
+
+	m, diags := types.MapValue(types.StringType, out)
+	respDiags.Append(diags...)
+	return m
 }
 
-func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster, declared []models.VirtualClusterConfig, state *tfsdk.State, respDiags *diag.Diagnostics) {
+func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster, declared types.Map, state *tfsdk.State, respDiags *diag.Diagnostics) {
 	// Get virtual cluster configuration
 	cfg, err := r.client.GetConfiguration(cluster)
 	if err != nil {
@@ -833,11 +948,11 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	cfgState := models.VirtualClusterConfiguration{
 		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
 		ACLShadowingEnabled:      types.BoolValue(cfg.ACLShadowingEnabled),
-		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
-		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
-		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
+		AutoCreateTopic:          types.BoolPointerValue(cfg.AutoCreateTopic),
+		DefaultNumPartitions:     types.Int64PointerValue(cfg.DefaultNumPartitions),
+		DefaultRetention:         types.Int64PointerValue(cfg.DefaultRetentionMillis),
 		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
-		EnableSoftTopicDeletion:  types.BoolValue(cfg.EnableSoftTopicDeletion),
+		EnableSoftTopicDeletion:  types.BoolPointerValue(cfg.EnableSoftTopicDeletion),
 	}
 	if cfg.DefaultTopicType != nil {
 		cfgState.DefaultTopicType = types.StringValue(*cfg.DefaultTopicType)
@@ -854,10 +969,10 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	diags := state.SetAttribute(ctx, path.Root("configuration"), cfgState)
 	respDiags.Append(diags...)
 
-	// Set generic config block, filtered to the keys the user declared so the API's full
-	// config set doesn't cause perpetual drift.
-	filtered := filterClusterConfigsToDeclared(cfg.Configs, declared)
-	diags = state.SetAttribute(ctx, path.Root("config"), filtered)
+	// Set generic broker_configuration, filtered to the keys the user declared so the API's
+	// full config set doesn't cause perpetual drift.
+	filtered := filterClusterConfigsToDeclared(ctx, cfg.Configs, declared, respDiags)
+	diags = state.SetAttribute(ctx, path.Root("broker_configuration"), filtered)
 	respDiags.Append(diags...)
 
 	// Set tier
@@ -868,12 +983,29 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics) {
 	cluster := plan.Cluster()
 
-	// If neither the typed configuration nor the generic config block is set, just
-	// retrieve the current configuration from the API.
-	if plan.Configuration.IsNull() && len(plan.Config) == 0 {
-		tflog.Info(ctx, "No virtual cluster configuration provided")
-		r.readConfiguration(ctx, cluster, plan.Config, state, respDiags)
+	brokerCfg := brokerConfigMap(ctx, plan.BrokerConfiguration, respDiags)
+	if respDiags.HasError() {
 		return
+	}
+
+	// If neither the typed configuration nor the generic broker_configuration map is set,
+	// just retrieve the current configuration from the API.
+	if plan.Configuration.IsNull() && len(brokerCfg) == 0 {
+		tflog.Info(ctx, "No virtual cluster configuration provided")
+		r.readConfiguration(ctx, cluster, plan.BrokerConfiguration, state, respDiags)
+		return
+	}
+
+	// owned reports whether the given underlying setting is managed via broker_configuration
+	// (any of its broker keys is present). When it is, the corresponding typed field is NOT
+	// sent, because the API rejects setting the same config via both a typed field and the map.
+	owned := func(keys ...string) bool {
+		for _, k := range keys {
+			if _, ok := brokerCfg[k]; ok {
+				return true
+			}
+		}
+		return false
 	}
 
 	cfg := &api.VirtualClusterConfiguration{}
@@ -887,30 +1019,43 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 			return
 		}
 
+		// Typed fields with no generic-map equivalent are always sent.
 		cfg.AclsEnabled = cfgPlan.AclsEnabled.ValueBool()
 		cfg.ACLShadowingEnabled = cfgPlan.ACLShadowingEnabled.ValueBool()
-		cfg.AutoCreateTopic = cfgPlan.AutoCreateTopic.ValueBool()
-		cfg.DefaultNumPartitions = cfgPlan.DefaultNumPartitions.ValueInt64()
-		cfg.DefaultRetentionMillis = cfgPlan.DefaultRetention.ValueInt64()
 		cfg.EnableDeletionProtection = cfgPlan.EnableDeletionProtection.ValueBool()
-		cfg.EnableSoftTopicDeletion = cfgPlan.EnableSoftTopicDeletion.ValueBool()
-		if !cfgPlan.DefaultTopicType.IsNull() && !cfgPlan.DefaultTopicType.IsUnknown() {
+
+		// Typed fields with a generic-map equivalent are sent only when the setting is not
+		// managed via broker_configuration.
+		if !owned("auto.create.topics.enable") {
+			cfg.AutoCreateTopic = cfgPlan.AutoCreateTopic.ValueBoolPointer()
+		}
+		if !owned("num.partitions") {
+			cfg.DefaultNumPartitions = cfgPlan.DefaultNumPartitions.ValueInt64Pointer()
+		}
+		if !owned("log.retention.ms") {
+			cfg.DefaultRetentionMillis = cfgPlan.DefaultRetention.ValueInt64Pointer()
+		}
+		if !owned("warpstream.soft.delete.topic.enable") {
+			cfg.EnableSoftTopicDeletion = cfgPlan.EnableSoftTopicDeletion.ValueBoolPointer()
+		}
+		if !owned("warpstream.default.topic.type") && !cfgPlan.DefaultTopicType.IsNull() && !cfgPlan.DefaultTopicType.IsUnknown() {
 			topicTypeValue := cfgPlan.DefaultTopicType.ValueString()
 			cfg.DefaultTopicType = &topicTypeValue
 		}
-		if !cfgPlan.SoftTopicDeletionTTL.IsNull() && !cfgPlan.SoftTopicDeletionTTL.IsUnknown() {
+		if !owned("warpstream.soft.delete.topic.ttl.hours") && !cfgPlan.SoftTopicDeletionTTL.IsNull() && !cfgPlan.SoftTopicDeletionTTL.IsUnknown() {
 			ttlValue := cfgPlan.SoftTopicDeletionTTL.ValueInt64()
 			duration := time.Duration(ttlValue) * time.Millisecond
 			cfg.SoftTopicDeletionTTL = &duration
 		}
 	}
 
-	// Attach generic config block entries. The provider forwards these blindly; the API
-	// validates the keys/values and rejects unknown ones.
-	if len(plan.Config) > 0 {
-		cfg.Configs = make(map[string]*string, len(plan.Config))
-		for _, c := range plan.Config {
-			cfg.Configs[c.Name.ValueString()] = c.Value.ValueStringPointer()
+	// Attach generic broker_configuration entries. The provider forwards these blindly; the
+	// API validates the keys/values and rejects unknown ones.
+	if len(brokerCfg) > 0 {
+		cfg.Configs = make(map[string]*string, len(brokerCfg))
+		for k, v := range brokerCfg {
+			val := v
+			cfg.Configs[k] = &val
 		}
 	}
 
@@ -925,15 +1070,16 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 	}
 
 	// Retrieve updated virtual cluster configuration
-	r.readConfiguration(ctx, cluster, plan.Config, state, respDiags)
+	r.readConfiguration(ctx, cluster, plan.BrokerConfiguration, state, respDiags)
 	if respDiags.HasError() {
 		return
 	}
 
-	// Preserve null value for default_topic_type if it wasn't explicitly set in the plan.
-	// The API returns "classic" as the default, but we want to keep it as null in the
-	// Terraform state to distinguish between "explicitly set to classic" and "using default".
-	if cfgPlan.DefaultTopicType.IsNull() || cfgPlan.DefaultTopicType.IsUnknown() {
+	// Preserve null value for default_topic_type if it wasn't explicitly set in the plan and
+	// is not managed via broker_configuration. The API returns "classic" as the default, but
+	// we want to keep it as null in the Terraform state to distinguish between "explicitly set
+	// to classic" and "using default".
+	if !owned("warpstream.default.topic.type") && (cfgPlan.DefaultTopicType.IsNull() || cfgPlan.DefaultTopicType.IsUnknown()) {
 		var cfgState models.VirtualClusterConfiguration
 		diags := state.GetAttribute(ctx, path.Root("configuration"), &cfgState)
 		if !diags.HasError() {

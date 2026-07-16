@@ -26,30 +26,26 @@ type VirtualClusterDataSource struct {
 }
 
 type VirtualClusterResource struct {
-	ID            types.String           `tfsdk:"id"`
-	Name          types.String           `tfsdk:"name"`
-	Type          types.String           `tfsdk:"type"`
-	Tier          types.String           `tfsdk:"tier"`
-	AgentPoolID   types.String           `tfsdk:"agent_pool_id"`
-	AgentPoolName types.String           `tfsdk:"agent_pool_name"`
-	CreatedAt     types.String           `tfsdk:"created_at"`
-	Default       types.Bool             `tfsdk:"default"`
-	Tags          types.Map              `tfsdk:"tags"`
-	Configuration types.Object           `tfsdk:"configuration"`
-	Config        []VirtualClusterConfig `tfsdk:"config"`
-	Events        types.Object           `tfsdk:"events"`
-	Cloud         types.Object           `tfsdk:"cloud"`
-	BootstrapURL  types.String           `tfsdk:"bootstrap_url"`
-	WorkspaceID   types.String           `tfsdk:"workspace_id"`
-}
-
-// VirtualClusterConfig is a single generic cluster/broker configuration entry, set via
-// the repeatable `config { name = "..." value = "..." }` block. It is the cluster-level
-// analogue of the topic resource's config block and is used for settings that don't have
-// a dedicated typed attribute under `configuration`.
-type VirtualClusterConfig struct {
-	Name  types.String `tfsdk:"name"`
-	Value types.String `tfsdk:"value"`
+	ID            types.String `tfsdk:"id"`
+	Name          types.String `tfsdk:"name"`
+	Type          types.String `tfsdk:"type"`
+	Tier          types.String `tfsdk:"tier"`
+	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
+	AgentPoolName types.String `tfsdk:"agent_pool_name"`
+	CreatedAt     types.String `tfsdk:"created_at"`
+	Default       types.Bool   `tfsdk:"default"`
+	Tags          types.Map    `tfsdk:"tags"`
+	Configuration types.Object `tfsdk:"configuration"`
+	// BrokerConfiguration is a generic map of Kafka-style broker/cluster config
+	// (e.g. "message.max.bytes") for settings that don't have a dedicated typed
+	// attribute under `configuration`, and for settings the user prefers to manage
+	// generically. A given setting may be set via the typed attribute or this map,
+	// never both.
+	BrokerConfiguration types.Map    `tfsdk:"broker_configuration"`
+	Events              types.Object `tfsdk:"events"`
+	Cloud               types.Object `tfsdk:"cloud"`
+	BootstrapURL        types.String `tfsdk:"bootstrap_url"`
+	WorkspaceID         types.String `tfsdk:"workspace_id"`
 }
 
 func (m VirtualClusterResource) Cluster() api.VirtualCluster {
