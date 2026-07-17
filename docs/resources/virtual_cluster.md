@@ -63,7 +63,6 @@ resource "warpstream_virtual_cluster" "test_broker_config" {
 
   # broker_configuration is the canonical, recommended way to set broker
   # settings: a map of Kafka-style config names to canonical string values.
-  # The equivalent typed configuration attributes are deprecated.
   # Removing a key does not reset the setting on the server; set the desired
   # (default) value explicitly instead.
   broker_configuration = {
