@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -42,18 +42,14 @@ var (
 )
 
 // typedConfigToBrokerKeys maps a typed `configuration` attribute (by its tfsdk name) to
-// the generic broker-config key(s) that control the SAME underlying cluster setting. It is
-// used by ModifyPlan to reject setting the same setting via both a typed attribute and the
-// generic `config` block. Only typed attributes that have a generic-key equivalent are
-// listed; the ACL and deletion-protection attributes have no broker-config form and can
-// never collide.
+// the generic broker-config key(s) that control the same underlying cluster setting.
 var typedConfigToBrokerKeys = map[string][]string{
 	"auto_create_topic":              {"auto.create.topics.enable"},
 	"default_num_partitions":         {"num.partitions"},
 	"default_retention_millis":       {"log.retention.ms", "log.retention.minutes", "log.retention.hours"},
 	"default_topic_type":             {"warpstream.default.topic.type"},
 	"enable_soft_topic_deletion":     {"warpstream.soft.delete.topic.enable"},
-	"soft_topic_deletion_ttl_millis": {"warpstream.soft.delete.topic.ttl.hours"},
+	"soft_topic_deletion_ttl_millis": {"warpstream.soft.delete.topic.ttl.ms", "warpstream.soft.delete.topic.ttl.hours"},
 }
 
 // configCollision is a typed `configuration` attribute that conflicts with a generic
@@ -116,17 +112,24 @@ func (r *virtualClusterResource) Metadata(_ context.Context, req resource.Metada
 	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
 }
 
-// retentionAliasKeys are the broker-config retention aliases we reject in
-// `broker_configuration`: the WarpStream API always returns retention as
-// `log.retention.ms`, so accepting the minutes/hours aliases would cause perpetual drift.
-var retentionAliasKeys = []string{"log.retention.minutes", "log.retention.hours"}
+// writeOnlyAliasKeys maps each write-only broker-config alias we reject in
+// `broker_configuration` to the canonical key that must be used instead. The WarpStream
+// API accepts these aliases on writes but describe responses only ever emit the canonical
+// name, so accepting an alias would cause perpetual drift.
+var writeOnlyAliasKeys = map[string]string{
+	"log.retention.minutes":                  "log.retention.ms",
+	"log.retention.hours":                    "log.retention.ms",
+	"warpstream.soft.delete.topic.ttl.hours": "warpstream.soft.delete.topic.ttl.ms",
+}
 
 // ModifyPlan validates and reconciles the generic `broker_configuration` map against the
-// typed `configuration` attribute. It (1) rejects unsupported retention aliases, (2) rejects
-// configuring the same underlying setting via both a typed attribute and the map (which the
-// API rejects too), and (3) marks a typed attribute known-after-apply when its generic key
-// is being added or changed, so the API-provided value can be read back without a spurious
-// diff or an "inconsistent result after apply" error.
+// typed `configuration` attribute. It (1) rejects write-only alias keys whose canonical
+// form differs from what describe returns, (2) rejects configuring the same underlying
+// setting via both a typed attribute and the map (the API only accepts that when the
+// values agree, and silently picking a winner would be surprising), and (3) marks a typed
+// attribute known-after-apply when its generic key is being added or changed, so the
+// API-provided value can be read back without a spurious diff or an "inconsistent result
+// after apply" error.
 func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	// Nothing to validate on destroy.
 	if req.Plan.Raw.IsNull() {
@@ -143,12 +146,12 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 		return
 	}
 
-	// Reject retention aliases; only `log.retention.ms` is accepted.
-	for _, alias := range retentionAliasKeys {
+	// Reject write-only aliases; only the canonical key of an aliased config is accepted.
+	for alias, canonical := range writeOnlyAliasKeys {
 		if _, ok := planBroker[alias]; ok {
 			resp.Diagnostics.AddError(
 				"Invalid broker configuration",
-				fmt.Sprintf("`broker_configuration` key %q is not supported; specify retention as `log.retention.ms`.", alias),
+				fmt.Sprintf("`broker_configuration` key %q is not supported; specify this setting as %q.", alias, canonical),
 			)
 		}
 	}
@@ -555,10 +558,9 @@ The WarpStream provider must be authenticated with an application key to consume
 					"`delete.topic.enable = \"true\"`). Use this for settings that don't have a " +
 					"dedicated typed attribute under `configuration`, or to manage them generically. " +
 					"A given setting must be set via either its typed `configuration` attribute or " +
-					"this map, never both. Retention must be given as `log.retention.ms` " +
-					"(the `log.retention.minutes` / `log.retention.hours` aliases are not accepted). " +
-					"Values must be written in their canonical string form or Terraform will show " +
-					"drift on the next plan.",
+					"this map, never both. Removing a key from this map does " +
+					"not reset the config on the server; to revert a setting, set it to the " +
+					"desired (default) value explicitly.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
@@ -933,6 +935,44 @@ func filterClusterConfigsToDeclared(ctx context.Context, apiConfigs map[string]*
 	return m
 }
 
+func brokerConfigsPayload(cfgPlan *models.VirtualClusterConfiguration, brokerCfg map[string]string) map[string]*string {
+	out := make(map[string]*string, len(brokerCfg)+6)
+	for k, v := range brokerCfg {
+		out[k] = &v
+	}
+
+	if cfgPlan != nil {
+		set := func(key, value string) {
+			if _, ok := out[key]; !ok {
+				out[key] = &value
+			}
+		}
+		if !cfgPlan.AutoCreateTopic.IsNull() && !cfgPlan.AutoCreateTopic.IsUnknown() {
+			set("auto.create.topics.enable", strconv.FormatBool(cfgPlan.AutoCreateTopic.ValueBool()))
+		}
+		if !cfgPlan.DefaultNumPartitions.IsNull() && !cfgPlan.DefaultNumPartitions.IsUnknown() {
+			set("num.partitions", strconv.FormatInt(cfgPlan.DefaultNumPartitions.ValueInt64(), 10))
+		}
+		if !cfgPlan.DefaultRetention.IsNull() && !cfgPlan.DefaultRetention.IsUnknown() {
+			set("log.retention.ms", strconv.FormatInt(cfgPlan.DefaultRetention.ValueInt64(), 10))
+		}
+		if !cfgPlan.EnableSoftTopicDeletion.IsNull() && !cfgPlan.EnableSoftTopicDeletion.IsUnknown() {
+			set("warpstream.soft.delete.topic.enable", strconv.FormatBool(cfgPlan.EnableSoftTopicDeletion.ValueBool()))
+		}
+		if !cfgPlan.DefaultTopicType.IsNull() && !cfgPlan.DefaultTopicType.IsUnknown() {
+			set("warpstream.default.topic.type", cfgPlan.DefaultTopicType.ValueString())
+		}
+		if !cfgPlan.SoftTopicDeletionTTL.IsNull() && !cfgPlan.SoftTopicDeletionTTL.IsUnknown() {
+			set("warpstream.soft.delete.topic.ttl.ms", strconv.FormatInt(cfgPlan.SoftTopicDeletionTTL.ValueInt64(), 10))
+		}
+	}
+
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster, declared types.Map, state *tfsdk.State, respDiags *diag.Diagnostics) {
 	// Get virtual cluster configuration
 	cfg, err := r.client.GetConfiguration(cluster)
@@ -971,7 +1011,7 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 
 	// Set generic broker_configuration, filtered to the keys the user declared so the API's
 	// full config set doesn't cause perpetual drift.
-	filtered := filterClusterConfigsToDeclared(ctx, cfg.Configs, declared, respDiags)
+	filtered := filterClusterConfigsToDeclared(ctx, cfg.BrokerConfigs, declared, respDiags)
 	diags = state.SetAttribute(ctx, path.Root("broker_configuration"), filtered)
 	respDiags.Append(diags...)
 
@@ -996,69 +1036,28 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 		return
 	}
 
-	// owned reports whether the given underlying setting is managed via broker_configuration
-	// (any of its broker keys is present). When it is, the corresponding typed field is NOT
-	// sent, because the API rejects setting the same config via both a typed field and the map.
-	owned := func(keys ...string) bool {
-		for _, k := range keys {
-			if _, ok := brokerCfg[k]; ok {
-				return true
-			}
-		}
-		return false
-	}
-
 	cfg := &api.VirtualClusterConfiguration{}
 
 	// Retrieve typed configuration values from plan, if present.
 	var cfgPlan models.VirtualClusterConfiguration
+	var cfgPlanPtr *models.VirtualClusterConfiguration
 	if !plan.Configuration.IsNull() {
 		diags := plan.Configuration.As(ctx, &cfgPlan, basetypes.ObjectAsOptions{})
 		respDiags.Append(diags...)
 		if respDiags.HasError() {
 			return
 		}
+		cfgPlanPtr = &cfgPlan
 
-		// Typed fields with no generic-map equivalent are always sent.
+		// Only the settings with no broker_configs equivalent are sent as typed fields;
+		// everything the map supports goes through broker_configs (the typed request
+		// fields are deprecated).
 		cfg.AclsEnabled = cfgPlan.AclsEnabled.ValueBool()
 		cfg.ACLShadowingEnabled = cfgPlan.ACLShadowingEnabled.ValueBool()
 		cfg.EnableDeletionProtection = cfgPlan.EnableDeletionProtection.ValueBool()
-
-		// Typed fields with a generic-map equivalent are sent only when the setting is not
-		// managed via broker_configuration.
-		if !owned("auto.create.topics.enable") {
-			cfg.AutoCreateTopic = cfgPlan.AutoCreateTopic.ValueBoolPointer()
-		}
-		if !owned("num.partitions") {
-			cfg.DefaultNumPartitions = cfgPlan.DefaultNumPartitions.ValueInt64Pointer()
-		}
-		if !owned("log.retention.ms") {
-			cfg.DefaultRetentionMillis = cfgPlan.DefaultRetention.ValueInt64Pointer()
-		}
-		if !owned("warpstream.soft.delete.topic.enable") {
-			cfg.EnableSoftTopicDeletion = cfgPlan.EnableSoftTopicDeletion.ValueBoolPointer()
-		}
-		if !owned("warpstream.default.topic.type") && !cfgPlan.DefaultTopicType.IsNull() && !cfgPlan.DefaultTopicType.IsUnknown() {
-			topicTypeValue := cfgPlan.DefaultTopicType.ValueString()
-			cfg.DefaultTopicType = &topicTypeValue
-		}
-		if !owned("warpstream.soft.delete.topic.ttl.hours") && !cfgPlan.SoftTopicDeletionTTL.IsNull() && !cfgPlan.SoftTopicDeletionTTL.IsUnknown() {
-			ttlValue := cfgPlan.SoftTopicDeletionTTL.ValueInt64()
-			duration := time.Duration(ttlValue) * time.Millisecond
-			cfg.SoftTopicDeletionTTL = &duration
-		}
 	}
 
-	// Attach generic broker_configuration entries. The provider forwards these blindly; the
-	// API validates the keys/values and rejects unknown ones.
-	if len(brokerCfg) > 0 {
-		cfg.Configs = make(map[string]*string, len(brokerCfg))
-		for k, v := range brokerCfg {
-			val := v
-			cfg.Configs[k] = &val
-		}
-	}
-
+	cfg.BrokerConfigs = brokerConfigsPayload(cfgPlanPtr, brokerCfg)
 	cfg.Tier = plan.Tier.ValueString()
 	err := r.client.UpdateConfiguration(*cfg, cluster)
 	if err != nil {
@@ -1079,7 +1078,8 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 	// is not managed via broker_configuration. The API returns "classic" as the default, but
 	// we want to keep it as null in the Terraform state to distinguish between "explicitly set
 	// to classic" and "using default".
-	if !owned("warpstream.default.topic.type") && (cfgPlan.DefaultTopicType.IsNull() || cfgPlan.DefaultTopicType.IsUnknown()) {
+	_, topicTypeOwnedByMap := brokerCfg["warpstream.default.topic.type"]
+	if !topicTypeOwnedByMap && (cfgPlan.DefaultTopicType.IsNull() || cfgPlan.DefaultTopicType.IsUnknown()) {
 		var cfgState models.VirtualClusterConfiguration
 		diags := state.GetAttribute(ctx, path.Root("configuration"), &cfgState)
 		if !diags.HasError() {

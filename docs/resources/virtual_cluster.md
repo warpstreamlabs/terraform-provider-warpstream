@@ -61,12 +61,14 @@ resource "warpstream_virtual_cluster" "test_broker_config" {
   name = "vcn_test_broker_config"
   tier = "dev"
 
-  # Generic cluster/broker settings, as a map of Kafka-style config names to values.
-  # A given setting must be set via either its typed `configuration` attribute or this
-  # map, never both.
+  # Generic cluster/broker settings, as a map of Kafka-style config names to canonical
+  # string values. A given setting must be set via either its typed `configuration`
+  # attribute or this map, never both. Removing a key does not reset the setting on the
+  # server; set the desired (default) value explicitly instead.
   broker_configuration = {
     "message.max.bytes"   = "1048576"
     "delete.topic.enable" = "true"
+    "log.retention.ms"    = "604800000"
   }
 }
 
@@ -108,7 +110,7 @@ resource "warpstream_virtual_cluster" "test_with_events" {
 
 ### Optional
 
-- `broker_configuration` (Map of String) Generic cluster/broker configuration as a map of Kafka-style config names to values (e.g. `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`). Use this for settings that don't have a dedicated typed attribute under `configuration`, or to manage them generically. A given setting must be set via either its typed `configuration` attribute or this map, never both. Retention must be given as `log.retention.ms` (the `log.retention.minutes` / `log.retention.hours` aliases are not accepted). Values must be written in their canonical string form or Terraform will show drift on the next plan.
+- `broker_configuration` (Map of String) Generic cluster/broker configuration as a map of Kafka-style config names to values (e.g. `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`). Use this for settings that don't have a dedicated typed attribute under `configuration`, or to manage them generically. A given setting must be set via either its typed `configuration` attribute or this map, never both. Only canonical config names are accepted: specify retention as `log.retention.ms` (not `log.retention.minutes` / `log.retention.hours`) and the soft-delete topic TTL as `warpstream.soft.delete.topic.ttl.ms` (not `warpstream.soft.delete.topic.ttl.hours`). Values must be written in their canonical string form (e.g. `true`/`false`, `-1` for infinite retention) or Terraform will show drift on the next plan. Removing a key from this map does not reset the config on the server; to revert a setting, set it to the desired (default) value explicitly.
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
 - `events` (Attributes) Virtual Cluster Events Configuration. (see [below for nested schema](#nestedatt--events))

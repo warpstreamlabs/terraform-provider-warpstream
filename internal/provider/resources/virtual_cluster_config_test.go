@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/stretchr/testify/require"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/models"
 )
 
 func set(keys ...string) map[string]struct{} {
@@ -184,4 +185,71 @@ func TestTypedAttrsToInvalidate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBrokerConfigsPayload(t *testing.T) {
+	t.Parallel()
+
+	deref := func(m map[string]*string) map[string]string {
+		out := make(map[string]string, len(m))
+		for k, v := range m {
+			require.NotNil(t, v, "unexpected nil value for %s", k)
+			out[k] = *v
+		}
+		return out
+	}
+
+	t.Run("nil plan and empty map returns nil", func(t *testing.T) {
+		t.Parallel()
+		require.Nil(t, brokerConfigsPayload(nil, nil))
+	})
+
+	t.Run("generic entries pass through", func(t *testing.T) {
+		t.Parallel()
+		got := brokerConfigsPayload(nil, map[string]string{"message.max.bytes": "1048576"})
+		require.Equal(t, map[string]string{"message.max.bytes": "1048576"}, deref(got))
+	})
+
+	t.Run("typed attributes translate to canonical keys", func(t *testing.T) {
+		t.Parallel()
+		cfg := &models.VirtualClusterConfiguration{
+			AutoCreateTopic:         types.BoolValue(true),
+			DefaultNumPartitions:    types.Int64Value(4),
+			DefaultRetention:        types.Int64Value(86400000),
+			EnableSoftTopicDeletion: types.BoolValue(false),
+			DefaultTopicType:        types.StringValue("lightning"),
+			SoftTopicDeletionTTL:    types.Int64Value(172800000),
+		}
+		got := brokerConfigsPayload(cfg, nil)
+		require.Equal(t, map[string]string{
+			"auto.create.topics.enable":           "true",
+			"num.partitions":                      "4",
+			"log.retention.ms":                    "86400000",
+			"warpstream.soft.delete.topic.enable": "false",
+			"warpstream.default.topic.type":       "lightning",
+			"warpstream.soft.delete.topic.ttl.ms": "172800000",
+		}, deref(got))
+	})
+
+	t.Run("null and unknown typed attributes are skipped", func(t *testing.T) {
+		t.Parallel()
+		cfg := &models.VirtualClusterConfiguration{
+			AutoCreateTopic:         types.BoolNull(),
+			DefaultNumPartitions:    types.Int64Unknown(),
+			DefaultRetention:        types.Int64Unknown(),
+			EnableSoftTopicDeletion: types.BoolNull(),
+			DefaultTopicType:        types.StringNull(),
+			SoftTopicDeletionTTL:    types.Int64Null(),
+		}
+		require.Nil(t, brokerConfigsPayload(cfg, nil))
+	})
+
+	t.Run("generic map entry wins over typed attribute", func(t *testing.T) {
+		t.Parallel()
+		cfg := &models.VirtualClusterConfiguration{
+			DefaultRetention: types.Int64Value(86400000),
+		}
+		got := brokerConfigsPayload(cfg, map[string]string{"log.retention.ms": "3600000"})
+		require.Equal(t, map[string]string{"log.retention.ms": "3600000"}, deref(got))
+	})
 }

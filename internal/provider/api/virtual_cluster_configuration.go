@@ -13,11 +13,10 @@ type VirtualClusterConfiguration struct {
 	AclsEnabled         bool `json:"are_acls_enabled"`
 	ACLShadowingEnabled bool `json:"acl_shadowing_enabled"`
 
-	// The following fields have a generic broker-config equivalent. 
-	// They are pointers with omitempty so the provider can
-	// omit them when the same setting is managed via the generic `broker_configuration`
-	// map: the WarpStream API rejects a config that is set via both a typed field and
-	// the map, so we must send exactly one of them.
+	// The following typed fields are deprecated in the API in favor of the generic
+	// BrokerConfigs map. Describe responses always populate them, but the provider
+	// writes these settings exclusively through BrokerConfigs and leaves them unset on
+	// updates.
 	AutoCreateTopic         *bool  `json:"is_auto_create_topic_enabled,omitempty"`
 	DefaultNumPartitions    *int64 `json:"default_num_partitions,omitempty"`
 	DefaultRetentionMillis  *int64 `json:"default_retention_millis,omitempty"`
@@ -31,10 +30,11 @@ type VirtualClusterConfiguration struct {
 	// Unlike default_retention_millis which is returned from the api in milliseconds.
 	SoftTopicDeletionTTL *time.Duration `json:"inactive_topics_ttl,omitempty"`
 
-	// Configs is a generic passthrough for any backend-supported cluster/broker config
-	// keyed by its Kafka-style name (e.g. "message.max.bytes"). The provider forwards it
-	// blindly; the WarpStream API validates keys/values and rejects unknown ones.
-	Configs map[string]*string `json:"configs,omitempty"`
+	// BrokerConfigs is the canonical, generic representation of cluster-level broker
+	// configs, keyed by Kafka-style name (e.g. "message.max.bytes"); all values are
+	// strings. On describe it contains every supported broker config explicitly set on the
+	// cluster.
+	BrokerConfigs map[string]*string `json:"broker_configs,omitempty"`
 }
 
 type ConfigurationDescribeRequest struct {

@@ -320,16 +320,21 @@ func TestAccVirtualClusterResourceGenericConfigConflict(t *testing.T) {
 	})
 }
 
-// TestAccVirtualClusterResourceRetentionAliasRejected verifies the retention ms-only rule:
-// the minutes/hours aliases are rejected at plan time to avoid drift.
-func TestAccVirtualClusterResourceRetentionAliasRejected(t *testing.T) {
+// TestAccVirtualClusterResourceAliasKeysRejected verifies the canonical-name-only rule:
+// write-only aliases (retention in minutes/hours, soft-delete TTL in hours) are rejected
+// at plan time to avoid drift, since describe only ever returns the canonical ms keys.
+func TestAccVirtualClusterResourceAliasKeysRejected(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccVirtualClusterResource_withRetentionAlias(vcNameSuffix),
-				ExpectError: regexp.MustCompile("specify retention as `log.retention.ms`"),
+				ExpectError: regexp.MustCompile(`key\s+"log.retention.hours"\s+is\s+not\s+supported`),
+			},
+			{
+				Config:      testAccVirtualClusterResource_withTTLAlias(vcNameSuffix),
+				ExpectError: regexp.MustCompile(`key\s+"warpstream.soft.delete.topic.ttl.hours"\s+is\s+not\s+supported`),
 			},
 		},
 	})
@@ -365,6 +370,17 @@ resource "warpstream_virtual_cluster" "test" {
   tier = "fundamentals"
   broker_configuration = {
     "log.retention.hours" = "24"
+  }
+}`, vcNameSuffix)
+}
+
+func testAccVirtualClusterResource_withTTLAlias(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  broker_configuration = {
+    "warpstream.soft.delete.topic.ttl.hours" = "48"
   }
 }`, vcNameSuffix)
 }
