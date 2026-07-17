@@ -140,36 +140,35 @@ func TestFilterClusterConfigsToDeclared_EmptyIsNull(t *testing.T) {
 	require.True(t, got.IsNull())
 }
 
-func TestTypedAttrsToInvalidate(t *testing.T) {
+func TestTypedAttrOverrides(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		planBroker  map[string]string
-		stateBroker map[string]string
-		want        []string
+		name       string
+		planBroker map[string]string
+		want       map[string]string
 	}{
 		{
-			name:       "added typed-backed key invalidates its typed attr",
+			name:       "typed-backed key pins its typed attr to the map value",
 			planBroker: map[string]string{"log.retention.ms": "3600000"},
-			want:       []string{"default_retention_millis"},
+			want:       map[string]string{"default_retention_millis": "3600000"},
 		},
 		{
-			name:        "unchanged value does not invalidate",
-			planBroker:  map[string]string{"log.retention.ms": "3600000"},
-			stateBroker: map[string]string{"log.retention.ms": "3600000"},
-			want:        nil,
-		},
-		{
-			name:        "changed value invalidates",
-			planBroker:  map[string]string{"num.partitions": "16"},
-			stateBroker: map[string]string{"num.partitions": "8"},
-			want:        []string{"default_num_partitions"},
-		},
-		{
-			name:       "key without a typed equivalent does not invalidate",
+			name:       "key without a typed equivalent produces no override",
 			planBroker: map[string]string{"message.max.bytes": "1048576"},
-			want:       nil,
+			want:       map[string]string{},
+		},
+		{
+			name: "multiple typed-backed keys each pin their typed attr",
+			planBroker: map[string]string{
+				"num.partitions":                "16",
+				"warpstream.default.topic.type": "lightning",
+				"message.max.bytes":             "1048576",
+			},
+			want: map[string]string{
+				"default_num_partitions": "16",
+				"default_topic_type":     "lightning",
+			},
 		},
 	}
 
@@ -177,12 +176,8 @@ func TestTypedAttrsToInvalidate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := typedAttrsToInvalidate(tt.planBroker, tt.stateBroker)
-			require.Len(t, got, len(tt.want))
-			for _, w := range tt.want {
-				_, ok := got[w]
-				require.True(t, ok, "expected %s to be invalidated", w)
-			}
+			got := typedAttrOverrides(tt.planBroker)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }

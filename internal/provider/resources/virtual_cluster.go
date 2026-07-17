@@ -126,10 +126,11 @@ var writeOnlyAliasKeys = map[string]string{
 // typed `configuration` attribute. It (1) rejects write-only alias keys whose canonical
 // form differs from what describe returns, (2) rejects configuring the same underlying
 // setting via both a typed attribute and the map (the API only accepts that when the
-// values agree, and silently picking a winner would be surprising), and (3) marks a typed
-// attribute known-after-apply when its generic key is being added or changed, so the
-// API-provided value can be read back without a spurious diff or an "inconsistent result
-// after apply" error.
+// values agree, and silently picking a winner would be surprising), and (3) pins each
+// deprecated typed attribute to the value declared in the map when its generic key is
+// present. Pinning (rather than marking known-after-apply) keeps the typed attribute equal
+// to the value the API will return, so the typed attribute's static schema default never
+// reasserts itself and idempotent re-plans stay empty.
 func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	// Nothing to validate on destroy.
 	if req.Plan.Raw.IsNull() {
@@ -195,26 +196,13 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 		return
 	}
 
-	// Prior state's map (null on create).
-	var stateBroker map[string]string
-	if !req.State.Raw.IsNull() {
-		var state models.VirtualClusterResource
-		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		stateBroker = brokerConfigMap(ctx, state.BrokerConfiguration, &resp.Diagnostics)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	}
-
-	invalidate := typedAttrsToInvalidate(planBroker, stateBroker)
-	if len(invalidate) == 0 {
+	// Pin each typed attribute whose generic key is present in the map to the declared
+	// value, so the typed attribute tracks the map rather than its static default.
+	overrides := typedAttrOverrides(planBroker)
+	if len(overrides) == 0 {
 		return
 	}
 
-	// Mark the affected typed attributes known-after-apply in the plan.
 	var planCfg types.Object
 	resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, path.Root("configuration"), &planCfg)...)
 	if resp.Diagnostics.HasError() || planCfg.IsNull() || planCfg.IsUnknown() {
@@ -224,15 +212,34 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 	for name, v := range planCfg.Attributes() {
 		attrs[name] = v
 	}
-	for name := range invalidate {
+	for name, raw := range overrides {
 		switch attrs[name].(type) {
 		case types.Bool:
-			attrs[name] = types.BoolUnknown()
+			b, err := strconv.ParseBool(raw)
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Invalid broker configuration",
+					fmt.Sprintf("`broker_configuration` value %q for the setting backing `configuration.%s` must be a boolean.", raw, name),
+				)
+				continue
+			}
+			attrs[name] = types.BoolValue(b)
 		case types.Int64:
-			attrs[name] = types.Int64Unknown()
+			n, err := strconv.ParseInt(raw, 10, 64)
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Invalid broker configuration",
+					fmt.Sprintf("`broker_configuration` value %q for the setting backing `configuration.%s` must be an integer.", raw, name),
+				)
+				continue
+			}
+			attrs[name] = types.Int64Value(n)
 		case types.String:
-			attrs[name] = types.StringUnknown()
+			attrs[name] = types.StringValue(raw)
 		}
+	}
+	if resp.Diagnostics.HasError() {
+		return
 	}
 	newObj, diags := types.ObjectValue(planCfg.AttributeTypes(ctx), attrs)
 	resp.Diagnostics.Append(diags...)
@@ -253,20 +260,19 @@ func brokerConfigMap(ctx context.Context, m types.Map, diags *diag.Diagnostics) 
 	return out
 }
 
-// typedAttrsToInvalidate returns the set of typed `configuration` attribute names whose
-// generic broker key is being added or changed in the plan's broker_configuration map
-// (compared to prior state). Those attributes must be marked known-after-apply so the
-// API-provided value can be read back without a spurious diff.
-func typedAttrsToInvalidate(planBroker, stateBroker map[string]string) map[string]struct{} {
-	out := map[string]struct{}{}
+// typedAttrOverrides returns, for each typed `configuration` attribute whose canonical
+// broker key is present in the plan's broker_configuration map, the raw string value the
+// typed attribute must be pinned to. Because write-only aliases are rejected before this
+// runs, only the canonical key of an aliased setting is ever present. Pinning the typed
+// attribute to the map value keeps it equal to what the API returns, so its static schema
+// default never reasserts and idempotent re-plans stay empty.
+func typedAttrOverrides(planBroker map[string]string) map[string]string {
+	out := map[string]string{}
 	for typedAttr, keys := range typedConfigToBrokerKeys {
 		for _, k := range keys {
-			planVal, inPlan := planBroker[k]
-			if !inPlan {
-				continue
-			}
-			if stateVal, inState := stateBroker[k]; !inState || stateVal != planVal {
-				out[typedAttr] = struct{}{}
+			if v, ok := planBroker[k]; ok {
+				out[typedAttr] = v
+				break
 			}
 		}
 	}
@@ -417,27 +423,31 @@ The WarpStream provider must be authenticated with an application key to consume
 			"configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"auto_create_topic": schema.BoolAttribute{
-						Description: "Enable topic autocreation feature, defaults to `true`.",
-						Optional:    true,
-						Computed:    true,
-						Default:     booldefault.StaticBool(true),
+						Description:        "Enable topic autocreation feature, defaults to `true`.",
+						DeprecationMessage: "Set this via `broker_configuration` (key `auto.create.topics.enable`) instead, which is the canonical way to configure broker settings.",
+						Optional:           true,
+						Computed:           true,
+						Default:            booldefault.StaticBool(true),
 					},
 					"default_num_partitions": schema.Int64Attribute{
-						Description: "Number of partitions created by default.",
-						Optional:    true,
-						Computed:    true,
-						Default:     int64default.StaticInt64(1),
+						Description:        "Number of partitions created by default.",
+						DeprecationMessage: "Set this via `broker_configuration` (key `num.partitions`) instead, which is the canonical way to configure broker settings.",
+						Optional:           true,
+						Computed:           true,
+						Default:            int64default.StaticInt64(1),
 					},
 					"default_retention_millis": schema.Int64Attribute{
-						Description: "Default retention for topics that are created automatically using Kafka's topic auto-creation feature.",
-						Optional:    true,
-						Computed:    true,
-						Default:     int64default.StaticInt64(86400000),
+						Description:        "Default retention for topics that are created automatically using Kafka's topic auto-creation feature.",
+						DeprecationMessage: "Set this via `broker_configuration` (key `log.retention.ms`) instead, which is the canonical way to configure broker settings.",
+						Optional:           true,
+						Computed:           true,
+						Default:            int64default.StaticInt64(86400000),
 					},
 					"default_topic_type": schema.StringAttribute{
-						Description: "Default topic type for new topics. Valid values are `classic` or `lightning`. If not specified, the WarpStream API defaults to `classic`. See [Lightning Topics](https://docs.warpstream.com/warpstream/kafka/advanced-agent-deployment-options/low-latency-clusters/lightning-topics)",
-						Optional:    true,
-						Computed:    true,
+						Description:        "Default topic type for new topics. Valid values are `classic` or `lightning`. If not specified, the WarpStream API defaults to `classic`. See [Lightning Topics](https://docs.warpstream.com/warpstream/kafka/advanced-agent-deployment-options/low-latency-clusters/lightning-topics)",
+						DeprecationMessage: "Set this via `broker_configuration` (key `warpstream.default.topic.type`) instead, which is the canonical way to configure broker settings.",
+						Optional:           true,
+						Computed:           true,
 						Validators: []validator.String{
 							stringvalidator.OneOf("classic", "lightning"),
 						},
@@ -464,16 +474,18 @@ The WarpStream provider must be authenticated with an application key to consume
 						Default:     booldefault.StaticBool(false),
 					},
 					"enable_soft_topic_deletion": schema.BoolAttribute{
-						Description: "Enable soft deletion for topics. Defaults to `true`. If true, topic deletion will be a soft deletion. For clusters with the Fundamentals tier or above, it will be possible to restore topics for some time after deletion. If false, deleting a topic will immediately delete of all of its data, with no way to recover it.",
-						Optional:    true,
-						Computed:    true,
-						Default:     booldefault.StaticBool(true),
+						Description:        "Enable soft deletion for topics. Defaults to `true`. If true, topic deletion will be a soft deletion. For clusters with the Fundamentals tier or above, it will be possible to restore topics for some time after deletion. If false, deleting a topic will immediately delete of all of its data, with no way to recover it.",
+						DeprecationMessage: "Set this via `broker_configuration` (key `warpstream.soft.delete.topic.enable`) instead, which is the canonical way to configure broker settings.",
+						Optional:           true,
+						Computed:           true,
+						Default:            booldefault.StaticBool(true),
 					},
 					"soft_topic_deletion_ttl_millis": schema.Int64Attribute{
-						Description: "If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many milliseconds before being irrecoverably deleted. Defaults to 24 hours.",
-						Optional:    true,
-						Computed:    true,
-						Default:     int64default.StaticInt64(86400000),
+						Description:        "If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many milliseconds before being irrecoverably deleted. Defaults to 24 hours.",
+						DeprecationMessage: "Set this via `broker_configuration` (key `warpstream.soft.delete.topic.ttl.ms`) instead, which is the canonical way to configure broker settings.",
+						Optional:           true,
+						Computed:           true,
+						Default:            int64default.StaticInt64(86400000),
 					},
 				},
 				Description: "Virtual Cluster Configuration.",
@@ -555,12 +567,18 @@ The WarpStream provider must be authenticated with an application key to consume
 			"broker_configuration": schema.MapAttribute{
 				Description: "Generic cluster/broker configuration as a map of Kafka-style " +
 					"config names to values (e.g. `message.max.bytes = \"1048576\"`, " +
-					"`delete.topic.enable = \"true\"`). Use this for settings that don't have a " +
-					"dedicated typed attribute under `configuration`, or to manage them generically. " +
-					"A given setting must be set via either its typed `configuration` attribute or " +
-					"this map, never both. Removing a key from this map does " +
-					"not reset the config on the server; to revert a setting, set it to the " +
-					"desired (default) value explicitly.",
+					"`delete.topic.enable = \"true\"`). This is the canonical, recommended way to " +
+					"configure broker settings; the individual typed attributes under " +
+					"`configuration` (such as `default_retention_millis` and `default_topic_type`) " +
+					"are deprecated in favor of the equivalent key here. A given setting must be set " +
+					"via either its typed `configuration` attribute or this map, never both. " +
+					"Only canonical config names are accepted: specify retention as `log.retention.ms` " +
+					"(not `log.retention.minutes` / `log.retention.hours`) and the soft-delete topic " +
+					"TTL as `warpstream.soft.delete.topic.ttl.ms` (not `warpstream.soft.delete.topic.ttl.hours`). " +
+					"Values must be written in their canonical string form (e.g. `true`/`false`, " +
+					"`-1` for infinite retention) or Terraform will show drift on the next plan. " +
+					"Removing a key from this map does not reset the config on the server; to revert a " +
+					"setting, set it to the desired (default) value explicitly.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
