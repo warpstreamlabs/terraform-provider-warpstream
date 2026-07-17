@@ -36,10 +36,16 @@ type VirtualClusterResource struct {
 	Default       types.Bool   `tfsdk:"default"`
 	Tags          types.Map    `tfsdk:"tags"`
 	Configuration types.Object `tfsdk:"configuration"`
-	Events        types.Object `tfsdk:"events"`
-	Cloud         types.Object `tfsdk:"cloud"`
-	BootstrapURL  types.String `tfsdk:"bootstrap_url"`
-	WorkspaceID   types.String `tfsdk:"workspace_id"`
+	// BrokerConfiguration is a generic map of Kafka-style broker/cluster config
+	// (e.g. "message.max.bytes") for settings that don't have a dedicated typed
+	// attribute under `configuration`, and for settings the user prefers to manage
+	// generically. A given setting may be set via the typed attribute or this map,
+	// never both.
+	BrokerConfiguration types.Map    `tfsdk:"broker_configuration"`
+	Events              types.Object `tfsdk:"events"`
+	Cloud               types.Object `tfsdk:"cloud"`
+	BootstrapURL        types.String `tfsdk:"bootstrap_url"`
+	WorkspaceID         types.String `tfsdk:"workspace_id"`
 }
 
 func (m VirtualClusterResource) Cluster() api.VirtualCluster {

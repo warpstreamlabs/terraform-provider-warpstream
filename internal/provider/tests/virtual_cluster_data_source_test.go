@@ -112,6 +112,11 @@ func testAccVCDataSourceCheck_byoc(
 		softTopicDeletionTTL = cfg.SoftTopicDeletionTTL.Milliseconds()
 	}
 
+	enableSoftTopicDeletion := true
+	if cfg.EnableSoftTopicDeletion != nil {
+		enableSoftTopicDeletion = *cfg.EnableSoftTopicDeletion
+	}
+
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "type", "byoc"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "tags.test_tag", "test_value"),
@@ -123,7 +128,7 @@ func testAccVCDataSourceCheck_byoc(
 		),
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_cluster.test", "configuration.enable_soft_topic_deletion",
-			fmt.Sprintf("%t", cfg.EnableSoftTopicDeletion),
+			fmt.Sprintf("%t", enableSoftTopicDeletion),
 		),
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_cluster.test", "configuration.soft_topic_deletion_ttl_millis",

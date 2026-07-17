@@ -230,6 +230,175 @@ func testAccVirtualClusterResourceCheck(acls bool, aclShadowing bool, autoTopic 
 
 }
 
+func TestAccVirtualClusterResourceGenericConfig(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with two generic configs.
+			{
+				Config: testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, "1048576"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.%", "2"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.message.max.bytes", "1048576"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.delete.topic.enable", "true"),
+				),
+			},
+			// Re-apply identical config: expect no drift.
+			{
+				Config: testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, "1048576"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
+			},
+			// Update a value.
+			{
+				Config: testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, "2097152"),
+				Check:  resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.message.max.bytes", "2097152"),
+			},
+			// Remove the generic config map entirely.
+			{
+				Config: testAccVirtualClusterResource(vcNameSuffix),
+				Check:  resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.message.max.bytes"),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigTypedOverlap sets a setting that also has a typed
+// attribute (retention) via the map, and verifies the typed attribute reflects the same
+// value (ascribed from the API) and that a re-apply shows no drift.
+func TestAccVirtualClusterResourceBrokerConfigTypedOverlap(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with retention set via the map.
+			{
+				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "3600000"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", "3600000"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", "3600000"),
+				),
+			},
+			// Re-apply identical config: expect no drift.
+			{
+				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "3600000"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
+			},
+			// Change the value; both the map and the typed attribute should reflect it.
+			{
+				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "7200000"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", "7200000"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", "7200000"),
+				),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceGenericConfigConflict verifies that setting the same
+// underlying setting via both a typed attribute and the map is rejected at plan time by
+// ModifyPlan (this check runs without a backend round-trip).
+func TestAccVirtualClusterResourceGenericConfigConflict(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccVirtualClusterResource_withConflictingConfig(vcNameSuffix),
+				ExpectError: regexp.MustCompile("Conflicting virtual cluster configuration"),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceAliasKeysRejected verifies the canonical-name-only rule:
+// write-only aliases (retention in minutes/hours, soft-delete TTL in hours) are rejected
+// at plan time to avoid drift, since describe only ever returns the canonical ms keys.
+func TestAccVirtualClusterResourceAliasKeysRejected(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccVirtualClusterResource_withRetentionAlias(vcNameSuffix),
+				ExpectError: regexp.MustCompile(`key\s+"log.retention.hours"\s+is\s+not\s+supported`),
+			},
+			{
+				Config:      testAccVirtualClusterResource_withTTLAlias(vcNameSuffix),
+				ExpectError: regexp.MustCompile(`key\s+"warpstream.soft.delete.topic.ttl.hours"\s+is\s+not\s+supported`),
+			},
+		},
+	})
+}
+
+func testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, messageMaxBytes string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  broker_configuration = {
+    "message.max.bytes"   = "%s"
+    "delete.topic.enable" = "true"
+  }
+}`, vcNameSuffix, messageMaxBytes)
+}
+
+func testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, retentionMillis string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  broker_configuration = {
+    "log.retention.ms" = "%s"
+  }
+}`, vcNameSuffix, retentionMillis)
+}
+
+func testAccVirtualClusterResource_withRetentionAlias(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  broker_configuration = {
+    "log.retention.hours" = "24"
+  }
+}`, vcNameSuffix)
+}
+
+func testAccVirtualClusterResource_withTTLAlias(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  broker_configuration = {
+    "warpstream.soft.delete.topic.ttl.hours" = "48"
+  }
+}`, vcNameSuffix)
+}
+
+func testAccVirtualClusterResource_withConflictingConfig(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  configuration = {
+    default_retention_millis = 86400000
+  }
+  broker_configuration = {
+    "log.retention.ms" = "86400000"
+  }
+}`, vcNameSuffix)
+}
+
 func TestAccVirtualClusterImport(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{

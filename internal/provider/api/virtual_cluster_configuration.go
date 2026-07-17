@@ -10,19 +10,31 @@ import (
 )
 
 type VirtualClusterConfiguration struct {
-	AclsEnabled              bool    `json:"are_acls_enabled"`
-	ACLShadowingEnabled      bool    `json:"acl_shadowing_enabled"`
-	AutoCreateTopic          bool    `json:"is_auto_create_topic_enabled"`
-	DefaultNumPartitions     int64   `json:"default_num_partitions"`
-	DefaultRetentionMillis   int64   `json:"default_retention_millis"`
+	AclsEnabled         bool `json:"are_acls_enabled"`
+	ACLShadowingEnabled bool `json:"acl_shadowing_enabled"`
+
+	// The following typed fields are deprecated in the API in favor of the generic
+	// BrokerConfigs map. Describe responses always populate them, but the provider
+	// writes these settings exclusively through BrokerConfigs and leaves them unset on
+	// updates.
+	AutoCreateTopic         *bool  `json:"is_auto_create_topic_enabled,omitempty"`
+	DefaultNumPartitions    *int64 `json:"default_num_partitions,omitempty"`
+	DefaultRetentionMillis  *int64 `json:"default_retention_millis,omitempty"`
+	EnableSoftTopicDeletion *bool  `json:"soft_delete_topics_enabled,omitempty"`
+
 	DefaultTopicType         *string `json:"default_topic_type,omitempty"`
 	EnableDeletionProtection bool    `json:"enable_deletion_protection"`
-	EnableSoftTopicDeletion  bool    `json:"soft_delete_topics_enabled"`
 	Tier                     string  `json:"tier,omitempty"`
 
 	// The api returns the raw time.Duration value so we have to parse it accordingly.
 	// Unlike default_retention_millis which is returned from the api in milliseconds.
 	SoftTopicDeletionTTL *time.Duration `json:"inactive_topics_ttl,omitempty"`
+
+	// BrokerConfigs is the canonical, generic representation of cluster-level broker
+	// configs, keyed by Kafka-style name (e.g. "message.max.bytes"); all values are
+	// strings. On describe it contains every supported broker config explicitly set on the
+	// cluster.
+	BrokerConfigs map[string]*string `json:"broker_configs,omitempty"`
 }
 
 type ConfigurationDescribeRequest struct {
