@@ -62,13 +62,34 @@ resource "warpstream_virtual_cluster" "test_broker_config" {
   tier = "dev"
 
   # broker_configuration is the canonical, recommended way to set broker
-  # settings: a map of Kafka-style config names to canonical string values.
-  # Removing a key does not reset the setting on the server; set the desired
-  # (default) value explicitly instead.
+  # settings: a map of Kafka-style config names to string values. Values must be
+  # written exactly as the API reports them ("true", not "T"; "-1" for infinite
+  # retention), and only canonical names are accepted (log.retention.ms, never
+  # log.retention.hours).
+  #
+  # Removing a key does not reset the setting on the cluster, because the API has
+  # no way to revert a config to its default. Set the value you want instead.
   broker_configuration = {
     "message.max.bytes"   = "1048576"
     "delete.topic.enable" = "true"
     "log.retention.ms"    = "604800000"
+  }
+}
+
+resource "warpstream_virtual_cluster" "test_broker_config_migration" {
+  name = "vcn_test_broker_config_migration"
+  tier = "dev"
+
+  # A setting with a deprecated typed attribute may be specified through both
+  # surfaces while the values agree, so a module can adopt broker_configuration
+  # before dropping its typed attributes. Setting them to different values is
+  # rejected at plan time.
+  configuration = {
+    default_retention_millis = 604800000
+  }
+
+  broker_configuration = {
+    "log.retention.ms" = "604800000"
   }
 }
 
@@ -110,7 +131,15 @@ resource "warpstream_virtual_cluster" "test_with_events" {
 
 ### Optional
 
-- `broker_configuration` (Map of String) Generic cluster/broker configuration as a map of Kafka-style config names to values (e.g. `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`). This is the canonical, recommended way to configure broker settings; the individual typed attributes under `configuration` (such as `default_retention_millis` and `default_topic_type`) are deprecated in favor of the equivalent key here. A given setting must be set via either its typed `configuration` attribute or this map, never both. Only canonical config names are accepted: specify retention as `log.retention.ms` (not `log.retention.minutes` / `log.retention.hours`) and the soft-delete topic TTL as `warpstream.soft.delete.topic.ttl.ms` (not `warpstream.soft.delete.topic.ttl.hours`). Values must be written in their canonical string form (e.g. `true`/`false`, `-1` for infinite retention) or Terraform will show drift on the next plan. Removing a key from this map does not reset the config on the server; to revert a setting, set it to the desired (default) value explicitly.
+- `broker_configuration` (Map of String) Cluster-level broker configuration, as a map of Kafka-style config names to string values (e.g. `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`). This is the canonical, recommended way to configure broker settings; the individual typed attributes under `configuration` (such as `default_retention_millis` and `default_topic_type`) are deprecated in favor of the equivalent key here.
+
+A setting that also has a typed `configuration` attribute may be set through either surface, or through both as long as the two values agree; setting them to different values is rejected at plan time.
+
+Values must be written exactly as the WarpStream API reports them back, because Terraform compares the value in state against the one in your configuration. Non-canonical values are rejected at plan time with the form to use, so for example write `"true"` rather than `"T"`, `"lightning"` rather than `"Lightning"`, and `"-1"` for infinite retention rather than any other negative number.
+
+Only canonical config names are accepted. Specify retention as `log.retention.ms` (not `log.retention.minutes` or `log.retention.hours`) and the soft-delete topic TTL as `warpstream.soft.delete.topic.ttl.ms` (not `warpstream.soft.delete.topic.ttl.hours`) — the API accepts those aliases on write but only ever reports the millisecond form, so Terraform could not track them.
+
+Note that removing a key from this map does **not** reset the config on the cluster: the WarpStream API has no way to revert a config to its default, so an omitted config keeps whatever value it already had. To change a setting back, set it explicitly to the value you want.
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
 - `events` (Attributes) Virtual Cluster Events Configuration. (see [below for nested schema](#nestedatt--events))
