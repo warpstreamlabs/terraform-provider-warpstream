@@ -11,15 +11,8 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/models"
 )
 
-func set(keys ...string) map[string]struct{} {
-	out := make(map[string]struct{}, len(keys))
-	for _, k := range keys {
-		out[k] = struct{}{}
-	}
-	return out
-}
-
-func mapOf(t *testing.T, kv map[string]string) types.Map {
+// brokerConfigMapOf builds a `broker_configuration` value from string values.
+func brokerConfigMapOf(t *testing.T, kv map[string]string) types.Map {
 	t.Helper()
 	elems := make(map[string]attr.Value, len(kv))
 	for k, v := range kv {
@@ -30,52 +23,63 @@ func mapOf(t *testing.T, kv map[string]string) types.Map {
 	return m
 }
 
-func TestFindConfigCollisions(t *testing.T) {
+// brokerConfigEntriesOf builds the extracted form of a `broker_configuration` map, so tests
+// can include values that are not known until apply.
+func brokerConfigEntriesOf(kv map[string]types.String) map[string]types.String {
+	out := make(map[string]types.String, len(kv))
+	for k, v := range kv {
+		out[k] = v
+	}
+	return out
+}
+
+func TestBrokerConfigTableIsConsistent(t *testing.T) {
+	t.Parallel()
+
+	for key, spec := range brokerConfigs {
+		if spec.AliasOf != "" {
+			// An alias must point at a key that exists and is itself canonical, otherwise the
+			// error message we hand the user would send them somewhere invalid.
+			target, ok := brokerConfigs[spec.AliasOf]
+			require.True(t, ok, "%s aliases unknown key %s", key, spec.AliasOf)
+			require.Empty(t, target.AliasOf, "%s aliases %s, which is itself an alias", key, spec.AliasOf)
+			require.Empty(t, spec.TypedAttr, "alias %s must not claim a typed attribute", key)
+			continue
+		}
+		if spec.Kind == brokerConfigEnum {
+			require.NotEmpty(t, spec.EnumValues, "enum config %s declares no valid values", key)
+		}
+	}
+
+	// Every typed attribute must resolve back to exactly one canonical key.
+	require.Equal(t, map[string]string{
+		"auto_create_topic":              "auto.create.topics.enable",
+		"default_num_partitions":         "num.partitions",
+		"default_retention_millis":       "log.retention.ms",
+		"default_topic_type":             "warpstream.default.topic.type",
+		"enable_soft_topic_deletion":     "warpstream.soft.delete.topic.enable",
+		"soft_topic_deletion_ttl_millis": "warpstream.soft.delete.topic.ttl.ms",
+	}, typedAttrBrokerKey)
+}
+
+func TestValidateBrokerConfigKey(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		typedAttrs  map[string]struct{}
-		genericKeys map[string]struct{}
-		wantPairs   [][2]string // {typedAttr, genericKey}
+		name    string
+		key     string
+		wantErr string
 	}{
+		{name: "supported generic key", key: "message.max.bytes"},
+		{name: "supported typed-backed key", key: "log.retention.ms"},
+		{name: "typo", key: "messge.max.bytes", wantErr: "is not a supported cluster broker config"},
+		{name: "unsupported entirely", key: "some.other.setting", wantErr: "is not a supported cluster broker config"},
+		{name: "retention minutes alias", key: "log.retention.minutes", wantErr: `specify this setting as "log.retention.ms"`},
+		{name: "retention hours alias", key: "log.retention.hours", wantErr: `specify this setting as "log.retention.ms"`},
 		{
-			name:        "no typed attrs set",
-			typedAttrs:  set(),
-			genericKeys: set("log.retention.ms"),
-		},
-		{
-			name:        "no generic keys",
-			typedAttrs:  set("default_retention_millis"),
-			genericKeys: set(),
-		},
-		{
-			name:        "disjoint keys do not collide",
-			typedAttrs:  set("default_retention_millis"),
-			genericKeys: set("message.max.bytes"),
-		},
-		{
-			name:        "typed attr with no generic equivalent never collides",
-			typedAttrs:  set("enable_acls", "enable_deletion_protection"),
-			genericKeys: set("auto.create.topics.enable"),
-		},
-		{
-			name:        "direct collision",
-			typedAttrs:  set("auto_create_topic"),
-			genericKeys: set("auto.create.topics.enable"),
-			wantPairs:   [][2]string{{"auto_create_topic", "auto.create.topics.enable"}},
-		},
-		{
-			name:        "retention alias collides",
-			typedAttrs:  set("default_retention_millis"),
-			genericKeys: set("log.retention.hours"),
-			wantPairs:   [][2]string{{"default_retention_millis", "log.retention.hours"}},
-		},
-		{
-			name:        "collision only counts when typed attr explicitly set",
-			typedAttrs:  set("default_num_partitions"),
-			genericKeys: set("num.partitions", "log.retention.ms"),
-			wantPairs:   [][2]string{{"default_num_partitions", "num.partitions"}},
+			name:    "ttl hours alias",
+			key:     "warpstream.soft.delete.topic.ttl.hours",
+			wantErr: `specify this setting as "warpstream.soft.delete.topic.ttl.ms"`,
 		},
 	}
 
@@ -83,16 +87,272 @@ func TestFindConfigCollisions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := findConfigCollisions(tt.typedAttrs, tt.genericKeys)
-			require.Len(t, got, len(tt.wantPairs))
+			err := validateBrokerConfigKey(tt.key)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
 
-			gotSet := make(map[[2]string]bool, len(got))
-			for _, c := range got {
-				gotSet[[2]string{c.TypedAttr, c.GenericKey}] = true
+func TestValidateBrokerConfigValue(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		key     string
+		value   string
+		wantErr string
+	}{
+		// Canonical values are accepted.
+		{name: "bool true", key: "delete.topic.enable", value: "true"},
+		{name: "bool false", key: "delete.topic.enable", value: "false"},
+		{name: "int", key: "message.max.bytes", value: "1048576"},
+		{name: "int zero", key: "message.max.bytes", value: "0"},
+		{name: "retention", key: "log.retention.ms", value: "604800000"},
+		{name: "retention infinite", key: "log.retention.ms", value: "-1"},
+		{name: "ttl infinite", key: "warpstream.soft.delete.topic.ttl.ms", value: "-1"},
+		{name: "enum", key: "warpstream.default.topic.type", value: "lightning"},
+
+		// The API accepts these, but rewrites them, so state would not match the config.
+		{name: "bool T", key: "delete.topic.enable", value: "T", wantErr: `write this value as "true", not "T"`},
+		{name: "bool TRUE", key: "delete.topic.enable", value: "TRUE", wantErr: `write this value as "true"`},
+		{name: "bool 1", key: "delete.topic.enable", value: "1", wantErr: `write this value as "true"`},
+		{name: "other negative retention", key: "log.retention.ms", value: "-5", wantErr: `write this value as "-1", not "-5"`},
+		{name: "other negative ttl", key: "warpstream.soft.delete.topic.ttl.ms", value: "-100", wantErr: `write this value as "-1"`},
+		{name: "int with plus sign", key: "message.max.bytes", value: "+1048576", wantErr: `write this value as "1048576"`},
+		{name: "enum mixed case", key: "warpstream.default.topic.type", value: "Lightning", wantErr: `write this value as "lightning"`},
+		{name: "enum padded", key: "warpstream.default.topic.type", value: " lightning ", wantErr: `write this value as "lightning"`},
+
+		// Unparsable for the config's type.
+		{name: "bool garbage", key: "delete.topic.enable", value: "yes-please", wantErr: "is not a boolean"},
+		{name: "int garbage", key: "message.max.bytes", value: "1MB", wantErr: "is not an integer"},
+		{name: "enum invalid", key: "warpstream.default.topic.type", value: "turbo", wantErr: "must be one of"},
+
+		// A negative value on a config where negative has no special meaning stays as-is.
+		{name: "plain negative int", key: "message.max.bytes", value: "-1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := validateBrokerConfigValue(tt.key, tt.value)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
 			}
-			for _, want := range tt.wantPairs {
-				require.True(t, gotSet[want], "expected collision %v", want)
-			}
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestBrokerConfigEntriesKeepsUnknownValues(t *testing.T) {
+	t.Parallel()
+
+	// A value derived from another resource is not known at plan time. Extracting it must not
+	// fail, or `terraform plan` breaks with a "report this to the provider developer" error.
+	m, diags := types.MapValue(types.StringType, map[string]attr.Value{
+		"message.max.bytes": types.StringValue("1048576"),
+		"log.retention.ms":  types.StringUnknown(),
+	})
+	require.False(t, diags.HasError())
+
+	var extractDiags diag.Diagnostics
+	entries := brokerConfigEntries(context.Background(), m, &extractDiags)
+
+	require.False(t, extractDiags.HasError(), "unknown value must not produce a diagnostic")
+	require.Len(t, entries, 2)
+	require.Equal(t, types.StringValue("1048576"), entries["message.max.bytes"])
+	require.True(t, entries["log.retention.ms"].IsUnknown())
+}
+
+func TestBrokerConfigEntriesNullOrUnknownMap(t *testing.T) {
+	t.Parallel()
+
+	var diags diag.Diagnostics
+	require.Nil(t, brokerConfigEntries(context.Background(), types.MapNull(types.StringType), &diags))
+	require.Nil(t, brokerConfigEntries(context.Background(), types.MapUnknown(types.StringType), &diags))
+	require.False(t, diags.HasError())
+}
+
+func TestBrokerConfigMapSkipsUnresolvedValues(t *testing.T) {
+	t.Parallel()
+
+	m, diags := types.MapValue(types.StringType, map[string]attr.Value{
+		"message.max.bytes":   types.StringValue("1048576"),
+		"log.retention.ms":    types.StringUnknown(),
+		"delete.topic.enable": types.StringNull(),
+	})
+	require.False(t, diags.HasError())
+
+	var extractDiags diag.Diagnostics
+	got := brokerConfigMap(context.Background(), m, &extractDiags)
+
+	require.False(t, extractDiags.HasError())
+	require.Equal(t, map[string]string{"message.max.bytes": "1048576"}, got)
+}
+
+func TestResolveBrokerConfigOverrides(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		entries       map[string]types.String
+		declaredTyped map[string]attr.Value
+		wantOverrides map[string]brokerConfigOverride
+		wantConflicts []brokerConfigConflict
+	}{
+		{
+			name:          "key without a typed twin produces no override",
+			entries:       brokerConfigEntriesOf(map[string]types.String{"message.max.bytes": types.StringValue("1048576")}),
+			wantOverrides: map[string]brokerConfigOverride{},
+		},
+		{
+			name:    "typed-backed key overrides its attribute",
+			entries: brokerConfigEntriesOf(map[string]types.String{"log.retention.ms": types.StringValue("3600000")}),
+			wantOverrides: map[string]brokerConfigOverride{
+				"default_retention_millis": {Key: "log.retention.ms", Value: types.StringValue("3600000")},
+			},
+		},
+		{
+			name: "several typed-backed keys each override their attribute",
+			entries: brokerConfigEntriesOf(map[string]types.String{
+				"num.partitions":                types.StringValue("16"),
+				"warpstream.default.topic.type": types.StringValue("lightning"),
+				"message.max.bytes":             types.StringValue("1048576"),
+			}),
+			wantOverrides: map[string]brokerConfigOverride{
+				"default_num_partitions": {Key: "num.partitions", Value: types.StringValue("16")},
+				"default_topic_type":     {Key: "warpstream.default.topic.type", Value: types.StringValue("lightning")},
+			},
+		},
+		{
+			name:    "an unknown value still overrides but cannot conflict",
+			entries: brokerConfigEntriesOf(map[string]types.String{"log.retention.ms": types.StringUnknown()}),
+			declaredTyped: map[string]attr.Value{
+				"default_retention_millis": types.Int64Value(86400000),
+			},
+			wantOverrides: map[string]brokerConfigOverride{
+				"default_retention_millis": {Key: "log.retention.ms", Value: types.StringUnknown()},
+			},
+		},
+		{
+			name:    "both surfaces agree",
+			entries: brokerConfigEntriesOf(map[string]types.String{"log.retention.ms": types.StringValue("3600000")}),
+			declaredTyped: map[string]attr.Value{
+				"default_retention_millis": types.Int64Value(3600000),
+			},
+			wantOverrides: map[string]brokerConfigOverride{
+				"default_retention_millis": {Key: "log.retention.ms", Value: types.StringValue("3600000")},
+			},
+		},
+		{
+			name:    "both surfaces disagree",
+			entries: brokerConfigEntriesOf(map[string]types.String{"log.retention.ms": types.StringValue("7200000")}),
+			declaredTyped: map[string]attr.Value{
+				"default_retention_millis": types.Int64Value(3600000),
+			},
+			wantOverrides: map[string]brokerConfigOverride{
+				"default_retention_millis": {Key: "log.retention.ms", Value: types.StringValue("7200000")},
+			},
+			wantConflicts: []brokerConfigConflict{{
+				Key:        "log.retention.ms",
+				TypedAttr:  "default_retention_millis",
+				MapValue:   "7200000",
+				TypedValue: types.Int64Value(3600000),
+			}},
+		},
+		{
+			name:    "booleans compare by value, not string",
+			entries: brokerConfigEntriesOf(map[string]types.String{"auto.create.topics.enable": types.StringValue("false")}),
+			declaredTyped: map[string]attr.Value{
+				"auto_create_topic": types.BoolValue(true),
+			},
+			wantOverrides: map[string]brokerConfigOverride{
+				"auto_create_topic": {Key: "auto.create.topics.enable", Value: types.StringValue("false")},
+			},
+			wantConflicts: []brokerConfigConflict{{
+				Key:        "auto.create.topics.enable",
+				TypedAttr:  "auto_create_topic",
+				MapValue:   "false",
+				TypedValue: types.BoolValue(true),
+			}},
+		},
+		{
+			name:    "a typed attribute the user did not write never conflicts",
+			entries: brokerConfigEntriesOf(map[string]types.String{"log.retention.ms": types.StringValue("7200000")}),
+			// Empty: the schema's default is not something the user wrote.
+			declaredTyped: map[string]attr.Value{},
+			wantOverrides: map[string]brokerConfigOverride{
+				"default_retention_millis": {Key: "log.retention.ms", Value: types.StringValue("7200000")},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			overrides, conflicts, err := resolveBrokerConfigOverrides(tt.entries, tt.declaredTyped)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantOverrides, overrides)
+			require.Equal(t, tt.wantConflicts, conflicts)
+		})
+	}
+}
+
+func TestPlannedTypedValue(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		override brokerConfigOverride
+		want     attr.Value
+	}{
+		{
+			name:     "known int",
+			override: brokerConfigOverride{Key: "log.retention.ms", Value: types.StringValue("3600000")},
+			want:     types.Int64Value(3600000),
+		},
+		{
+			name:     "known bool",
+			override: brokerConfigOverride{Key: "auto.create.topics.enable", Value: types.StringValue("false")},
+			want:     types.BoolValue(false),
+		},
+		{
+			name:     "known enum",
+			override: brokerConfigOverride{Key: "warpstream.default.topic.type", Value: types.StringValue("lightning")},
+			want:     types.StringValue("lightning"),
+		},
+		// An unresolved value must plan as known-after-apply of the matching type, so the
+		// apply is free to write whatever the value turns out to be.
+		{
+			name:     "unknown int",
+			override: brokerConfigOverride{Key: "log.retention.ms", Value: types.StringUnknown()},
+			want:     types.Int64Unknown(),
+		},
+		{
+			name:     "unknown bool",
+			override: brokerConfigOverride{Key: "auto.create.topics.enable", Value: types.StringUnknown()},
+			want:     types.BoolUnknown(),
+		},
+		{
+			name:     "unknown enum",
+			override: brokerConfigOverride{Key: "warpstream.default.topic.type", Value: types.StringUnknown()},
+			want:     types.StringUnknown(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := plannedTypedValue(tt.override)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -108,7 +368,7 @@ func TestFilterClusterConfigsToDeclared(t *testing.T) {
 		"log.retention.ms":    strPtr("86400000"),
 	}
 
-	declared := mapOf(t, map[string]string{
+	declared := brokerConfigMapOf(t, map[string]string{
 		// Declared; value must come from the API, not the declaration.
 		"message.max.bytes": "ignored",
 		// Declared but not returned by the API -> dropped.
@@ -138,48 +398,6 @@ func TestFilterClusterConfigsToDeclared_EmptyIsNull(t *testing.T) {
 	)
 	require.False(t, diags.HasError())
 	require.True(t, got.IsNull())
-}
-
-func TestTypedAttrOverrides(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		planBroker map[string]string
-		want       map[string]string
-	}{
-		{
-			name:       "typed-backed key pins its typed attr to the map value",
-			planBroker: map[string]string{"log.retention.ms": "3600000"},
-			want:       map[string]string{"default_retention_millis": "3600000"},
-		},
-		{
-			name:       "key without a typed equivalent produces no override",
-			planBroker: map[string]string{"message.max.bytes": "1048576"},
-			want:       map[string]string{},
-		},
-		{
-			name: "multiple typed-backed keys each pin their typed attr",
-			planBroker: map[string]string{
-				"num.partitions":                "16",
-				"warpstream.default.topic.type": "lightning",
-				"message.max.bytes":             "1048576",
-			},
-			want: map[string]string{
-				"default_num_partitions": "16",
-				"default_topic_type":     "lightning",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := typedAttrOverrides(tt.planBroker)
-			require.Equal(t, tt.want, got)
-		})
-	}
 }
 
 func TestBrokerConfigsPayload(t *testing.T) {

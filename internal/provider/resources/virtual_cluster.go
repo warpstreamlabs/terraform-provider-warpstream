@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -41,42 +42,6 @@ var (
 	_ resource.ResourceWithModifyPlan  = &virtualClusterResource{}
 )
 
-// typedConfigToBrokerKeys maps a typed `configuration` attribute (by its tfsdk name) to
-// the generic broker-config key(s) that control the same underlying cluster setting.
-var typedConfigToBrokerKeys = map[string][]string{
-	"auto_create_topic":              {"auto.create.topics.enable"},
-	"default_num_partitions":         {"num.partitions"},
-	"default_retention_millis":       {"log.retention.ms", "log.retention.minutes", "log.retention.hours"},
-	"default_topic_type":             {"warpstream.default.topic.type"},
-	"enable_soft_topic_deletion":     {"warpstream.soft.delete.topic.enable"},
-	"soft_topic_deletion_ttl_millis": {"warpstream.soft.delete.topic.ttl.ms", "warpstream.soft.delete.topic.ttl.hours"},
-}
-
-// configCollision is a typed `configuration` attribute that conflicts with a generic
-// `config` block key because both control the same underlying cluster setting.
-type configCollision struct {
-	TypedAttr  string
-	GenericKey string
-}
-
-// findConfigCollisions returns every conflict between an explicitly-set typed configuration
-// attribute and a generic config block key. It is pure so it can be unit-tested without the
-// plugin-framework plan machinery.
-func findConfigCollisions(explicitTypedAttrs map[string]struct{}, genericKeys map[string]struct{}) []configCollision {
-	var out []configCollision
-	for typedName, keys := range typedConfigToBrokerKeys {
-		if _, set := explicitTypedAttrs[typedName]; !set {
-			continue
-		}
-		for _, k := range keys {
-			if _, dup := genericKeys[k]; dup {
-				out = append(out, configCollision{TypedAttr: typedName, GenericKey: k})
-			}
-		}
-	}
-	return out
-}
-
 // NewVirtualClusterResource is a helper function to simplify the provider implementation.
 func NewVirtualClusterResource() resource.Resource {
 	return &virtualClusterResource{}
@@ -112,135 +77,233 @@ func (r *virtualClusterResource) Metadata(_ context.Context, req resource.Metada
 	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
 }
 
-// writeOnlyAliasKeys maps each write-only broker-config alias we reject in
-// `broker_configuration` to the canonical key that must be used instead. The WarpStream
-// API accepts these aliases on writes but describe responses only ever emit the canonical
-// name, so accepting an alias would cause perpetual drift.
-var writeOnlyAliasKeys = map[string]string{
-	"log.retention.minutes":                  "log.retention.ms",
-	"log.retention.hours":                    "log.retention.ms",
-	"warpstream.soft.delete.topic.ttl.hours": "warpstream.soft.delete.topic.ttl.ms",
+// brokerConfigOverride is a `broker_configuration` entry that mirrors a typed
+// `configuration` attribute, and therefore dictates that attribute's planned value.
+type brokerConfigOverride struct {
+	// Key is the canonical broker config name the value was declared under.
+	Key string
+	// Value is the declared value. It is unknown when it derives from something that will
+	// not exist until apply.
+	Value types.String
 }
 
-// ModifyPlan validates and reconciles the generic `broker_configuration` map against the
-// typed `configuration` attribute. It (1) rejects write-only alias keys whose canonical
-// form differs from what describe returns, (2) rejects configuring the same underlying
-// setting via both a typed attribute and the map (the API only accepts that when the
-// values agree, and silently picking a winner would be surprising), and (3) pins each
-// deprecated typed attribute to the value declared in the map when its generic key is
-// present. Pinning (rather than marking known-after-apply) keeps the typed attribute equal
-// to the value the API will return, so the typed attribute's static schema default never
-// reasserts itself and idempotent re-plans stay empty.
+// ModifyPlan validates the generic `broker_configuration` map and reconciles it with the
+// typed `configuration` attribute. It:
+//
+//  1. rejects unsupported config names, write-only aliases, null values, and values that are
+//     not already in the canonical form describe reports back;
+//  2. rejects setting one cluster setting through both a typed attribute and the map with
+//     values that disagree, the one case the provider cannot resolve on the user's behalf;
+//  3. rewrites each mirrored typed attribute to the value declared in the map.
+//
+// Step 3 is what keeps an apply consistent. `configuration` carries a static default object,
+// so Terraform plans a value for every typed attribute even when the user wrote only the map.
+// Left alone, the apply would write the map's value, read it back, and Terraform would abort
+// because the result disagrees with the plan it approved.
 func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	// Nothing to validate on destroy.
+	// Nothing to reconcile on destroy.
 	if req.Plan.Raw.IsNull() {
 		return
 	}
 
-	var plan models.VirtualClusterResource
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	var declared types.Map
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("broker_configuration"), &declared)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	planBroker := brokerConfigMap(ctx, plan.BrokerConfiguration, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() || len(planBroker) == 0 {
+	entries := brokerConfigEntries(ctx, declared, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() || len(entries) == 0 {
 		return
 	}
 
-	// Reject write-only aliases; only the canonical key of an aliased config is accepted.
-	for alias, canonical := range writeOnlyAliasKeys {
-		if _, ok := planBroker[alias]; ok {
-			resp.Diagnostics.AddError(
-				"Invalid broker configuration",
-				fmt.Sprintf("`broker_configuration` key %q is not supported; specify this setting as %q.", alias, canonical),
-			)
+	// Report problems in a stable order so a configuration with several mistakes does not
+	// produce differently ordered output between runs.
+	keys := make([]string, 0, len(entries))
+	for k := range entries {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	brokerPath := path.Root("broker_configuration")
+	for _, key := range keys {
+		if err := validateBrokerConfigKey(key); err != nil {
+			resp.Diagnostics.AddAttributeError(brokerPath.AtMapKey(key), "Invalid broker configuration", err.Error())
+			continue
+		}
+		value := entries[key]
+		if value.IsNull() {
+			resp.Diagnostics.AddAttributeError(brokerPath.AtMapKey(key), "Invalid broker configuration",
+				"null is not a valid value: the API ignores null entries, so Terraform would not be able to track this "+
+					"setting. Remove the key, or set it to the value you want.")
+			continue
+		}
+		// A value that is not known until apply cannot be checked here. The API validates it
+		// when it is written.
+		if !value.IsUnknown() {
+			if err := validateBrokerConfigValue(key, value.ValueString()); err != nil {
+				resp.Diagnostics.AddAttributeError(brokerPath.AtMapKey(key), "Invalid broker configuration", err.Error())
+			}
 		}
 	}
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	genericKeys := make(map[string]struct{}, len(planBroker))
-	for k := range planBroker {
-		genericKeys[k] = struct{}{}
-	}
-
-	// Read the typed configuration from the raw *config* (not the plan) so that Computed
-	// defaults are not mistaken for values the user explicitly set.
+	// Read the typed configuration from the raw *config* rather than the plan, so that the
+	// schema's defaults are not mistaken for values the user wrote.
 	var cfgObj types.Object
 	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("configuration"), &cfgObj)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	explicitTypedAttrs := make(map[string]struct{})
+	declaredTypedAttrs := make(map[string]attr.Value)
 	if !cfgObj.IsNull() && !cfgObj.IsUnknown() {
 		for name, v := range cfgObj.Attributes() {
 			if v != nil && !v.IsNull() && !v.IsUnknown() {
-				explicitTypedAttrs[name] = struct{}{}
+				declaredTypedAttrs[name] = v
 			}
 		}
 	}
 
-	collisions := findConfigCollisions(explicitTypedAttrs, genericKeys)
-	for _, c := range collisions {
+	overrides, conflicts, err := resolveBrokerConfigOverrides(entries, declaredTypedAttrs)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid broker configuration", err.Error())
+		return
+	}
+	for _, c := range conflicts {
 		resp.Diagnostics.AddError(
 			"Conflicting virtual cluster configuration",
 			fmt.Sprintf(
-				"The setting controlled by the typed `configuration.%s` attribute is also set "+
-					"via the generic `broker_configuration` key %q. Set it only one way.",
-				c.TypedAttr, c.GenericKey,
+				"`configuration.%s` is set to %s but `broker_configuration[%q]` is set to %q, and both "+
+					"control the same cluster setting. Set them to the same value, or set only one of them.",
+				c.TypedAttr, c.TypedValue, c.Key, c.MapValue,
 			),
 		)
 	}
-	if resp.Diagnostics.HasError() {
+	if resp.Diagnostics.HasError() || len(overrides) == 0 {
 		return
 	}
 
-	// Pin each typed attribute whose generic key is present in the map to the declared
-	// value, so the typed attribute tracks the map rather than its static default.
-	overrides := typedAttrOverrides(planBroker)
-	if len(overrides) == 0 {
-		return
-	}
+	r.reconcileTypedConfiguration(ctx, req, resp, overrides, declaredTypedAttrs)
+}
 
+// brokerConfigConflict is a cluster setting written through both the typed `configuration`
+// attribute and the `broker_configuration` map, with values that disagree.
+type brokerConfigConflict struct {
+	Key        string
+	TypedAttr  string
+	MapValue   string
+	TypedValue attr.Value
+}
+
+// resolveBrokerConfigOverrides pairs every `broker_configuration` entry that mirrors a typed
+// `configuration` attribute with that attribute, and reports the settings written through
+// both surfaces with values that disagree. Entries whose value is not known until apply are
+// still returned as overrides — the mirrored attribute has to plan as known-after-apply — but
+// cannot be compared, so they never conflict.
+//
+// Values are expected to have passed validateBrokerConfigValue already, which means they are
+// in canonical form and comparison against the typed value can be exact.
+func resolveBrokerConfigOverrides(
+	entries map[string]types.String,
+	declaredTypedAttrs map[string]attr.Value,
+) (map[string]brokerConfigOverride, []brokerConfigConflict, error) {
+	keys := make([]string, 0, len(entries))
+	for k := range entries {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	overrides := make(map[string]brokerConfigOverride)
+	var conflicts []brokerConfigConflict
+	for _, key := range keys {
+		spec, ok := brokerConfigs[key]
+		if !ok || spec.TypedAttr == "" {
+			continue
+		}
+		value := entries[key]
+		overrides[spec.TypedAttr] = brokerConfigOverride{Key: key, Value: value}
+
+		typedVal, alsoDeclared := declaredTypedAttrs[spec.TypedAttr]
+		if !alsoDeclared || value.IsNull() || value.IsUnknown() {
+			continue
+		}
+		mapVal, err := brokerConfigTypedValue(key, value.ValueString())
+		if err != nil {
+			return nil, nil, err
+		}
+		if !mapVal.Equal(typedVal) {
+			conflicts = append(conflicts, brokerConfigConflict{
+				Key:        key,
+				TypedAttr:  spec.TypedAttr,
+				MapValue:   value.ValueString(),
+				TypedValue: typedVal,
+			})
+		}
+	}
+	return overrides, conflicts, nil
+}
+
+// reconcileTypedConfiguration rewrites the planned `configuration` object so every attribute
+// holds the value the apply will actually produce:
+//
+//   - an attribute mirrored by a map entry takes the map's value, or plans as
+//     known-after-apply when that value is not known until apply;
+//   - an attribute the user wrote in the configuration keeps its planned value;
+//   - anything else falls back to prior state, so a schema default cannot overwrite a value
+//     the server already holds.
+//
+// On an unchanged re-plan the result equals prior state, so no update is planned and sibling
+// computed attributes are not flipped to known-after-apply.
+func (r *virtualClusterResource) reconcileTypedConfiguration(
+	ctx context.Context,
+	req resource.ModifyPlanRequest,
+	resp *resource.ModifyPlanResponse,
+	overrides map[string]brokerConfigOverride,
+	declaredTypedAttrs map[string]attr.Value,
+) {
 	var planCfg types.Object
 	resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, path.Root("configuration"), &planCfg)...)
 	if resp.Diagnostics.HasError() || planCfg.IsNull() || planCfg.IsUnknown() {
 		return
 	}
-	attrs := make(map[string]attr.Value, len(planCfg.Attributes()))
-	for name, v := range planCfg.Attributes() {
-		attrs[name] = v
-	}
-	for name, raw := range overrides {
-		switch attrs[name].(type) {
-		case types.Bool:
-			b, err := strconv.ParseBool(raw)
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Invalid broker configuration",
-					fmt.Sprintf("`broker_configuration` value %q for the setting backing `configuration.%s` must be a boolean.", raw, name),
-				)
-				continue
-			}
-			attrs[name] = types.BoolValue(b)
-		case types.Int64:
-			n, err := strconv.ParseInt(raw, 10, 64)
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Invalid broker configuration",
-					fmt.Sprintf("`broker_configuration` value %q for the setting backing `configuration.%s` must be an integer.", raw, name),
-				)
-				continue
-			}
-			attrs[name] = types.Int64Value(n)
-		case types.String:
-			attrs[name] = types.StringValue(raw)
+
+	// Prior state is absent on create, where there is nothing to fall back to and the
+	// planned defaults stand.
+	var stateAttrs map[string]attr.Value
+	if !req.State.Raw.IsNull() {
+		var stateCfg types.Object
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("configuration"), &stateCfg)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if !stateCfg.IsNull() && !stateCfg.IsUnknown() {
+			stateAttrs = stateCfg.Attributes()
 		}
 	}
-	if resp.Diagnostics.HasError() {
-		return
+
+	attrs := make(map[string]attr.Value, len(planCfg.Attributes()))
+	for name, planVal := range planCfg.Attributes() {
+		if override, mirrored := overrides[name]; mirrored {
+			v, err := plannedTypedValue(override)
+			if err != nil {
+				resp.Diagnostics.AddError("Invalid broker configuration", err.Error())
+				return
+			}
+			attrs[name] = v
+			continue
+		}
+		if _, wasDeclared := declaredTypedAttrs[name]; wasDeclared {
+			attrs[name] = planVal
+			continue
+		}
+		if stateVal, ok := stateAttrs[name]; ok {
+			attrs[name] = stateVal
+			continue
+		}
+		attrs[name] = planVal
 	}
+
 	newObj, diags := types.ObjectValue(planCfg.AttributeTypes(ctx), attrs)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -249,32 +312,43 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("configuration"), newObj)...)
 }
 
-// brokerConfigMap extracts a types.Map of strings into a Go map, returning nil when the
-// attribute is null or unknown.
-func brokerConfigMap(ctx context.Context, m types.Map, diags *diag.Diagnostics) map[string]string {
+// plannedTypedValue returns the value a mirrored typed attribute must hold in the plan for
+// the apply to come out consistent: the declared map value, or an unknown of the matching
+// type when that value is not known until apply.
+func plannedTypedValue(override brokerConfigOverride) (attr.Value, error) {
+	if override.Value.IsNull() || override.Value.IsUnknown() {
+		return brokerConfigUnknownTypedValue(override.Key)
+	}
+	return brokerConfigTypedValue(override.Key, override.Value.ValueString())
+}
+
+// brokerConfigEntries extracts a `broker_configuration` map into Go, keeping each value as a
+// types.String so that entries which are not known until apply survive the conversion. It
+// returns nil when the attribute as a whole is null or unknown.
+func brokerConfigEntries(ctx context.Context, m types.Map, diags *diag.Diagnostics) map[string]types.String {
 	if m.IsNull() || m.IsUnknown() {
 		return nil
 	}
-	out := make(map[string]string, len(m.Elements()))
+	out := make(map[string]types.String, len(m.Elements()))
 	diags.Append(m.ElementsAs(ctx, &out, false)...)
 	return out
 }
 
-// typedAttrOverrides returns, for each typed `configuration` attribute whose canonical
-// broker key is present in the plan's broker_configuration map, the raw string value the
-// typed attribute must be pinned to. Because write-only aliases are rejected before this
-// runs, only the canonical key of an aliased setting is ever present. Pinning the typed
-// attribute to the map value keeps it equal to what the API returns, so its static schema
-// default never reasserts and idempotent re-plans stay empty.
-func typedAttrOverrides(planBroker map[string]string) map[string]string {
-	out := map[string]string{}
-	for typedAttr, keys := range typedConfigToBrokerKeys {
-		for _, k := range keys {
-			if v, ok := planBroker[k]; ok {
-				out[typedAttr] = v
-				break
-			}
+// brokerConfigMap extracts the known entries of a `broker_configuration` map into a plain Go
+// map, for the write path where every value has been resolved. Null and not-yet-known
+// entries are skipped: the API treats a null entry as absent, and by the time configuration
+// is written there is nothing left unknown.
+func brokerConfigMap(ctx context.Context, m types.Map, diags *diag.Diagnostics) map[string]string {
+	entries := brokerConfigEntries(ctx, m, diags)
+	if diags.HasError() || len(entries) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(entries))
+	for k, v := range entries {
+		if v.IsNull() || v.IsUnknown() {
+			continue
 		}
+		out[k] = v.ValueString()
 	}
 	return out
 }

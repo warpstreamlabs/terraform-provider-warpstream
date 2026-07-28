@@ -304,16 +304,17 @@ func TestAccVirtualClusterResourceBrokerConfigTypedOverlap(t *testing.T) {
 	})
 }
 
-// TestAccVirtualClusterResourceGenericConfigConflict verifies that setting the same
-// underlying setting via both a typed attribute and the map is rejected at plan time by
-// ModifyPlan (this check runs without a backend round-trip).
+// TestAccVirtualClusterResourceGenericConfigConflict verifies that setting one cluster
+// setting through both a typed attribute and the map with values that *disagree* is rejected
+// at plan time, before any backend round-trip. Values that agree are allowed; see
+// TestAccVirtualClusterResourceBothSurfacesAgree.
 func TestAccVirtualClusterResourceGenericConfigConflict(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config:      testAccVirtualClusterResource_withConflictingConfig(vcNameSuffix),
+				Config:      testAccVirtualClusterResource_withRetentionBothWays(vcNameSuffix, "3600000", "7200000"),
 				ExpectError: regexp.MustCompile("Conflicting virtual cluster configuration"),
 			},
 		},
@@ -330,11 +331,103 @@ func TestAccVirtualClusterResourceAliasKeysRejected(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccVirtualClusterResource_withRetentionAlias(vcNameSuffix),
-				ExpectError: regexp.MustCompile(`key\s+"log.retention.hours"\s+is\s+not\s+supported`),
+				ExpectError: regexp.MustCompile(`"log.retention.hours"\s+is\s+a\s+write-only\s+alias`),
 			},
 			{
 				Config:      testAccVirtualClusterResource_withTTLAlias(vcNameSuffix),
-				ExpectError: regexp.MustCompile(`key\s+"warpstream.soft.delete.topic.ttl.hours"\s+is\s+not\s+supported`),
+				ExpectError: regexp.MustCompile(`"warpstream.soft.delete.topic.ttl.hours"\s+is\s+a\s+write-only\s+alias`),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceUnsupportedKeyRejected verifies that a config name the API
+// does not support is caught at plan time, rather than failing partway through an apply.
+func TestAccVirtualClusterResourceUnsupportedKeyRejected(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccVirtualClusterResource_withBrokerConfig(vcNameSuffix, "messge.max.bytes", "1048576"),
+				ExpectError: regexp.MustCompile(`is\s+not\s+a\s+supported\s+cluster\s+broker\s+config`),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceNonCanonicalValuesRejected verifies the canonical-value rule.
+// The API accepts each of these and rewrites it, which would leave state disagreeing with the
+// configuration and fail the apply, so they are rejected at plan time with the form to use.
+func TestAccVirtualClusterResourceNonCanonicalValuesRejected(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccVirtualClusterResource_withBrokerConfig(vcNameSuffix, "delete.topic.enable", "TRUE"),
+				ExpectError: regexp.MustCompile(`write\s+this\s+value\s+as\s+"true"`),
+			},
+			{
+				Config:      testAccVirtualClusterResource_withBrokerConfig(vcNameSuffix, "log.retention.ms", "-5"),
+				ExpectError: regexp.MustCompile(`write\s+this\s+value\s+as\s+"-1"`),
+			},
+			{
+				Config:      testAccVirtualClusterResource_withBrokerConfig(vcNameSuffix, "warpstream.default.topic.type", "Lightning"),
+				ExpectError: regexp.MustCompile(`write\s+this\s+value\s+as\s+"lightning"`),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceInfiniteRetention covers the one value the API rewrites that we
+// accept as-is: -1 for infinite retention.
+func TestAccVirtualClusterResourceInfiniteRetention(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "-1"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", "-1"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", "-1"),
+				),
+			},
+			{
+				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "-1"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceBothSurfacesAgree verifies that setting one cluster setting
+// through both the typed attribute and the map is allowed while the values match, which is
+// what lets a module adopt the map without deleting its typed attributes in the same change.
+func TestAccVirtualClusterResourceBothSurfacesAgree(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterResource_withRetentionBothWays(vcNameSuffix, "3600000", "3600000"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", "3600000"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", "3600000"),
+				),
+			},
+			{
+				Config: testAccVirtualClusterResource_withRetentionBothWays(vcNameSuffix, "3600000", "3600000"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
 			},
 		},
 	})
@@ -385,18 +478,33 @@ resource "warpstream_virtual_cluster" "test" {
 }`, vcNameSuffix)
 }
 
-func testAccVirtualClusterResource_withConflictingConfig(vcNameSuffix string) string {
+// testAccVirtualClusterResource_withBrokerConfig declares a single broker config entry, for
+// the cases that are rejected before the API is ever called.
+func testAccVirtualClusterResource_withBrokerConfig(vcNameSuffix, key, value string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  broker_configuration = {
+    %q = %q
+  }
+}`, vcNameSuffix, key, value)
+}
+
+// testAccVirtualClusterResource_withRetentionBothWays sets retention through the typed
+// attribute and the map at once, so the two values can be made to agree or disagree.
+func testAccVirtualClusterResource_withRetentionBothWays(vcNameSuffix, typedMillis, mapMillis string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test_acc_%s"
   tier = "fundamentals"
   configuration = {
-    default_retention_millis = 86400000
+    default_retention_millis = %s
   }
   broker_configuration = {
-    "log.retention.ms" = "86400000"
+    "log.retention.ms" = "%s"
   }
-}`, vcNameSuffix)
+}`, vcNameSuffix, typedMillis, mapMillis)
 }
 
 func TestAccVirtualClusterImport(t *testing.T) {

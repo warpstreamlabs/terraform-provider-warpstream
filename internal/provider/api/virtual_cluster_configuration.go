@@ -14,9 +14,7 @@ type VirtualClusterConfiguration struct {
 	ACLShadowingEnabled bool `json:"acl_shadowing_enabled"`
 
 	// The following typed fields are deprecated in the API in favor of the generic
-	// BrokerConfigs map. Describe responses always populate them, but the provider
-	// writes these settings exclusively through BrokerConfigs and leaves them unset on
-	// updates.
+	// BrokerConfigs map.
 	AutoCreateTopic         *bool  `json:"is_auto_create_topic_enabled,omitempty"`
 	DefaultNumPartitions    *int64 `json:"default_num_partitions,omitempty"`
 	DefaultRetentionMillis  *int64 `json:"default_retention_millis,omitempty"`
