@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -639,20 +640,32 @@ The WarpStream provider must be authenticated with an application key to consume
 			},
 			"workspace_id": shared.VirtualClusterWorkspaceIDSchema,
 			"broker_configuration": schema.MapAttribute{
-				Description: "Generic cluster/broker configuration as a map of Kafka-style " +
-					"config names to values (e.g. `message.max.bytes = \"1048576\"`, " +
-					"`delete.topic.enable = \"true\"`). This is the canonical, recommended way to " +
-					"configure broker settings; the individual typed attributes under " +
-					"`configuration` (such as `default_retention_millis` and `default_topic_type`) " +
-					"are deprecated in favor of the equivalent key here. A given setting must be set " +
-					"via either its typed `configuration` attribute or this map, never both. " +
-					"Only canonical config names are accepted: specify retention as `log.retention.ms` " +
-					"(not `log.retention.minutes` / `log.retention.hours`) and the soft-delete topic " +
-					"TTL as `warpstream.soft.delete.topic.ttl.ms` (not `warpstream.soft.delete.topic.ttl.hours`). " +
-					"Values must be written in their canonical string form (e.g. `true`/`false`, " +
-					"`-1` for infinite retention) or Terraform will show drift on the next plan. " +
-					"Removing a key from this map does not reset the config on the server; to revert a " +
-					"setting, set it to the desired (default) value explicitly.",
+				Description: "Cluster-level broker configuration, as a map of Kafka-style config names to " +
+					"string values (e.g. `message.max.bytes = \"1048576\"`, `delete.topic.enable = \"true\"`). " +
+					"This is the canonical, recommended way to configure broker settings; the individual " +
+					"typed attributes under `configuration` (such as `default_retention_millis` and " +
+					"`default_topic_type`) are deprecated in favor of the equivalent key here.\n\n" +
+
+					"A setting that also has a typed `configuration` attribute may be set through either " +
+					"surface, or through both as long as the two values agree; setting them to different " +
+					"values is rejected at plan time.\n\n" +
+
+					"Values must be written exactly as the WarpStream API reports them back, because " +
+					"Terraform compares the value in state against the one in your configuration. " +
+					"Non-canonical values are rejected at plan time with the form to use, so for example " +
+					"write `\"true\"` rather than `\"T\"`, `\"lightning\"` rather than `\"Lightning\"`, and " +
+					"`\"-1\"` for infinite retention rather than any other negative number.\n\n" +
+
+					"Only canonical config names are accepted. Specify retention as `log.retention.ms` " +
+					"(not `log.retention.minutes` or `log.retention.hours`) and the soft-delete topic TTL as " +
+					"`warpstream.soft.delete.topic.ttl.ms` (not `warpstream.soft.delete.topic.ttl.hours`) — " +
+					"the API accepts those aliases on write but only ever reports the millisecond form, so " +
+					"Terraform could not track them.\n\n" +
+
+					"Note that removing a key from this map does **not** reset the config on the cluster: the " +
+					"WarpStream API has no way to revert a config to its default, so an omitted config keeps " +
+					"whatever value it already had. To change a setting back, set it explicitly to the value " +
+					"you want.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
@@ -1027,6 +1040,131 @@ func filterClusterConfigsToDeclared(ctx context.Context, apiConfigs map[string]*
 	return m
 }
 
+// checkDeclaredConfigsApplied compares the broker configs the user declared against what the
+// API reported once they had been written, and reports a clear error when they differ.
+//
+// This only matters on the apply path. `broker_configuration` is not a Computed attribute, so
+// Terraform requires the value in state after an apply to equal the value in the
+// configuration, and state is populated from the API's response. Terraform performs the same
+// check itself and aborts with a generic "Provider produced inconsistent result after apply";
+// catching it here lets us name the key and the value to write instead. On a refresh a
+// difference is ordinary drift, not an error, so this is deliberately not called from Read.
+func checkDeclaredConfigsApplied(declared map[string]string, apiConfigs map[string]*string, respDiags *diag.Diagnostics) {
+	keys := make([]string, 0, len(declared))
+	for k := range declared {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	brokerPath := path.Root("broker_configuration")
+	for _, key := range keys {
+		declaredValue := declared[key]
+		apiValue, ok := apiConfigs[key]
+		if !ok || apiValue == nil {
+			respDiags.AddAttributeError(
+				brokerPath.AtMapKey(key),
+				"Broker configuration was not applied",
+				fmt.Sprintf(
+					"The API did not report cluster config %q after it was written, so Terraform cannot record "+
+						"a value for it. This usually means the config is not settable on this cluster.",
+					key,
+				),
+			)
+			continue
+		}
+		if *apiValue != declaredValue {
+			respDiags.AddAttributeError(
+				brokerPath.AtMapKey(key),
+				"Broker configuration was changed by the API",
+				fmt.Sprintf(
+					"Cluster config %q was written as %q but the API reports it as %q. Terraform cannot record a "+
+						"value that differs from your configuration; write it as %q instead.",
+					key, declaredValue, *apiValue, *apiValue,
+				),
+			)
+		}
+	}
+}
+
+// checkAPIConfigConsistency reports when the API's deprecated typed fields disagree with its
+// own broker_configs map about the same setting. The two are views of one stored value, so a
+// disagreement means the provider's understanding of the API has gone stale and the value it
+// writes to state is a guess.
+//
+// Only keys present in the map are compared: absence means the cluster is on the built-in
+// default, which the typed field still reports. Configs where a negative value means infinite
+// are skipped when either side is negative, because the two representations encode infinity
+// differently and the API compares them semantically rather than literally.
+//
+// This is a warning rather than an error. Nothing here breaks an apply — `broker_configuration`
+// is taken from the map and `configuration` from the typed fields — but it should be reported.
+func checkAPIConfigConsistency(cfg *api.VirtualClusterConfiguration, respDiags *diag.Diagnostics) {
+	if len(cfg.BrokerConfigs) == 0 {
+		return
+	}
+
+	typed := apiTypedConfigValues(cfg)
+	keys := make([]string, 0, len(typed))
+	for k := range typed {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		mapValue, ok := cfg.BrokerConfigs[key]
+		if !ok || mapValue == nil {
+			continue
+		}
+		typedValue := typed[key]
+		if typedValue == *mapValue {
+			continue
+		}
+		if brokerConfigs[key].NegativeIsInfinite &&
+			(strings.HasPrefix(typedValue, "-") || strings.HasPrefix(*mapValue, "-")) {
+			continue
+		}
+		respDiags.AddWarning(
+			"Inconsistent virtual cluster configuration from the API",
+			fmt.Sprintf(
+				"The API reports cluster config %q as %q in broker_configs but as %q in its deprecated typed "+
+					"field, and the two are views of the same value. Please report this issue to the provider "+
+					"developers.",
+				key, *mapValue, typedValue,
+			),
+		)
+	}
+}
+
+// apiTypedConfigValues renders the API's deprecated typed configuration fields as broker
+// config values, keyed by canonical config name, so they can be compared with broker_configs.
+// Fields the API did not populate are omitted.
+func apiTypedConfigValues(cfg *api.VirtualClusterConfiguration) map[string]string {
+	out := make(map[string]string, len(typedAttrBrokerKey))
+	if cfg.AutoCreateTopic != nil {
+		out["auto.create.topics.enable"] = strconv.FormatBool(*cfg.AutoCreateTopic)
+	}
+	if cfg.DefaultNumPartitions != nil {
+		out["num.partitions"] = strconv.FormatInt(*cfg.DefaultNumPartitions, 10)
+	}
+	if cfg.DefaultRetentionMillis != nil {
+		out["log.retention.ms"] = strconv.FormatInt(*cfg.DefaultRetentionMillis, 10)
+	}
+	if cfg.EnableSoftTopicDeletion != nil {
+		out["warpstream.soft.delete.topic.enable"] = strconv.FormatBool(*cfg.EnableSoftTopicDeletion)
+	}
+	if cfg.DefaultTopicType != nil {
+		out["warpstream.default.topic.type"] = *cfg.DefaultTopicType
+	}
+	if cfg.SoftTopicDeletionTTL != nil {
+		out["warpstream.soft.delete.topic.ttl.ms"] = strconv.FormatInt(cfg.SoftTopicDeletionTTL.Milliseconds(), 10)
+	}
+	return out
+}
+
+// brokerConfigsPayload builds the generic broker_configs request body from the declared map
+// plus the typed `configuration` attributes that have a canonical config name. Entries the
+// user declared in the map win, so a value is never sent through both representations, which
+// is what the API rejects when the two disagree.
 func brokerConfigsPayload(cfgPlan *models.VirtualClusterConfiguration, brokerCfg map[string]string) map[string]*string {
 	out := make(map[string]*string, len(brokerCfg)+6)
 	for k, v := range brokerCfg {
@@ -1065,7 +1203,10 @@ func brokerConfigsPayload(cfgPlan *models.VirtualClusterConfiguration, brokerCfg
 	return out
 }
 
-func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster, declared types.Map, state *tfsdk.State, respDiags *diag.Diagnostics) {
+// readConfiguration writes the cluster's configuration from the API into state, and returns
+// the API's response so a caller on the apply path can check what was actually stored. It
+// returns nil if the configuration could not be read.
+func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster, declared types.Map, state *tfsdk.State, respDiags *diag.Diagnostics) *api.VirtualClusterConfiguration {
 	// Get virtual cluster configuration
 	cfg, err := r.client.GetConfiguration(cluster)
 	if err != nil {
@@ -1073,9 +1214,11 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 			"Unable to Read configuration of Virtual Cluster with ID="+cluster.ID,
 			err.Error(),
 		)
-		return
+		return nil
 	}
 	tflog.Debug(ctx, fmt.Sprintf("Configuration: %+v", *cfg))
+
+	checkAPIConfigConsistency(cfg, respDiags)
 
 	cfgState := models.VirtualClusterConfiguration{
 		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
@@ -1110,6 +1253,8 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	// Set tier
 	diags = state.SetAttribute(ctx, path.Root("tier"), types.StringValue(cfg.Tier))
 	respDiags.Append(diags...)
+
+	return cfg
 }
 
 func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics) {
@@ -1161,9 +1306,18 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 	}
 
 	// Retrieve updated virtual cluster configuration
-	r.readConfiguration(ctx, cluster, plan.BrokerConfiguration, state, respDiags)
+	applied := r.readConfiguration(ctx, cluster, plan.BrokerConfiguration, state, respDiags)
 	if respDiags.HasError() {
 		return
+	}
+
+	// Fail with a specific message if the API did not store a declared config verbatim, rather
+	// than letting Terraform abort with a generic inconsistent-result error.
+	if applied != nil {
+		checkDeclaredConfigsApplied(brokerCfg, applied.BrokerConfigs, respDiags)
+		if respDiags.HasError() {
+			return
+		}
 	}
 
 	// Preserve null value for default_topic_type if it wasn't explicitly set in the plan and

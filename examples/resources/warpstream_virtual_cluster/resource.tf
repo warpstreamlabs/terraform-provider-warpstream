@@ -44,13 +44,34 @@ resource "warpstream_virtual_cluster" "test_broker_config" {
   tier = "dev"
 
   # broker_configuration is the canonical, recommended way to set broker
-  # settings: a map of Kafka-style config names to canonical string values.
-  # Removing a key does not reset the setting on the server; set the desired
-  # (default) value explicitly instead.
+  # settings: a map of Kafka-style config names to string values. Values must be
+  # written exactly as the API reports them ("true", not "T"; "-1" for infinite
+  # retention), and only canonical names are accepted (log.retention.ms, never
+  # log.retention.hours).
+  #
+  # Removing a key does not reset the setting on the cluster, because the API has
+  # no way to revert a config to its default. Set the value you want instead.
   broker_configuration = {
     "message.max.bytes"   = "1048576"
     "delete.topic.enable" = "true"
     "log.retention.ms"    = "604800000"
+  }
+}
+
+resource "warpstream_virtual_cluster" "test_broker_config_migration" {
+  name = "vcn_test_broker_config_migration"
+  tier = "dev"
+
+  # A setting with a deprecated typed attribute may be specified through both
+  # surfaces while the values agree, so a module can adopt broker_configuration
+  # before dropping its typed attributes. Setting them to different values is
+  # rejected at plan time.
+  configuration = {
+    default_retention_millis = 604800000
+  }
+
+  broker_configuration = {
+    "log.retention.ms" = "604800000"
   }
 }
 

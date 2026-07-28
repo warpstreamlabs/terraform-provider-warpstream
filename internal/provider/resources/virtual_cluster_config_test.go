@@ -3,11 +3,13 @@ package resources
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/stretchr/testify/require"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/models"
 )
 
@@ -353,6 +355,180 @@ func TestPlannedTypedValue(t *testing.T) {
 			got, err := plannedTypedValue(tt.override)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCheckDeclaredConfigsApplied(t *testing.T) {
+	t.Parallel()
+
+	strPtr := func(s string) *string { return &s }
+
+	tests := []struct {
+		name       string
+		declared   map[string]string
+		apiConfigs map[string]*string
+		wantErrs   []string
+	}{
+		{
+			name:       "value stored verbatim",
+			declared:   map[string]string{"message.max.bytes": "1048576"},
+			apiConfigs: map[string]*string{"message.max.bytes": strPtr("1048576")},
+		},
+		{
+			name:       "nothing declared",
+			declared:   nil,
+			apiConfigs: map[string]*string{"message.max.bytes": strPtr("1048576")},
+		},
+		{
+			name:       "api did not report the config back",
+			declared:   map[string]string{"message.max.bytes": "1048576"},
+			apiConfigs: map[string]*string{},
+			wantErrs:   []string{"did not report cluster config"},
+		},
+		{
+			name:       "api reported a null value",
+			declared:   map[string]string{"message.max.bytes": "1048576"},
+			apiConfigs: map[string]*string{"message.max.bytes": nil},
+			wantErrs:   []string{"did not report cluster config"},
+		},
+		{
+			name:       "api changed the value",
+			declared:   map[string]string{"log.retention.ms": "30"},
+			apiConfigs: map[string]*string{"log.retention.ms": strPtr("60000")},
+			wantErrs:   []string{`written as "30" but the API reports it as "60000"`},
+		},
+		{
+			name: "several problems are all reported",
+			declared: map[string]string{
+				"message.max.bytes": "1048576",
+				"log.retention.ms":  "30",
+			},
+			apiConfigs: map[string]*string{"log.retention.ms": strPtr("60000")},
+			wantErrs: []string{
+				`written as "30" but the API reports it as "60000"`,
+				"did not report cluster config",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var diags diag.Diagnostics
+			checkDeclaredConfigsApplied(tt.declared, tt.apiConfigs, &diags)
+
+			if len(tt.wantErrs) == 0 {
+				require.False(t, diags.HasError(), "unexpected diagnostics: %v", diags)
+				return
+			}
+			require.True(t, diags.HasError())
+			require.Len(t, diags.Errors(), len(tt.wantErrs))
+			joined := ""
+			for _, d := range diags.Errors() {
+				joined += d.Detail() + "\n"
+			}
+			for _, want := range tt.wantErrs {
+				require.Contains(t, joined, want)
+			}
+		})
+	}
+}
+
+func TestCheckAPIConfigConsistency(t *testing.T) {
+	t.Parallel()
+
+	strPtr := func(s string) *string { return &s }
+	boolPtr := func(b bool) *bool { return &b }
+	i64Ptr := func(i int64) *int64 { return &i }
+	durPtr := func(d time.Duration) *time.Duration { return &d }
+
+	tests := []struct {
+		name        string
+		cfg         api.VirtualClusterConfiguration
+		wantWarning string
+	}{
+		{
+			name: "no broker configs means nothing to compare",
+			cfg: api.VirtualClusterConfiguration{
+				DefaultRetentionMillis: i64Ptr(86400000),
+			},
+		},
+		{
+			name: "both representations agree",
+			cfg: api.VirtualClusterConfiguration{
+				DefaultRetentionMillis: i64Ptr(86400000),
+				AutoCreateTopic:        boolPtr(true),
+				BrokerConfigs: map[string]*string{
+					"log.retention.ms":          strPtr("86400000"),
+					"auto.create.topics.enable": strPtr("true"),
+				},
+			},
+		},
+		{
+			name: "a config absent from the map is on the built-in default and not compared",
+			cfg: api.VirtualClusterConfiguration{
+				DefaultRetentionMillis: i64Ptr(86400000),
+				BrokerConfigs:          map[string]*string{"message.max.bytes": strPtr("1048576")},
+			},
+		},
+		{
+			name: "representations disagree",
+			cfg: api.VirtualClusterConfiguration{
+				DefaultRetentionMillis: i64Ptr(86400000),
+				BrokerConfigs:          map[string]*string{"log.retention.ms": strPtr("3600000")},
+			},
+			wantWarning: `"log.retention.ms"`,
+		},
+		{
+			name: "boolean disagreement",
+			cfg: api.VirtualClusterConfiguration{
+				AutoCreateTopic: boolPtr(true),
+				BrokerConfigs:   map[string]*string{"auto.create.topics.enable": strPtr("false")},
+			},
+			wantWarning: `"auto.create.topics.enable"`,
+		},
+		// Infinite is encoded differently by the two representations, so a negative value on
+		// either side is not a real disagreement.
+		{
+			name: "infinite retention is not a disagreement",
+			cfg: api.VirtualClusterConfiguration{
+				DefaultRetentionMillis: i64Ptr(3153600000000),
+				BrokerConfigs:          map[string]*string{"log.retention.ms": strPtr("-1")},
+			},
+		},
+		{
+			name: "infinite soft-delete ttl is not a disagreement",
+			cfg: api.VirtualClusterConfiguration{
+				SoftTopicDeletionTTL: durPtr(100 * 365 * 24 * time.Hour),
+				BrokerConfigs:        map[string]*string{"warpstream.soft.delete.topic.ttl.ms": strPtr("-1")},
+			},
+		},
+		{
+			name: "soft-delete ttl is compared in milliseconds",
+			cfg: api.VirtualClusterConfiguration{
+				SoftTopicDeletionTTL: durPtr(48 * time.Hour),
+				BrokerConfigs:        map[string]*string{"warpstream.soft.delete.topic.ttl.ms": strPtr("172800000")},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var diags diag.Diagnostics
+			checkAPIConfigConsistency(&tt.cfg, &diags)
+
+			require.False(t, diags.HasError(), "must never be fatal")
+			if tt.wantWarning == "" {
+				require.Empty(t, diags.Warnings(), "unexpected warnings: %v", diags.Warnings())
+				return
+			}
+			require.Len(t, diags.Warnings(), 1)
+			require.Contains(t, diags.Warnings()[0].Detail(), tt.wantWarning)
+			require.Contains(t, diags.Warnings()[0].Detail(), "report this issue to the provider developers")
 		})
 	}
 }
