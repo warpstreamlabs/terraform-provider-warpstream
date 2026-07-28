@@ -186,6 +186,50 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 	}
 
 	r.reconcileTypedConfiguration(ctx, req, resp, overrides, declaredTypedAttrs)
+	r.preserveNullEventTypes(ctx, req, resp)
+}
+
+// preserveNullEventTypes undoes collateral damage caused by reconciling `configuration`.
+//
+// When the map owns a setting whose typed attribute carries a schema default, that default is
+// applied before this ModifyPlan runs, so the plan briefly disagrees with prior state. That is
+// enough for the framework to mark every computed attribute that is null in state as
+// known-after-apply, which catches `events.event_types` — and its UseStateForUnknown cannot
+// restore it precisely because prior state is null. Reconciling `configuration` afterwards
+// fixes the attribute that caused the mismatch, but not the ones swept up along the way, so an
+// otherwise idempotent plan reports an events update that will never happen.
+//
+// The restore is deliberately narrow: only an unknown planned value, with no events declared
+// in the configuration and none in prior state, is reset. That is exactly what
+// UseStateForUnknown would have done had it handled a null prior state, so no other events
+// behaviour changes.
+func (r *virtualClusterResource) preserveNullEventTypes(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// On create there is no prior state to preserve, and known-after-apply is correct.
+	if req.State.Raw.IsNull() {
+		return
+	}
+
+	eventTypesPath := path.Root("events").AtName("event_types")
+
+	var planEventTypes types.Map
+	resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, eventTypesPath, &planEventTypes)...)
+	if resp.Diagnostics.HasError() || !planEventTypes.IsUnknown() {
+		return
+	}
+
+	var configEventTypes types.Map
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, eventTypesPath, &configEventTypes)...)
+	if resp.Diagnostics.HasError() || !configEventTypes.IsNull() {
+		return
+	}
+
+	var stateEventTypes types.Map
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, eventTypesPath, &stateEventTypes)...)
+	if resp.Diagnostics.HasError() || !stateEventTypes.IsNull() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, eventTypesPath, stateEventTypes)...)
 }
 
 // brokerConfigConflict is a cluster setting written through both the typed `configuration`
