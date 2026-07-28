@@ -316,6 +316,7 @@ func (r *virtualClusterResource) reconcileTypedConfiguration(
 	// Prior state is absent on create, where there is nothing to fall back to and the
 	// planned defaults stand.
 	var stateAttrs map[string]attr.Value
+	var stateBroker map[string]string
 	if !req.State.Raw.IsNull() {
 		var stateCfg types.Object
 		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("configuration"), &stateCfg)...)
@@ -324,6 +325,16 @@ func (r *virtualClusterResource) reconcileTypedConfiguration(
 		}
 		if !stateCfg.IsNull() && !stateCfg.IsUnknown() {
 			stateAttrs = stateCfg.Attributes()
+		}
+
+		var stateMap types.Map
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("broker_configuration"), &stateMap)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		stateBroker = brokerConfigMap(ctx, stateMap, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
 		}
 	}
 
@@ -334,6 +345,16 @@ func (r *virtualClusterResource) reconcileTypedConfiguration(
 			if err != nil {
 				resp.Diagnostics.AddError("Invalid broker configuration", err.Error())
 				return
+			}
+			// A value plannedTypedValue could not predict is still knowable when the last apply
+			// already resolved it and the declaration has not changed since: prior state holds
+			// whatever the API reported. Without this an unchanged configuration would replan
+			// known-after-apply forever instead of settling.
+			if v.IsUnknown() && !override.Value.IsUnknown() {
+				if prior, ok := stateAttrs[name]; ok && !prior.IsNull() &&
+					stateBroker[override.Key] == override.Value.ValueString() {
+					v = prior
+				}
 			}
 			attrs[name] = v
 			continue
@@ -359,11 +380,22 @@ func (r *virtualClusterResource) reconcileTypedConfiguration(
 
 // plannedTypedValue returns the value a mirrored typed attribute must hold in the plan for
 // the apply to come out consistent: the declared map value, or an unknown of the matching
-// type when that value is not known until apply.
+// type when that value cannot be predicted.
 func plannedTypedValue(override brokerConfigOverride) (attr.Value, error) {
 	if override.Value.IsNull() || override.Value.IsUnknown() {
 		return brokerConfigUnknownTypedValue(override.Key)
 	}
+
+	// Where a negative value means infinite, the deprecated typed field reports infinity in the
+	// API's own representation, which is not derivable from the map value: retention comes back
+	// as -1, but the soft-delete TTL comes back as a duration clamped to 100 years. Leave the
+	// mirrored attribute for the apply to fill in rather than guessing which it will be.
+	if spec, ok := brokerConfigs[override.Key]; ok && spec.NegativeIsInfinite {
+		if n, err := strconv.ParseInt(override.Value.ValueString(), 10, 64); err == nil && n < 0 {
+			return brokerConfigUnknownTypedValue(override.Key)
+		}
+	}
+
 	return brokerConfigTypedValue(override.Key, override.Value.ValueString())
 }
 

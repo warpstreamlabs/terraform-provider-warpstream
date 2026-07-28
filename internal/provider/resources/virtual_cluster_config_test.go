@@ -336,6 +336,25 @@ func TestPlannedTypedValue(t *testing.T) {
 			override: brokerConfigOverride{Key: "log.retention.ms", Value: types.StringUnknown()},
 			want:     types.Int64Unknown(),
 		},
+		// Infinite is reported back by the typed field in the API's own representation, which
+		// differs per config, so it cannot be mirrored: retention reports -1 but the soft-delete
+		// TTL reports a duration clamped to 100 years.
+		{
+			name:     "infinite retention is not predictable",
+			override: brokerConfigOverride{Key: "log.retention.ms", Value: types.StringValue("-1")},
+			want:     types.Int64Unknown(),
+		},
+		{
+			name:     "infinite soft-delete ttl is not predictable",
+			override: brokerConfigOverride{Key: "warpstream.soft.delete.topic.ttl.ms", Value: types.StringValue("-1")},
+			want:     types.Int64Unknown(),
+		},
+		// A negative value on a config where negative has no special meaning is mirrored as-is.
+		{
+			name:     "plain negative int is mirrored",
+			override: brokerConfigOverride{Key: "message.max.bytes", Value: types.StringValue("-1")},
+			want:     types.Int64Value(-1),
+		},
 		{
 			name:     "unknown bool",
 			override: brokerConfigOverride{Key: "auto.create.topics.enable", Value: types.StringUnknown()},

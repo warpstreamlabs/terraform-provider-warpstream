@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
@@ -230,281 +231,371 @@ func testAccVirtualClusterResourceCheck(acls bool, aclShadowing bool, autoTopic 
 
 }
 
-func TestAccVirtualClusterResourceGenericConfig(t *testing.T) {
+// --- broker_configuration (generic cluster config map) ---------------------------------
+//
+// The tests below are deliberately few and broad. Each one owns a theme and walks a cluster
+// through several steps, rather than spreading one assertion per test across many clusters.
+
+// brokerConfigResource renders a virtual cluster with an optional typed `configuration` body
+// and an optional `broker_configuration` map, so a single fixture covers every combination the
+// tests need.
+func brokerConfigResource(vcNameSuffix, typedBody, brokerBody string) string {
+	typed := ""
+	if typedBody != "" {
+		typed = fmt.Sprintf("  configuration = {\n%s\n  }\n", typedBody)
+	}
+	broker := ""
+	if brokerBody != "" {
+		broker = fmt.Sprintf("  broker_configuration = {\n%s\n  }\n", brokerBody)
+	}
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+%s%s}`, vcNameSuffix, typed, broker)
+}
+
+// TestAccVirtualClusterResourceBrokerConfigInvalid covers every input the provider refuses
+// before calling the API: unsupported names, write-only aliases, null values, values the API
+// would silently rewrite, and one setting given two disagreeing values. None of these steps
+// reach the backend, so they are cheap enough to keep in one table.
+func TestAccVirtualClusterResourceBrokerConfigInvalid(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+
+	cases := []struct {
+		name       string
+		typedBody  string
+		brokerBody string
+		wantErr    string
+	}{
+		{
+			name:       "unsupported config name",
+			brokerBody: `    "messge.max.bytes" = "1048576"`,
+			wantErr:    `is\s+not\s+a\s+supported\s+cluster\s+broker\s+config`,
+		},
+		{
+			name:       "retention hours is a write-only alias",
+			brokerBody: `    "log.retention.hours" = "24"`,
+			wantErr:    `"log.retention.hours"\s+is\s+a\s+write-only\s+alias`,
+		},
+		{
+			name:       "soft delete ttl hours is a write-only alias",
+			brokerBody: `    "warpstream.soft.delete.topic.ttl.hours" = "48"`,
+			wantErr:    `"warpstream.soft.delete.topic.ttl.hours"\s+is\s+a\s+write-only\s+alias`,
+		},
+		{
+			name:       "null value cannot be tracked",
+			brokerBody: `    "message.max.bytes" = null`,
+			wantErr:    `null\s+is\s+not\s+a\s+valid\s+value`,
+		},
+		{
+			name:       "non-canonical boolean",
+			brokerBody: `    "delete.topic.enable" = "TRUE"`,
+			wantErr:    `write\s+this\s+value\s+as\s+"true"`,
+		},
+		{
+			name:       "non-canonical infinite retention",
+			brokerBody: `    "log.retention.ms" = "-5"`,
+			wantErr:    `write\s+this\s+value\s+as\s+"-1"`,
+		},
+		{
+			name:       "non-canonical enum",
+			brokerBody: `    "warpstream.default.topic.type" = "Lightning"`,
+			wantErr:    `write\s+this\s+value\s+as\s+"lightning"`,
+		},
+		{
+			name:       "unparsable value",
+			brokerBody: `    "message.max.bytes" = "1MB"`,
+			wantErr:    `is\s+not\s+an\s+integer`,
+		},
+		{
+			name:       "same setting given two different values",
+			typedBody:  `    default_retention_millis = 3600000`,
+			brokerBody: `    "log.retention.ms" = "7200000"`,
+			wantErr:    `Conflicting\s+virtual\s+cluster\s+configuration`,
+		},
+	}
+
+	steps := make([]resource.TestStep, 0, len(cases))
+	for _, c := range cases {
+		steps = append(steps, resource.TestStep{
+			Config:      brokerConfigResource(vcNameSuffix, c.typedBody, c.brokerBody),
+			ExpectError: regexp.MustCompile(c.wantErr),
+		})
+	}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps:                    steps,
+	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigLifecycle walks the create/update/remove cycle for
+// configs that have no typed `configuration` equivalent, which is the majority of the surface
+// and the plain case with no mirroring involved.
+func TestAccVirtualClusterResourceBrokerConfigLifecycle(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+
+	twoConfigs := `    "message.max.bytes"   = "1048576"
+    "delete.topic.enable" = "true"`
+	changedAndAdded := `    "message.max.bytes"         = "2097152"
+    "delete.topic.enable"       = "true"
+    "offsets.retention.minutes" = "10080"`
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create with two generic configs.
 			{
-				Config: testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, "1048576"),
+				Config: brokerConfigResource(vcNameSuffix, "", twoConfigs),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.%", "2"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.message.max.bytes", "1048576"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.delete.topic.enable", "true"),
+					resource.TestCheckResourceAttr(addr, "broker_configuration.%", "2"),
+					resource.TestCheckResourceAttr(addr, "broker_configuration.message.max.bytes", "1048576"),
+					resource.TestCheckResourceAttr(addr, "broker_configuration.delete.topic.enable", "true"),
 				),
 			},
-			// Re-apply identical config: expect no drift.
 			{
-				Config: testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, "1048576"),
+				Config:           brokerConfigResource(vcNameSuffix, "", twoConfigs),
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+			},
+			// Change one value and add a key the provider has never sent before.
+			{
+				Config: brokerConfigResource(vcNameSuffix, "", changedAndAdded),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(addr, "broker_configuration.%", "3"),
+					resource.TestCheckResourceAttr(addr, "broker_configuration.message.max.bytes", "2097152"),
+					resource.TestCheckResourceAttr(addr, "broker_configuration.offsets.retention.minutes", "10080"),
+				),
+			},
+			// Removing the attribute drops the keys from state. The API has no way to revert a
+			// config to its default, so the cluster keeps the values; this only asserts that
+			// Terraform stops tracking them and that the plan settles.
+			{
+				Config: brokerConfigResource(vcNameSuffix, "", ""),
+				Check:  resource.TestCheckNoResourceAttr(addr, "broker_configuration.%"),
+			},
+			{
+				Config:           brokerConfigResource(vcNameSuffix, "", ""),
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigMirrored covers every setting that exists in both
+// the map and the deprecated typed `configuration` attribute, all at once. Each typed attribute
+// must end up holding the value declared in the map, and a re-apply must plan nothing.
+//
+// This is where the interesting cases live: `default_topic_type` is the only mirrored attribute
+// with no schema default and is force-nulled on read unless the map owns it, and retention and
+// soft-delete TTL both collapse any negative value to "-1" meaning infinite, with the typed TTL
+// reported in nanoseconds rather than milliseconds.
+func TestAccVirtualClusterResourceBrokerConfigMirrored(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+
+	allSix := `    "auto.create.topics.enable"           = "false"
+    "num.partitions"                      = "4"
+    "log.retention.ms"                    = "3600000"
+    "warpstream.soft.delete.topic.enable" = "false"
+    "warpstream.soft.delete.topic.ttl.ms" = "172800000"
+    "warpstream.default.topic.type"       = "lightning"`
+
+	infinite := `    "auto.create.topics.enable"           = "false"
+    "num.partitions"                      = "4"
+    "log.retention.ms"                    = "-1"
+    "warpstream.soft.delete.topic.enable" = "false"
+    "warpstream.soft.delete.topic.ttl.ms" = "-1"
+    "warpstream.default.topic.type"       = "lightning"`
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: brokerConfigResource(vcNameSuffix, "", allSix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(addr, "configuration.auto_create_topic", "false"),
+					resource.TestCheckResourceAttr(addr, "configuration.default_num_partitions", "4"),
+					resource.TestCheckResourceAttr(addr, "configuration.default_retention_millis", "3600000"),
+					resource.TestCheckResourceAttr(addr, "configuration.enable_soft_topic_deletion", "false"),
+					resource.TestCheckResourceAttr(addr, "configuration.soft_topic_deletion_ttl_millis", "172800000"),
+					resource.TestCheckResourceAttr(addr, "configuration.default_topic_type", "lightning"),
+				),
+			},
+			{
+				Config:           brokerConfigResource(vcNameSuffix, "", allSix),
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+			},
+			// Infinite retention and infinite soft-delete TTL. The typed TTL is reported by the
+			// API as a 100-year duration rather than -1, so this also exercises the consistency
+			// check that must not treat that as the API contradicting itself.
+			{
+				Config: brokerConfigResource(vcNameSuffix, "", infinite),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(addr, "broker_configuration.log.retention.ms", "-1"),
+					resource.TestCheckResourceAttr(addr, "configuration.default_retention_millis", "-1"),
+					resource.TestCheckResourceAttr(addr, "broker_configuration.warpstream.soft.delete.topic.ttl.ms", "-1"),
+				),
+			},
+			{
+				Config:           brokerConfigResource(vcNameSuffix, "", infinite),
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigMigration is the reason the map is allowed to
+// overlap the deprecated typed attributes at all: a module must be able to adopt
+// `broker_configuration` without deleting its typed attributes in the same change. Nothing
+// changes on the cluster across these steps, so every plan after the first must be empty.
+func TestAccVirtualClusterResourceBrokerConfigMigration(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+
+	emptyPlan := resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Where an existing configuration starts: typed attribute only.
+			{
+				Config: brokerConfigResource(vcNameSuffix, `    default_retention_millis = 3600000`, ""),
+				Check:  resource.TestCheckResourceAttr(addr, "configuration.default_retention_millis", "3600000"),
+			},
+			// Add the map alongside it with the same value. Nothing changes on the cluster, but
+			// Terraform does start tracking a new attribute, so this step legitimately plans an
+			// update; only the value matters here.
+			{
+				Config: brokerConfigResource(vcNameSuffix,
+					`    default_retention_millis = 3600000`,
+					`    "log.retention.ms" = "3600000"`),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(addr, "broker_configuration.log.retention.ms", "3600000"),
+					resource.TestCheckResourceAttr(addr, "configuration.default_retention_millis", "3600000"),
+				),
+			},
+			// Both surfaces declared and settled: re-applying must plan nothing.
+			{
+				Config: brokerConfigResource(vcNameSuffix,
+					`    default_retention_millis = 3600000`,
+					`    "log.retention.ms" = "3600000"`),
+				ConfigPlanChecks: emptyPlan,
+			},
+			// Drop the typed attribute, leaving the map in charge. The mirrored attribute keeps
+			// its value, so this is a genuine no-op.
+			{
+				Config:           brokerConfigResource(vcNameSuffix, "", `    "log.retention.ms" = "3600000"`),
+				ConfigPlanChecks: emptyPlan,
+				Check:            resource.TestCheckResourceAttr(addr, "configuration.default_retention_millis", "3600000"),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigUpgrade is the backwards-compatibility guard. A
+// configuration written against the released provider, which has no `broker_configuration`
+// attribute at all, must plan clean once this provider takes over. This protects every existing
+// user who never adopts the feature.
+func TestAccVirtualClusterResourceBrokerConfigUpgrade(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+
+	// A configuration the released provider understands: typed attributes, no map.
+	config := brokerConfigResource(vcNameSuffix, `    default_retention_millis = 3600000
+    enable_acls              = true`, "")
+
+	resource.Test(t, resource.TestCase{
+		Steps: []resource.TestStep{
+			{
+				ExternalProviders: map[string]resource.ExternalProvider{
+					"warpstream": {Source: "warpstreamlabs/warpstream", VersionConstraint: "2.7.9"},
+				},
+				Config: config,
+			},
+			{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Config:                   config,
+				ConfigPlanChecks:         resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigUnknownValue covers a value that is not known until
+// apply, which is what happens whenever a config is derived from another resource. Extracting
+// the map must not fail at plan time, and the mirrored typed attribute must plan as
+// known-after-apply rather than keeping a schema default the apply is about to contradict.
+func TestAccVirtualClusterResourceBrokerConfigUnknownValue(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+
+	// The dependency cluster's id is unknown until it is created, so the retention derived from
+	// it is too. The exact number does not matter; that the two surfaces agree afterwards does.
+	config := providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "dep" {
+  name = "vcn_test_acc_%s_dep"
+  tier = "dev"
+}
+
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  broker_configuration = {
+    "log.retention.ms" = tostring(length(warpstream_virtual_cluster.dep.id) * 100000)
+  }
+}`, vcNameSuffix, vcNameSuffix)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
-						plancheck.ExpectEmptyPlan(),
+						plancheck.ExpectUnknownValue(addr,
+							tfjsonpath.New("configuration").AtMapKey("default_retention_millis")),
 					},
 				},
-			},
-			// Update a value.
-			{
-				Config: testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, "2097152"),
-				Check:  resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.message.max.bytes", "2097152"),
-			},
-			// Remove the generic config map entirely.
-			{
-				Config: testAccVirtualClusterResource(vcNameSuffix),
-				Check:  resource.TestCheckNoResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.message.max.bytes"),
-			},
-		},
-	})
-}
-
-// TestAccVirtualClusterResourceBrokerConfigTypedOverlap sets a setting that also has a typed
-// attribute (retention) via the map, and verifies the typed attribute reflects the same
-// value (ascribed from the API) and that a re-apply shows no drift.
-func TestAccVirtualClusterResourceBrokerConfigTypedOverlap(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			// Create with retention set via the map.
-			{
-				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "3600000"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", "3600000"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", "3600000"),
-				),
-			},
-			// Re-apply identical config: expect no drift.
-			{
-				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "3600000"),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PreApply: []plancheck.PlanCheck{
-						plancheck.ExpectEmptyPlan(),
-					},
-				},
-			},
-			// Change the value; both the map and the typed attribute should reflect it.
-			{
-				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "7200000"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", "7200000"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", "7200000"),
-				),
-			},
-		},
-	})
-}
-
-// TestAccVirtualClusterResourceGenericConfigConflict verifies that setting one cluster
-// setting through both a typed attribute and the map with values that *disagree* is rejected
-// at plan time, before any backend round-trip. Values that agree are allowed; see
-// TestAccVirtualClusterResourceBothSurfacesAgree.
-func TestAccVirtualClusterResourceGenericConfigConflict(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config:      testAccVirtualClusterResource_withRetentionBothWays(vcNameSuffix, "3600000", "7200000"),
-				ExpectError: regexp.MustCompile("Conflicting virtual cluster configuration"),
-			},
-		},
-	})
-}
-
-// TestAccVirtualClusterResourceAliasKeysRejected verifies the canonical-name-only rule:
-// write-only aliases (retention in minutes/hours, soft-delete TTL in hours) are rejected
-// at plan time to avoid drift, since describe only ever returns the canonical ms keys.
-func TestAccVirtualClusterResourceAliasKeysRejected(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config:      testAccVirtualClusterResource_withRetentionAlias(vcNameSuffix),
-				ExpectError: regexp.MustCompile(`"log.retention.hours"\s+is\s+a\s+write-only\s+alias`),
-			},
-			{
-				Config:      testAccVirtualClusterResource_withTTLAlias(vcNameSuffix),
-				ExpectError: regexp.MustCompile(`"warpstream.soft.delete.topic.ttl.hours"\s+is\s+a\s+write-only\s+alias`),
-			},
-		},
-	})
-}
-
-// TestAccVirtualClusterResourceUnsupportedKeyRejected verifies that a config name the API
-// does not support is caught at plan time, rather than failing partway through an apply.
-func TestAccVirtualClusterResourceUnsupportedKeyRejected(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config:      testAccVirtualClusterResource_withBrokerConfig(vcNameSuffix, "messge.max.bytes", "1048576"),
-				ExpectError: regexp.MustCompile(`is\s+not\s+a\s+supported\s+cluster\s+broker\s+config`),
-			},
-		},
-	})
-}
-
-// TestAccVirtualClusterResourceNonCanonicalValuesRejected verifies the canonical-value rule.
-// The API accepts each of these and rewrites it, which would leave state disagreeing with the
-// configuration and fail the apply, so they are rejected at plan time with the form to use.
-func TestAccVirtualClusterResourceNonCanonicalValuesRejected(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config:      testAccVirtualClusterResource_withBrokerConfig(vcNameSuffix, "delete.topic.enable", "TRUE"),
-				ExpectError: regexp.MustCompile(`write\s+this\s+value\s+as\s+"true"`),
-			},
-			{
-				Config:      testAccVirtualClusterResource_withBrokerConfig(vcNameSuffix, "log.retention.ms", "-5"),
-				ExpectError: regexp.MustCompile(`write\s+this\s+value\s+as\s+"-1"`),
-			},
-			{
-				Config:      testAccVirtualClusterResource_withBrokerConfig(vcNameSuffix, "warpstream.default.topic.type", "Lightning"),
-				ExpectError: regexp.MustCompile(`write\s+this\s+value\s+as\s+"lightning"`),
-			},
-		},
-	})
-}
-
-// TestAccVirtualClusterResourceInfiniteRetention covers the one value the API rewrites that we
-// accept as-is: -1 for infinite retention.
-func TestAccVirtualClusterResourceInfiniteRetention(t *testing.T) {
-	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "-1"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", "-1"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", "-1"),
+				Check: resource.TestCheckResourceAttrPair(
+					addr, "broker_configuration.log.retention.ms",
+					addr, "configuration.default_retention_millis",
 				),
 			},
 			{
-				Config: testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, "-1"),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PreApply: []plancheck.PlanCheck{
-						plancheck.ExpectEmptyPlan(),
-					},
-				},
+				Config:           config,
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
 			},
 		},
 	})
 }
 
-// TestAccVirtualClusterResourceBothSurfacesAgree verifies that setting one cluster setting
-// through both the typed attribute and the map is allowed while the values match, which is
-// what lets a module adopt the map without deleting its typed attributes in the same change.
-func TestAccVirtualClusterResourceBothSurfacesAgree(t *testing.T) {
+// TestAccVirtualClusterResourceBrokerConfigLargeRetention covers a retention longer than an
+// int32 of milliseconds can hold (30 days is 2,592,000,000 ms, past the 2,147,483,647 limit).
+// The typed `default_retention_millis` attribute has always been a 64-bit integer, so this must
+// work through the map too, otherwise long retention would regress for anyone migrating.
+//
+// NOTE: expected to fail until the API change widening log.retention.ms to 64 bits is deployed.
+func TestAccVirtualClusterResourceBrokerConfigLargeRetention(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+	const thirtyDaysMillis = "2592000000"
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVirtualClusterResource_withRetentionBothWays(vcNameSuffix, "3600000", "3600000"),
+				Config: brokerConfigResource(vcNameSuffix, "", `    "log.retention.ms" = "`+thirtyDaysMillis+`"`),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", "3600000"),
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "configuration.default_retention_millis", "3600000"),
+					resource.TestCheckResourceAttr(addr, "broker_configuration.log.retention.ms", thirtyDaysMillis),
+					resource.TestCheckResourceAttr(addr, "configuration.default_retention_millis", thirtyDaysMillis),
 				),
 			},
 			{
-				Config: testAccVirtualClusterResource_withRetentionBothWays(vcNameSuffix, "3600000", "3600000"),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PreApply: []plancheck.PlanCheck{
-						plancheck.ExpectEmptyPlan(),
-					},
-				},
+				Config:           brokerConfigResource(vcNameSuffix, "", `    "log.retention.ms" = "`+thirtyDaysMillis+`"`),
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
 			},
 		},
 	})
-}
-
-func testAccVirtualClusterResource_withGenericConfig(vcNameSuffix, messageMaxBytes string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
-  tier = "fundamentals"
-  broker_configuration = {
-    "message.max.bytes"   = "%s"
-    "delete.topic.enable" = "true"
-  }
-}`, vcNameSuffix, messageMaxBytes)
-}
-
-func testAccVirtualClusterResource_withRetentionInMap(vcNameSuffix, retentionMillis string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
-  tier = "fundamentals"
-  broker_configuration = {
-    "log.retention.ms" = "%s"
-  }
-}`, vcNameSuffix, retentionMillis)
-}
-
-func testAccVirtualClusterResource_withRetentionAlias(vcNameSuffix string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
-  tier = "fundamentals"
-  broker_configuration = {
-    "log.retention.hours" = "24"
-  }
-}`, vcNameSuffix)
-}
-
-func testAccVirtualClusterResource_withTTLAlias(vcNameSuffix string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
-  tier = "fundamentals"
-  broker_configuration = {
-    "warpstream.soft.delete.topic.ttl.hours" = "48"
-  }
-}`, vcNameSuffix)
-}
-
-// testAccVirtualClusterResource_withBrokerConfig declares a single broker config entry, for
-// the cases that are rejected before the API is ever called.
-func testAccVirtualClusterResource_withBrokerConfig(vcNameSuffix, key, value string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
-  tier = "fundamentals"
-  broker_configuration = {
-    %q = %q
-  }
-}`, vcNameSuffix, key, value)
-}
-
-// testAccVirtualClusterResource_withRetentionBothWays sets retention through the typed
-// attribute and the map at once, so the two values can be made to agree or disagree.
-func testAccVirtualClusterResource_withRetentionBothWays(vcNameSuffix, typedMillis, mapMillis string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "test" {
-  name = "vcn_test_acc_%s"
-  tier = "fundamentals"
-  configuration = {
-    default_retention_millis = %s
-  }
-  broker_configuration = {
-    "log.retention.ms" = "%s"
-  }
-}`, vcNameSuffix, typedMillis, mapMillis)
 }
 
 func TestAccVirtualClusterImport(t *testing.T) {
