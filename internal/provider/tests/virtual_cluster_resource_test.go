@@ -269,11 +269,6 @@ func TestAccVirtualClusterResourceBrokerConfigInvalid(t *testing.T) {
 		wantErr    string
 	}{
 		{
-			name:       "unsupported config name",
-			brokerBody: `    "messge.max.bytes" = "1048576"`,
-			wantErr:    `is\s+not\s+a\s+supported\s+cluster\s+broker\s+config`,
-		},
-		{
 			name:       "retention hours is a write-only alias",
 			brokerBody: `    "log.retention.hours" = "24"`,
 			wantErr:    `"log.retention.hours"\s+is\s+a\s+write-only\s+alias`,
@@ -287,26 +282,6 @@ func TestAccVirtualClusterResourceBrokerConfigInvalid(t *testing.T) {
 			name:       "null value cannot be tracked",
 			brokerBody: `    "message.max.bytes" = null`,
 			wantErr:    `null\s+is\s+not\s+a\s+valid\s+value`,
-		},
-		{
-			name:       "non-canonical boolean",
-			brokerBody: `    "delete.topic.enable" = "TRUE"`,
-			wantErr:    `write\s+this\s+value\s+as\s+"true"`,
-		},
-		{
-			name:       "non-canonical infinite retention",
-			brokerBody: `    "log.retention.ms" = "-5"`,
-			wantErr:    `write\s+this\s+value\s+as\s+"-1"`,
-		},
-		{
-			name:       "non-canonical enum",
-			brokerBody: `    "warpstream.default.topic.type" = "Lightning"`,
-			wantErr:    `write\s+this\s+value\s+as\s+"lightning"`,
-		},
-		{
-			name:       "unparsable value",
-			brokerBody: `    "message.max.bytes" = "1MB"`,
-			wantErr:    `is\s+not\s+an\s+integer`,
 		},
 		{
 			name:       "same setting given two different values",
@@ -327,6 +302,36 @@ func TestAccVirtualClusterResourceBrokerConfigInvalid(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps:                    steps,
+	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigRejectedByAPI covers the inputs the provider
+// deliberately does not police, because doing so would mean hardcoding which config names exist
+// and how each one's values are normalised — the knowledge that would need a provider release
+// every time the API gains a config.
+//
+// An unsupported name is rejected by the API. A value the API rewrites is caught by the read
+// that follows the write, which reports the exact value to use. Neither needs the provider to
+// know anything about the config in question.
+func TestAccVirtualClusterResourceBrokerConfigRejectedByAPI(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      brokerConfigResource(vcNameSuffix, "", `    "messge.max.bytes" = "1048576"`),
+				ExpectError: regexp.MustCompile(`unsupported\s+cluster\s+config`),
+			},
+			{
+				Config:      brokerConfigResource(vcNameSuffix, "", `    "delete.topic.enable" = "TRUE"`),
+				ExpectError: regexp.MustCompile(`the\s+API\s+reports\s+it\s+as\s+"true"`),
+			},
+			{
+				Config:      brokerConfigResource(vcNameSuffix, "", `    "log.retention.ms" = "-5"`),
+				ExpectError: regexp.MustCompile(`the\s+API\s+reports\s+it\s+as\s+"-1"`),
+			},
+		},
 	})
 }
 

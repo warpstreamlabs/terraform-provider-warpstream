@@ -138,13 +138,6 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 					"setting. Remove the key, or set it to the value you want.")
 			continue
 		}
-		// A value that is not known until apply cannot be checked here. The API validates it
-		// when it is written.
-		if !value.IsUnknown() {
-			if err := validateBrokerConfigValue(key, value.ValueString()); err != nil {
-				resp.Diagnostics.AddAttributeError(brokerPath.AtMapKey(key), "Invalid broker configuration", err.Error())
-			}
-		}
 	}
 	if resp.Diagnostics.HasError() {
 		return
@@ -247,8 +240,8 @@ type brokerConfigConflict struct {
 // still returned as overrides — the mirrored attribute has to plan as known-after-apply — but
 // cannot be compared, so they never conflict.
 //
-// Values are expected to have passed validateBrokerConfigValue already, which means they are
-// in canonical form and comparison against the typed value can be exact.
+// A value the API normalises on write is not detected here; checkDeclaredConfigsApplied reports
+// it after the apply, so no knowledge of any config's canonical form is needed.
 func resolveBrokerConfigOverrides(
 	entries map[string]types.String,
 	declaredTypedAttrs map[string]attr.Value,
@@ -262,31 +255,57 @@ func resolveBrokerConfigOverrides(
 	overrides := make(map[string]brokerConfigOverride)
 	var conflicts []brokerConfigConflict
 	for _, key := range keys {
-		spec, ok := brokerConfigs[key]
-		if !ok || spec.TypedAttr == "" {
+		typedAttr, mirrored := brokerKeyTypedAttr[key]
+		if !mirrored {
 			continue
 		}
 		value := entries[key]
-		overrides[spec.TypedAttr] = brokerConfigOverride{Key: key, Value: value}
+		overrides[typedAttr] = brokerConfigOverride{Key: key, Value: value}
 
-		typedVal, alsoDeclared := declaredTypedAttrs[spec.TypedAttr]
+		typedVal, alsoDeclared := declaredTypedAttrs[typedAttr]
 		if !alsoDeclared || value.IsNull() || value.IsUnknown() {
 			continue
 		}
-		mapVal, err := brokerConfigTypedValue(key, value.ValueString())
+		// Compare in the typed attribute's own type, so "3600000" and 3600000 count as equal.
+		// The type comes from the value the user wrote, not from any knowledge of the config.
+		mapVal, err := brokerConfigValueAs(value.ValueString(), typedVal)
 		if err != nil {
 			return nil, nil, err
 		}
 		if !mapVal.Equal(typedVal) {
 			conflicts = append(conflicts, brokerConfigConflict{
 				Key:        key,
-				TypedAttr:  spec.TypedAttr,
+				TypedAttr:  typedAttr,
 				MapValue:   value.ValueString(),
 				TypedValue: typedVal,
 			})
 		}
 	}
 	return overrides, conflicts, nil
+}
+
+// brokerConfigValueAs parses raw into the same Terraform type as tmpl, so a value declared in
+// `broker_configuration` can be compared with the typed `configuration` attribute that mirrors
+// it. The type is taken from this provider's own schema rather than from any table describing
+// the config, which is what lets the map stay generic.
+func brokerConfigValueAs(raw string, tmpl attr.Value) (attr.Value, error) {
+	switch tmpl.(type) {
+	case types.Bool:
+		b, err := strconv.ParseBool(raw)
+		if err != nil {
+			return nil, fmt.Errorf("%q is not a boolean", raw)
+		}
+		return types.BoolValue(b), nil
+	case types.Int64:
+		n, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("%q is not an integer", raw)
+		}
+		return types.Int64Value(n), nil
+	case types.String:
+		return types.StringValue(raw), nil
+	}
+	return nil, fmt.Errorf("cannot interpret %q as %T", raw, tmpl)
 }
 
 // reconcileTypedConfiguration rewrites the planned `configuration` object so every attribute
@@ -340,27 +359,16 @@ func (r *virtualClusterResource) reconcileTypedConfiguration(
 
 	attrs := make(map[string]attr.Value, len(planCfg.Attributes()))
 	for name, planVal := range planCfg.Attributes() {
-		if override, mirrored := overrides[name]; mirrored {
-			v, err := plannedTypedValue(override)
-			if err != nil {
-				resp.Diagnostics.AddError("Invalid broker configuration", err.Error())
-				return
-			}
-			// A value plannedTypedValue could not predict is still knowable when the last apply
-			// already resolved it and the declaration has not changed since: prior state holds
-			// whatever the API reported. Without this an unchanged configuration would replan
-			// known-after-apply forever instead of settling.
-			if v.IsUnknown() && !override.Value.IsUnknown() {
-				if prior, ok := stateAttrs[name]; ok && !prior.IsNull() &&
-					stateBroker[override.Key] == override.Value.ValueString() {
-					v = prior
-				}
-			}
-			attrs[name] = v
-			continue
-		}
+		// An attribute the user wrote keeps its planned value, which is that written value. This
+		// has to be checked before mirroring: Terraform rejects a plan that marks an attribute
+		// unknown when the configuration gives it a value, and a setting written through both
+		// surfaces has already been checked for agreement, so the two say the same thing anyway.
 		if _, wasDeclared := declaredTypedAttrs[name]; wasDeclared {
 			attrs[name] = planVal
+			continue
+		}
+		if override, mirrored := overrides[name]; mirrored {
+			attrs[name] = plannedMirroredValue(override, planVal, stateAttrs[name], stateBroker)
 			continue
 		}
 		if stateVal, ok := stateAttrs[name]; ok {
@@ -378,25 +386,42 @@ func (r *virtualClusterResource) reconcileTypedConfiguration(
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("configuration"), newObj)...)
 }
 
-// plannedTypedValue returns the value a mirrored typed attribute must hold in the plan for
-// the apply to come out consistent: the declared map value, or an unknown of the matching
-// type when that value cannot be predicted.
-func plannedTypedValue(override brokerConfigOverride) (attr.Value, error) {
-	if override.Value.IsNull() || override.Value.IsUnknown() {
-		return brokerConfigUnknownTypedValue(override.Key)
-	}
+// plannedMirroredValue returns the value a typed `configuration` attribute must hold in the plan
+// when a `broker_configuration` entry controls the same underlying setting.
+//
+// The provider deliberately does not try to predict what the API will report. Values are
+// normalised server-side in ways it has no general knowledge of — any negative retention becomes
+// "-1", a soft-delete TTL becomes a duration clamped to 100 years — and encoding those rules here
+// is exactly the sort of API knowledge that goes stale the moment a config is added. Instead:
+//
+//   - if the declaration has not changed since the last apply, prior state already holds whatever
+//     the API reported for it, so reuse that and the plan settles with no diff;
+//   - otherwise plan known-after-apply and let the read that follows the write supply the value.
+//
+// That is correct for any normalisation, including ones the provider has never heard of.
+func plannedMirroredValue(override brokerConfigOverride, planVal, priorVal attr.Value, priorBroker map[string]string) attr.Value {
+	declaredUnchanged := !override.Value.IsNull() && !override.Value.IsUnknown() &&
+		priorBroker[override.Key] == override.Value.ValueString()
 
-	// Where a negative value means infinite, the deprecated typed field reports infinity in the
-	// API's own representation, which is not derivable from the map value: retention comes back
-	// as -1, but the soft-delete TTL comes back as a duration clamped to 100 years. Leave the
-	// mirrored attribute for the apply to fill in rather than guessing which it will be.
-	if spec, ok := brokerConfigs[override.Key]; ok && spec.NegativeIsInfinite {
-		if n, err := strconv.ParseInt(override.Value.ValueString(), 10, 64); err == nil && n < 0 {
-			return brokerConfigUnknownTypedValue(override.Key)
-		}
+	if declaredUnchanged && priorVal != nil && !priorVal.IsNull() && !priorVal.IsUnknown() {
+		return priorVal
 	}
+	return unknownLike(planVal)
+}
 
-	return brokerConfigTypedValue(override.Key, override.Value.ValueString())
+// unknownLike returns the unknown value of the same Terraform type as v. The typed
+// `configuration` attributes are all booleans, 64-bit integers or strings; anything else is
+// returned unchanged rather than guessed at.
+func unknownLike(v attr.Value) attr.Value {
+	switch v.(type) {
+	case types.Bool:
+		return types.BoolUnknown()
+	case types.Int64:
+		return types.Int64Unknown()
+	case types.String:
+		return types.StringUnknown()
+	}
+	return v
 }
 
 // brokerConfigEntries extracts a `broker_configuration` map into Go, keeping each value as a
@@ -726,12 +751,14 @@ The WarpStream provider must be authenticated with an application key to consume
 					"A setting that also has a typed `configuration` attribute may be set through either " +
 					"surface, or through both as long as the two values agree; setting them to different " +
 					"values is rejected at plan time. " +
-					"Values must be written exactly as the WarpStream API reports them back, because " +
-					"Terraform compares the value in state against the one in your configuration. " +
-					"Non-canonical values are rejected at plan time with the form to use, so for example " +
+					"Any config name the API supports may be used here; the provider does not keep its own " +
+					"list, so a config added to the API is usable without a provider upgrade. " +
+					"Values must be written exactly as the API reports them back, because Terraform " +
+					"compares the value in state against the one in your configuration. Where the API " +
+					"rewrites a value, the apply fails with the form to use instead, so for example " +
 					"write `true` rather than `T`, `lightning` rather than `Lightning`, and `-1` for " +
 					"infinite retention rather than any other negative number. " +
-					"Only canonical config names are accepted: specify retention as `log.retention.ms` " +
+					"Two config names cannot be used: specify retention as `log.retention.ms` " +
 					"(not `log.retention.minutes` or `log.retention.hours`) and the soft-delete topic TTL as " +
 					"`warpstream.soft.delete.topic.ttl.ms` (not `warpstream.soft.delete.topic.ttl.hours`), " +
 					"because the API accepts those aliases on write but only ever reports the millisecond " +
@@ -848,6 +875,15 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 
 	r.applyConfiguration(ctx, state, &resp.State, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
+		// The cluster exists but could not be configured, most often because the API rejected a
+		// broker config. Terraform refuses any state still holding unknown values and reports
+		// that as "provider returned invalid result object ... always a bug in the provider",
+		// which would bury the real error under two misleading ones. Fill in what the cluster
+		// actually has so the API's message is the only thing the user sees, and so the next
+		// apply starts from an accurate record.
+		r.readConfiguration(ctx, *cluster, state.BrokerConfiguration, &resp.State, &resp.Diagnostics)
+		r.readEvents(ctx, *cluster, &resp.State, &resp.Diagnostics,
+			types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()}))
 		return
 	}
 
@@ -1193,8 +1229,11 @@ func checkAPIConfigConsistency(cfg *api.VirtualClusterConfiguration, respDiags *
 		if typedValue == *mapValue {
 			continue
 		}
-		if brokerConfigs[key].NegativeIsInfinite &&
-			(strings.HasPrefix(typedValue, "-") || strings.HasPrefix(*mapValue, "-")) {
+		// A negative value on either side is a sentinel, most often meaning infinite, and the two
+		// representations are free to encode it differently: the soft-delete TTL reports "-1" in
+		// the map but a duration clamped to 100 years in its typed field. Those are not the API
+		// contradicting itself, so skip rather than encode which configs behave that way.
+		if strings.HasPrefix(typedValue, "-") || strings.HasPrefix(*mapValue, "-") {
 			continue
 		}
 		respDiags.AddWarning(

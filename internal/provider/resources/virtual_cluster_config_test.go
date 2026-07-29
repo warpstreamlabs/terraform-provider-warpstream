@@ -35,33 +35,24 @@ func brokerConfigEntriesOf(kv map[string]types.String) map[string]types.String {
 	return out
 }
 
-func TestBrokerConfigTableIsConsistent(t *testing.T) {
+func TestTypedAttrBrokerKeyIsABijection(t *testing.T) {
 	t.Parallel()
 
-	for key, spec := range brokerConfigs {
-		if spec.AliasOf != "" {
-			// An alias must point at a key that exists and is itself canonical, otherwise the
-			// error message we hand the user would send them somewhere invalid.
-			target, ok := brokerConfigs[spec.AliasOf]
-			require.True(t, ok, "%s aliases unknown key %s", key, spec.AliasOf)
-			require.Empty(t, target.AliasOf, "%s aliases %s, which is itself an alias", key, spec.AliasOf)
-			require.Empty(t, spec.TypedAttr, "alias %s must not claim a typed attribute", key)
-			continue
-		}
-		if spec.Kind == brokerConfigEnum {
-			require.NotEmpty(t, spec.EnumValues, "enum config %s declares no valid values", key)
-		}
+	// The mirroring table is provider knowledge, so it must stay in step with the typed
+	// attributes it names. Two attributes claiming one config, or the reverse lookup losing an
+	// entry, would silently mis-mirror a setting.
+	require.Len(t, brokerKeyTypedAttr, len(typedAttrBrokerKey))
+	for attrName, key := range typedAttrBrokerKey {
+		require.Equal(t, attrName, brokerKeyTypedAttr[key], "reverse lookup disagrees for %s", key)
 	}
 
-	// Every typed attribute must resolve back to exactly one canonical key.
-	require.Equal(t, map[string]string{
-		"auto_create_topic":              "auto.create.topics.enable",
-		"default_num_partitions":         "num.partitions",
-		"default_retention_millis":       "log.retention.ms",
-		"default_topic_type":             "warpstream.default.topic.type",
-		"enable_soft_topic_deletion":     "warpstream.soft.delete.topic.enable",
-		"soft_topic_deletion_ttl_millis": "warpstream.soft.delete.topic.ttl.ms",
-	}, typedAttrBrokerKey)
+	// Every alias must point at a config that a typed attribute actually mirrors, so the advice
+	// in the error message names a key the provider understands.
+	for alias, canonical := range writeOnlyAliasKeys {
+		require.NotEqual(t, alias, canonical)
+		_, ok := brokerKeyTypedAttr[canonical]
+		require.True(t, ok, "alias %s points at %s, which no typed attribute mirrors", alias, canonical)
+	}
 }
 
 func TestValidateBrokerConfigKey(t *testing.T) {
@@ -72,10 +63,15 @@ func TestValidateBrokerConfigKey(t *testing.T) {
 		key     string
 		wantErr string
 	}{
-		{name: "supported generic key", key: "message.max.bytes"},
-		{name: "supported typed-backed key", key: "log.retention.ms"},
-		{name: "typo", key: "messge.max.bytes", wantErr: "is not a supported cluster broker config"},
-		{name: "unsupported entirely", key: "some.other.setting", wantErr: "is not a supported cluster broker config"},
+		// Unknown names are deliberately accepted: the API decides what exists, so a config
+		// added there must not need a provider release to become usable.
+		{name: "config with no typed twin", key: "message.max.bytes"},
+		{name: "config with a typed twin", key: "log.retention.ms"},
+		{name: "name the provider has never heard of", key: "some.brand.new.config"},
+		{name: "typo is left to the API to reject", key: "messge.max.bytes"},
+
+		// Aliases are the one exception: the API accepts them but never reports them back, so
+		// Terraform could not track the result.
 		{name: "retention minutes alias", key: "log.retention.minutes", wantErr: `specify this setting as "log.retention.ms"`},
 		{name: "retention hours alias", key: "log.retention.hours", wantErr: `specify this setting as "log.retention.ms"`},
 		{
@@ -99,54 +95,39 @@ func TestValidateBrokerConfigKey(t *testing.T) {
 	}
 }
 
-func TestValidateBrokerConfigValue(t *testing.T) {
+func TestBrokerConfigValueAs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
-		key     string
-		value   string
+		raw     string
+		tmpl    attr.Value
+		want    attr.Value
 		wantErr string
 	}{
-		// Canonical values are accepted.
-		{name: "bool true", key: "delete.topic.enable", value: "true"},
-		{name: "bool false", key: "delete.topic.enable", value: "false"},
-		{name: "int", key: "message.max.bytes", value: "1048576"},
-		{name: "int zero", key: "message.max.bytes", value: "0"},
-		{name: "retention", key: "log.retention.ms", value: "604800000"},
-		{name: "retention infinite", key: "log.retention.ms", value: "-1"},
-		{name: "ttl infinite", key: "warpstream.soft.delete.topic.ttl.ms", value: "-1"},
-		{name: "enum", key: "warpstream.default.topic.type", value: "lightning"},
-
-		// The API accepts these, but rewrites them, so state would not match the config.
-		{name: "bool T", key: "delete.topic.enable", value: "T", wantErr: `write this value as "true", not "T"`},
-		{name: "bool TRUE", key: "delete.topic.enable", value: "TRUE", wantErr: `write this value as "true"`},
-		{name: "bool 1", key: "delete.topic.enable", value: "1", wantErr: `write this value as "true"`},
-		{name: "other negative retention", key: "log.retention.ms", value: "-5", wantErr: `write this value as "-1", not "-5"`},
-		{name: "other negative ttl", key: "warpstream.soft.delete.topic.ttl.ms", value: "-100", wantErr: `write this value as "-1"`},
-		{name: "int with plus sign", key: "message.max.bytes", value: "+1048576", wantErr: `write this value as "1048576"`},
-		{name: "enum mixed case", key: "warpstream.default.topic.type", value: "Lightning", wantErr: `write this value as "lightning"`},
-		{name: "enum padded", key: "warpstream.default.topic.type", value: " lightning ", wantErr: `write this value as "lightning"`},
-
-		// Unparsable for the config's type.
-		{name: "bool garbage", key: "delete.topic.enable", value: "yes-please", wantErr: "is not a boolean"},
-		{name: "int garbage", key: "message.max.bytes", value: "1MB", wantErr: "is not an integer"},
-		{name: "enum invalid", key: "warpstream.default.topic.type", value: "turbo", wantErr: "must be one of"},
-
-		// A negative value on a config where negative has no special meaning stays as-is.
-		{name: "plain negative int", key: "message.max.bytes", value: "-1"},
+		{name: "bool", raw: "true", tmpl: types.BoolValue(false), want: types.BoolValue(true)},
+		// Parsing is lenient so that comparing a declared value against the typed attribute is
+		// about the value, not its spelling. A spelling the API rewrites is caught after apply.
+		{name: "lenient bool", raw: "TRUE", tmpl: types.BoolValue(false), want: types.BoolValue(true)},
+		{name: "int", raw: "3600000", tmpl: types.Int64Value(0), want: types.Int64Value(3600000)},
+		{name: "signed int", raw: "+3600000", tmpl: types.Int64Value(0), want: types.Int64Value(3600000)},
+		{name: "negative int", raw: "-1", tmpl: types.Int64Value(0), want: types.Int64Value(-1)},
+		{name: "string", raw: "lightning", tmpl: types.StringValue(""), want: types.StringValue("lightning")},
+		{name: "not a bool", raw: "yes-please", tmpl: types.BoolValue(false), wantErr: "is not a boolean"},
+		{name: "not an int", raw: "1MB", tmpl: types.Int64Value(0), wantErr: "is not an integer"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateBrokerConfigValue(tt.key, tt.value)
-			if tt.wantErr == "" {
-				require.NoError(t, err)
+			got, err := brokerConfigValueAs(tt.raw, tt.tmpl)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
 				return
 			}
-			require.ErrorContains(t, err, tt.wantErr)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -306,64 +287,63 @@ func TestResolveBrokerConfigOverrides(t *testing.T) {
 	}
 }
 
-func TestPlannedTypedValue(t *testing.T) {
+func TestPlannedMirroredValue(t *testing.T) {
 	t.Parallel()
 
+	const key = "log.retention.ms"
+	planVal := types.Int64Value(86400000) // the schema default, which must never win
+
 	tests := []struct {
-		name     string
-		override brokerConfigOverride
-		want     attr.Value
+		name        string
+		declared    types.String
+		priorVal    attr.Value
+		priorBroker map[string]string
+		want        attr.Value
 	}{
+		// Nothing to carry over on a first apply, so the value comes from the API afterwards.
 		{
-			name:     "known int",
-			override: brokerConfigOverride{Key: "log.retention.ms", Value: types.StringValue("3600000")},
-			want:     types.Int64Value(3600000),
-		},
-		{
-			name:     "known bool",
-			override: brokerConfigOverride{Key: "auto.create.topics.enable", Value: types.StringValue("false")},
-			want:     types.BoolValue(false),
-		},
-		{
-			name:     "known enum",
-			override: brokerConfigOverride{Key: "warpstream.default.topic.type", Value: types.StringValue("lightning")},
-			want:     types.StringValue("lightning"),
-		},
-		// An unresolved value must plan as known-after-apply of the matching type, so the
-		// apply is free to write whatever the value turns out to be.
-		{
-			name:     "unknown int",
-			override: brokerConfigOverride{Key: "log.retention.ms", Value: types.StringUnknown()},
+			name:     "no prior state",
+			declared: types.StringValue("3600000"),
 			want:     types.Int64Unknown(),
 		},
-		// Infinite is reported back by the typed field in the API's own representation, which
-		// differs per config, so it cannot be mirrored: retention reports -1 but the soft-delete
-		// TTL reports a duration clamped to 100 years.
+		// The declaration is unchanged, so prior state already holds whatever the API reported
+		// and the plan can settle.
 		{
-			name:     "infinite retention is not predictable",
-			override: brokerConfigOverride{Key: "log.retention.ms", Value: types.StringValue("-1")},
-			want:     types.Int64Unknown(),
+			name:        "unchanged declaration reuses prior state",
+			declared:    types.StringValue("3600000"),
+			priorVal:    types.Int64Value(3600000),
+			priorBroker: map[string]string{key: "3600000"},
+			want:        types.Int64Value(3600000),
+		},
+		// Infinite is the case that motivates all of this: the map says -1 but the typed field
+		// may report something else entirely, so prior state is the only reliable source.
+		{
+			name:        "infinite value reuses whatever the API reported",
+			declared:    types.StringValue("-1"),
+			priorVal:    types.Int64Value(3153600000000),
+			priorBroker: map[string]string{key: "-1"},
+			want:        types.Int64Value(3153600000000),
 		},
 		{
-			name:     "infinite soft-delete ttl is not predictable",
-			override: brokerConfigOverride{Key: "warpstream.soft.delete.topic.ttl.ms", Value: types.StringValue("-1")},
-			want:     types.Int64Unknown(),
-		},
-		// A negative value on a config where negative has no special meaning is mirrored as-is.
-		{
-			name:     "plain negative int is mirrored",
-			override: brokerConfigOverride{Key: "message.max.bytes", Value: types.StringValue("-1")},
-			want:     types.Int64Value(-1),
+			name:        "changed declaration cannot reuse prior state",
+			declared:    types.StringValue("7200000"),
+			priorVal:    types.Int64Value(3600000),
+			priorBroker: map[string]string{key: "3600000"},
+			want:        types.Int64Unknown(),
 		},
 		{
-			name:     "unknown bool",
-			override: brokerConfigOverride{Key: "auto.create.topics.enable", Value: types.StringUnknown()},
-			want:     types.BoolUnknown(),
+			name:        "value unknown until apply",
+			declared:    types.StringUnknown(),
+			priorVal:    types.Int64Value(3600000),
+			priorBroker: map[string]string{key: "3600000"},
+			want:        types.Int64Unknown(),
 		},
 		{
-			name:     "unknown enum",
-			override: brokerConfigOverride{Key: "warpstream.default.topic.type", Value: types.StringUnknown()},
-			want:     types.StringUnknown(),
+			name:        "prior state null",
+			declared:    types.StringValue("3600000"),
+			priorVal:    types.Int64Null(),
+			priorBroker: map[string]string{key: "3600000"},
+			want:        types.Int64Unknown(),
 		},
 	}
 
@@ -371,11 +351,23 @@ func TestPlannedTypedValue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := plannedTypedValue(tt.override)
-			require.NoError(t, err)
+			got := plannedMirroredValue(
+				brokerConfigOverride{Key: key, Value: tt.declared},
+				planVal, tt.priorVal, tt.priorBroker,
+			)
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestUnknownLike(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, types.BoolUnknown(), unknownLike(types.BoolValue(true)))
+	require.Equal(t, types.Int64Unknown(), unknownLike(types.Int64Value(1)))
+	require.Equal(t, types.StringUnknown(), unknownLike(types.StringValue("x")))
+	// An already-unknown value stays unknown rather than becoming known.
+	require.Equal(t, types.Int64Unknown(), unknownLike(types.Int64Unknown()))
 }
 
 func TestCheckDeclaredConfigsApplied(t *testing.T) {
