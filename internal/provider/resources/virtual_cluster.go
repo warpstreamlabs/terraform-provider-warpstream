@@ -853,10 +853,8 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	if resp.Diagnostics.HasError() {
 		// The cluster exists but could not be configured, most often because the API rejected a
 		// broker config. Terraform refuses any state still holding unknown values and reports
-		// that as "provider returned invalid result object ... always a bug in the provider",
-		// which would bury the real error under two misleading ones. Fill in what the cluster
-		// actually has so the API's message is the only thing the user sees, and so the next
-		// apply starts from an accurate record.
+		// that as provider bug, which would bury the real error. Fill in what the cluster
+		// actually has to avoid this.
 		r.readConfiguration(ctx, *cluster, state.BrokerConfiguration, &resp.State, &resp.Diagnostics)
 		r.readEvents(ctx, *cluster, &resp.State, &resp.Diagnostics,
 			types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()}))
