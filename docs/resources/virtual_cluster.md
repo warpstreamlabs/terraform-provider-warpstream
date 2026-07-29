@@ -110,7 +110,7 @@ resource "warpstream_virtual_cluster" "test_with_events" {
 
 ### Optional
 
-- `broker_configuration` (Map of String) Cluster-level broker configuration, as a map of Kafka-style config names to string values (e.g. `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`). This is the canonical, recommended way to configure broker settings; the individual typed attributes under `configuration` (such as `default_retention_millis` and `default_topic_type`) are deprecated in favor of the equivalent key here. A setting that also has a typed `configuration` attribute may be set through either surface, or through both as long as the two values agree; setting them to different values is rejected at plan time. Values must be written exactly as the WarpStream API reports them back, because Terraform compares the value in state against the one in your configuration. Non-canonical values are rejected at plan time with the form to use, so for example write `true` rather than `T`, `lightning` rather than `Lightning`, and `-1` for infinite retention rather than any other negative number. Only canonical config names are accepted: specify retention as `log.retention.ms` (not `log.retention.minutes` or `log.retention.hours`) and the soft-delete topic TTL as `warpstream.soft.delete.topic.ttl.ms` (not `warpstream.soft.delete.topic.ttl.hours`), because the API accepts those aliases on write but only ever reports the millisecond form, so Terraform could not track them. Note that removing a key from this map does **not** reset the config on the cluster: the WarpStream API has no way to revert a config to its default, so an omitted config keeps whatever value it already had. To change a setting back, set it explicitly to the value you want.
+- `broker_configuration` (Map of String) Cluster-level broker configuration, as a map of Kafka-style config names to string values (e.g. `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`). This is the recommended way to configure broker settings. The individual typed attributes under `configuration` (such as `default_retention_millis` and `default_topic_type`) set some of the same settings and continue to work. A setting that also has a typed `configuration` attribute may be set through either surface, or through both as long as the two values agree; setting them to different values is rejected at plan time. Note that removing a key from this map does **not** reset the config on the cluster: To change a setting back, set it explicitly to the value you want.
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
 - `events` (Attributes) Virtual Cluster Events Configuration. (see [below for nested schema](#nestedatt--events))
@@ -142,15 +142,15 @@ Optional:
 
 Optional:
 
-- `auto_create_topic` (Boolean, Deprecated) Enable topic autocreation feature, defaults to `true`.
-- `default_num_partitions` (Number, Deprecated) Number of partitions created by default.
-- `default_retention_millis` (Number, Deprecated) Default retention for topics that are created automatically using Kafka's topic auto-creation feature.
-- `default_topic_type` (String, Deprecated) Default topic type for new topics. Valid values are `classic` or `lightning`. If not specified, the WarpStream API defaults to `classic`. See [Lightning Topics](https://docs.warpstream.com/warpstream/kafka/advanced-agent-deployment-options/low-latency-clusters/lightning-topics)
+- `auto_create_topic` (Boolean) Enable topic autocreation feature, defaults to `true`.
+- `default_num_partitions` (Number) Number of partitions created by default.
+- `default_retention_millis` (Number) Default retention for topics that are created automatically using Kafka's topic auto-creation feature.
+- `default_topic_type` (String) Default topic type for new topics. Valid values are `classic` or `lightning`. If not specified, the WarpStream API defaults to `classic`. See [Lightning Topics](https://docs.warpstream.com/warpstream/kafka/advanced-agent-deployment-options/low-latency-clusters/lightning-topics)
 - `enable_acl_shadowing` (Boolean) Enable ACL shadowing, defaults to `false`. See [ACL Shadowing](https://docs.warpstream.com/warpstream/kafka/manage-security/configure-acls#acl-shadowing)
 - `enable_acls` (Boolean) Enable ACLs, defaults to `false`. See [Configure ACLs](https://docs.warpstream.com/warpstream/configuration/configure-acls)
 - `enable_deletion_protection` (Boolean) Enable deletion protection, defaults to `false`. If set to true, it is impossible to delete this cluster. enable_deletion_protection needs to be set to false before deleting the cluster.
-- `enable_soft_topic_deletion` (Boolean, Deprecated) Enable soft deletion for topics. Defaults to `true`. If true, topic deletion will be a soft deletion. For clusters with the Fundamentals tier or above, it will be possible to restore topics for some time after deletion. If false, deleting a topic will immediately delete of all of its data, with no way to recover it.
-- `soft_topic_deletion_ttl_millis` (Number, Deprecated) If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many milliseconds before being irrecoverably deleted. Defaults to 24 hours.
+- `enable_soft_topic_deletion` (Boolean) Enable soft deletion for topics. Defaults to `true`. If true, topic deletion will be a soft deletion. For clusters with the Fundamentals tier or above, it will be possible to restore topics for some time after deletion. If false, deleting a topic will immediately delete of all of its data, with no way to recover it.
+- `soft_topic_deletion_ttl_millis` (Number) If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many milliseconds before being irrecoverably deleted. Defaults to 24 hours.
 
 
 <a id="nestedatt--events"></a>

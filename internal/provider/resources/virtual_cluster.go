@@ -713,21 +713,8 @@ The WarpStream provider must be authenticated with an application key to consume
 					"A setting that also has a typed `configuration` attribute may be set through either " +
 					"surface, or through both as long as the two values agree; setting them to different " +
 					"values is rejected at plan time. " +
-					"Any config name the API supports may be used here; the provider does not keep its own " +
-					"list, so a config added to the API is usable without a provider upgrade. " +
-					"Values must be written exactly as the API reports them back, because Terraform " +
-					"compares the value in state against the one in your configuration. Where the API " +
-					"rewrites a value, the apply fails with the form to use instead, so for example " +
-					"write `true` rather than `T`, `lightning` rather than `Lightning`, and `-1` for " +
-					"infinite retention rather than any other negative number. " +
-					"Two config names cannot be used: specify retention as `log.retention.ms` " +
-					"(not `log.retention.minutes` or `log.retention.hours`) and the soft-delete topic TTL as " +
-					"`warpstream.soft.delete.topic.ttl.ms` (not `warpstream.soft.delete.topic.ttl.hours`), " +
-					"because the API accepts those aliases on write but only ever reports the millisecond " +
-					"form, so Terraform could not track them. " +
 					"Note that removing a key from this map does **not** reset the config on the cluster: " +
-					"the WarpStream API has no way to revert a config to its default, so an omitted config " +
-					"keeps whatever value it already had. To change a setting back, set it explicitly to " +
+					"To change a setting back, set it explicitly to " +
 					"the value you want.",
 				Optional:    true,
 				ElementType: types.StringType,
