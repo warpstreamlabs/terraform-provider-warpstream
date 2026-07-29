@@ -168,22 +168,18 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 	r.preserveNullEventTypes(ctx, req, resp)
 }
 
-// preserveNullEventTypes undoes collateral damage caused by reconciling `configuration`.
+// preserveNullEventTypes stops the plan reporting an events change that never happens.
 //
-// When the map owns a setting whose typed attribute carries a schema default, that default is
-// applied before this ModifyPlan runs, so the plan briefly disagrees with prior state. That is
-// enough for the framework to mark every computed attribute that is null in state as
-// known-after-apply, which catches `events.event_types` — and its UseStateForUnknown cannot
-// restore it precisely because prior state is null. Reconciling `configuration` afterwards
-// fixes the attribute that caused the mismatch, but not the ones swept up along the way, so an
-// otherwise idempotent plan reports an events update that will never happen.
+// Setting a config through the map makes its typed attribute's default briefly disagree with the
+// cluster's real value. Terraform reads that as "this resource is changing" and marks every empty
+// provider-filled field as known-after-apply, which catches `events.event_types` on any cluster
+// with no event types. Its UseStateForUnknown rule cannot undo that, because that rule gives up
+// when the previous value is empty. Fixing `configuration` below fixes the cause but not the
+// bystanders, so the plan never settles.
 //
-// The restore is deliberately narrow: only an unknown planned value, with no events declared
-// in the configuration and none in prior state, is reset. That is exactly what
-// UseStateForUnknown would have done had it handled a null prior state, so no other events
-// behaviour changes.
+// Only that exact case is reset: planned unknown, no events written, and none before.
 func (r *virtualClusterResource) preserveNullEventTypes(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	// On create there is no prior state to preserve, and known-after-apply is correct.
+	// On create there is nothing to preserve, and known-after-apply is correct.
 	if req.State.Raw.IsNull() {
 		return
 	}
@@ -284,17 +280,14 @@ func brokerConfigValueAs(raw string, tmpl attr.Value) (attr.Value, error) {
 	return nil, fmt.Errorf("cannot interpret %q as %T", raw, tmpl)
 }
 
-// reconcileTypedConfiguration rewrites the planned `configuration` object so every attribute
-// holds the value the apply will actually produce:
+// reconcileTypedConfiguration sets each `configuration` attribute to the value the apply will
+// actually produce, so Terraform's own defaults do not fight the map:
 //
-//   - an attribute mirrored by a map entry takes the map's value, or plans as
-//     known-after-apply when that value is not known until apply;
-//   - an attribute the user wrote in the configuration keeps its planned value;
-//   - anything else falls back to prior state, so a schema default cannot overwrite a value
-//     the server already holds.
+//   - set by a map entry -> that entry's value;
+//   - written by the user -> what they wrote;
+//   - neither -> whatever the cluster already had.
 //
-// On an unchanged re-plan the result equals prior state, so no update is planned and sibling
-// computed attributes are not flipped to known-after-apply.
+// If nothing changed, the result equals the last apply, so the plan comes out empty.
 func (r *virtualClusterResource) reconcileTypedConfiguration(
 	ctx context.Context,
 	req resource.ModifyPlanRequest,
@@ -362,19 +355,18 @@ func (r *virtualClusterResource) reconcileTypedConfiguration(
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("configuration"), newObj)...)
 }
 
-// plannedMirroredValue returns the value a typed `configuration` attribute must hold in the plan
-// when a `broker_configuration` entry controls the same underlying setting.
+// plannedMirroredValue decides what a typed `configuration` attribute should say in the plan when
+// a map entry controls the same setting.
 //
-// The provider deliberately does not try to predict what the API will report. Values are
-// normalised server-side in ways it has no general knowledge of — any negative retention becomes
-// "-1", a soft-delete TTL becomes a duration clamped to 100 years — and encoding those rules here
-// is exactly the sort of API knowledge that goes stale the moment a config is added. Instead:
+// It never guesses what the API will report back, because the API rewrites values in ways we do
+// not track: any negative retention becomes "-1", and a soft-delete TTL becomes a 100-year
+// duration. So:
 //
-//   - if the declaration has not changed since the last apply, prior state already holds whatever
-//     the API reported for it, so reuse that and the plan settles with no diff;
-//   - otherwise plan known-after-apply and let the read that follows the write supply the value.
+//   - value unchanged since the last apply -> reuse what the API said last time, and the plan
+//     comes out empty;
+//   - otherwise -> known-after-apply, and the read after the write fills it in.
 //
-// That is correct for any normalisation, including ones the provider has never heard of.
+// That works for any rewriting, including rules we have never heard of.
 func plannedMirroredValue(override brokerConfigOverride, planVal, priorVal attr.Value, priorBroker map[string]string) attr.Value {
 	declaredUnchanged := !override.Value.IsNull() && !override.Value.IsUnknown() &&
 		priorBroker[override.Key] == override.Value.ValueString()
@@ -1122,15 +1114,14 @@ func filterClusterConfigsToDeclared(ctx context.Context, apiConfigs map[string]*
 	return m
 }
 
-// checkDeclaredConfigsApplied compares the broker configs the user declared against what the
-// API reported once they had been written, and reports a clear error when they differ.
+// checkDeclaredConfigsApplied compares what the user asked for against what the API reports once
+// it has been written, and errors clearly when they differ.
 //
-// This only matters on the apply path. `broker_configuration` is not a Computed attribute, so
-// Terraform requires the value in state after an apply to equal the value in the
-// configuration, and state is populated from the API's response. Terraform performs the same
-// check itself and aborts with a generic "Provider produced inconsistent result after apply";
-// catching it here lets us name the key and the value to write instead. On a refresh a
-// difference is ordinary drift, not an error, so this is deliberately not called from Read.
+// Terraform requires state after an apply to match the configuration exactly, and state comes
+// from the API's response. It checks this itself and aborts with a vague "provider produced
+// inconsistent result"; doing it here lets us name the key and the value to use instead.
+//
+// Apply path only. On a refresh a difference is ordinary drift, not an error.
 func checkDeclaredConfigsApplied(declared map[string]string, apiConfigs map[string]*string, respDiags *diag.Diagnostics) {
 	keys := slices.Sorted(maps.Keys(declared))
 
@@ -1164,18 +1155,13 @@ func checkDeclaredConfigsApplied(declared map[string]string, apiConfigs map[stri
 	}
 }
 
-// checkAPIConfigConsistency reports when the API's deprecated typed fields disagree with its
-// own broker_configs map about the same setting. The two are views of one stored value, so a
-// disagreement means the provider's understanding of the API has gone stale and the value it
-// writes to state is a guess.
+// checkAPIConfigConsistency warns when the API contradicts itself: its old typed fields and its
+// broker_configs map are two views of one stored value, so they should never disagree.
 //
-// Only keys present in the map are compared: absence means the cluster is on the built-in
-// default, which the typed field still reports. Configs where a negative value means infinite
-// are skipped when either side is negative, because the two representations encode infinity
-// differently and the API compares them semantically rather than literally.
+// Only keys present in the map are compared, since a missing key just means the cluster is on the
+// default. Negative values are skipped because the two views spell "forever" differently.
 //
-// This is a warning rather than an error. Nothing here breaks an apply — `broker_configuration`
-// is taken from the map and `configuration` from the typed fields — but it should be reported.
+// A warning, not an error: nothing here breaks an apply, but we want to hear about it.
 func checkAPIConfigConsistency(cfg *api.VirtualClusterConfiguration, respDiags *diag.Diagnostics) {
 	if len(cfg.BrokerConfigs) == 0 {
 		return
