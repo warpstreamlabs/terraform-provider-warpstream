@@ -175,9 +175,6 @@ func (m useStateForUnknownIncludingNull) MarkdownDescription(ctx context.Context
 }
 
 func (m useStateForUnknownIncludingNull) PlanModifyMap(_ context.Context, req planmodifier.MapRequest, resp *planmodifier.MapResponse) {
-	// Creating: there is no prior state to reuse, so known-after-apply is correct. Note this asks
-	// whether the whole resource is absent, not whether this one value is empty -- checking the
-	// value is what makes the built-in modifier miss the case this exists for.
 	if req.State.Raw.IsNull() {
 		return
 	}
