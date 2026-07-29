@@ -173,48 +173,6 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 	}
 
 	r.reconcileTypedConfiguration(ctx, req, resp, overrides, declaredTypedAttrs)
-	// Both of these only matter once a map entry mirrors a typed attribute, which the early
-	// return above has already established.
-	r.preserveNullEventTypes(ctx, req, resp)
-}
-
-// preserveNullEventTypes stops the plan reporting an events change that never happens.
-//
-// Setting a config through the map makes its typed attribute's default briefly disagree with the
-// cluster's real value. Terraform reads that as "this resource is changing" and marks every empty
-// provider-filled field as known-after-apply, which catches `events.event_types` on any cluster
-// with no event types. Its UseStateForUnknown rule cannot undo that, because that rule gives up
-// when the previous value is empty. Fixing `configuration` below fixes the cause but not the
-// bystanders, so the plan never settles.
-//
-// Only that exact case is reset: planned unknown, no events written, and none before.
-func (r *virtualClusterResource) preserveNullEventTypes(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	// On create there is nothing to preserve, and known-after-apply is correct.
-	if req.State.Raw.IsNull() {
-		return
-	}
-
-	eventTypesPath := path.Root("events").AtName("event_types")
-
-	var planEventTypes types.Map
-	resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, eventTypesPath, &planEventTypes)...)
-	if resp.Diagnostics.HasError() || !planEventTypes.IsUnknown() {
-		return
-	}
-
-	var configEventTypes types.Map
-	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, eventTypesPath, &configEventTypes)...)
-	if resp.Diagnostics.HasError() || !configEventTypes.IsNull() {
-		return
-	}
-
-	var stateEventTypes types.Map
-	resp.Diagnostics.Append(req.State.GetAttribute(ctx, eventTypesPath, &stateEventTypes)...)
-	if resp.Diagnostics.HasError() || !stateEventTypes.IsNull() {
-		return
-	}
-
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, eventTypesPath, stateEventTypes)...)
 }
 
 // brokerConfigConflict is a cluster setting written through both the typed `configuration`
@@ -627,7 +585,7 @@ The WarpStream provider must be authenticated with an application key to consume
 							stringvalidator.OneOf("classic", "lightning"),
 						},
 						PlanModifiers: []planmodifier.String{
-							stringplanmodifier.UseStateForUnknown(),
+							utils.UseStateForUnknownIncludingNullString(),
 						},
 					},
 					"enable_acls": schema.BoolAttribute{
@@ -692,7 +650,7 @@ The WarpStream provider must be authenticated with an application key to consume
 						Optional:    true,
 						Computed:    true,
 						PlanModifiers: []planmodifier.Map{
-							mapplanmodifier.UseStateForUnknown(),
+							utils.UseStateForUnknownIncludingNullMap(),
 						},
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{

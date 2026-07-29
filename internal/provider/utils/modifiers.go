@@ -150,3 +150,60 @@ func (m configurationIDPlanModifier) PlanModifyString(ctx context.Context, req p
 		resp.PlanValue = req.StateValue
 	}
 }
+
+// useStateForUnknownIncludingNull is UseStateForUnknown, except that it also reuses a prior value
+// that was empty.
+type useStateForUnknownIncludingNull struct{}
+
+// UseStateForUnknownIncludingNullMap returns the modifier for a Map attribute.
+func UseStateForUnknownIncludingNullMap() planmodifier.Map {
+	return useStateForUnknownIncludingNull{}
+}
+
+// UseStateForUnknownIncludingNullString returns the modifier for a String attribute.
+func UseStateForUnknownIncludingNullString() planmodifier.String {
+	return useStateForUnknownIncludingNull{}
+}
+
+func (m useStateForUnknownIncludingNull) Description(_ context.Context) string {
+	return "Once known, the value of this attribute does not change unless the configuration changes it, " +
+		"including when that value is empty."
+}
+
+func (m useStateForUnknownIncludingNull) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (m useStateForUnknownIncludingNull) PlanModifyMap(_ context.Context, req planmodifier.MapRequest, resp *planmodifier.MapResponse) {
+	// Creating: there is no prior state to reuse, so known-after-apply is correct. Note this asks
+	// whether the whole resource is absent, not whether this one value is empty -- checking the
+	// value is what makes the built-in modifier miss the case this exists for.
+	if req.State.Raw.IsNull() {
+		return
+	}
+	// Nothing to repair if the plan already holds a value.
+	if !req.PlanValue.IsUnknown() {
+		return
+	}
+	// The configuration supplies this value but it is not resolved yet, so it is not ours to fill.
+	if req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	resp.PlanValue = req.StateValue
+}
+
+func (m useStateForUnknownIncludingNull) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	// See PlanModifyMap for why each guard is here.
+	if req.State.Raw.IsNull() {
+		return
+	}
+	if !req.PlanValue.IsUnknown() {
+		return
+	}
+	if req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	resp.PlanValue = req.StateValue
+}
