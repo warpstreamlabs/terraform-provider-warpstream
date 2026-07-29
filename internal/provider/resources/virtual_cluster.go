@@ -1100,9 +1100,7 @@ func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.I
 // filterClusterConfigsToDeclared filters the API-returned generic configs down to only
 // the keys the user declared in `broker_configuration`, with the API-provided value. This
 // prevents Terraform from seeing perpetual drift when the API returns configs (including
-// typed-backed ones) that weren't declared. It returns a null map when nothing is declared,
-// so an absent attribute round-trips to null. It mirrors filterConfigsToPlan on the topic
-// resource.
+// typed-backed ones) that weren't declared.
 func filterClusterConfigsToDeclared(ctx context.Context, apiConfigs map[string]*string, declared types.Map, respDiags *diag.Diagnostics) types.Map {
 	declaredKeys := brokerConfigMap(ctx, declared, respDiags)
 	if respDiags.HasError() || len(declaredKeys) == 0 {
