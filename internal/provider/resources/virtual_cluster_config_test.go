@@ -35,23 +35,26 @@ func brokerConfigEntriesOf(kv map[string]types.String) map[string]types.String {
 	return out
 }
 
-func TestTypedAttrBrokerKeyIsABijection(t *testing.T) {
+func TestBrokerConfigTablesAgree(t *testing.T) {
 	t.Parallel()
 
-	// The mirroring table is provider knowledge, so it must stay in step with the typed
-	// attributes it names. Two attributes claiming one config, or the reverse lookup losing an
-	// entry, would silently mis-mirror a setting.
-	require.Len(t, brokerKeyTypedAttr, len(typedAttrBrokerKey))
-	for attrName, key := range typedAttrBrokerKey {
-		require.Equal(t, attrName, brokerKeyTypedAttr[key], "reverse lookup disagrees for %s", key)
+	// Every mirrored config must name a distinct typed attribute. Two configs claiming the same
+	// attribute would mean one silently overwrites the other.
+	seen := make(map[string]string, len(brokerKeyTypedAttr))
+	for key, attrName := range brokerKeyTypedAttr {
+		if other, dup := seen[attrName]; dup {
+			t.Fatalf("configs %q and %q both claim attribute %q", other, key, attrName)
+		}
+		seen[attrName] = key
 	}
 
-	// Every alias must point at a config that a typed attribute actually mirrors, so the advice
-	// in the error message names a key the provider understands.
+	// Every alias must point at a config the provider knows, so the advice in the error message
+	// names something usable.
 	for alias, canonical := range writeOnlyAliasKeys {
-		require.NotEqual(t, alias, canonical)
-		_, ok := brokerKeyTypedAttr[canonical]
-		require.True(t, ok, "alias %s points at %s, which no typed attribute mirrors", alias, canonical)
+		require.NotEqual(t, alias, canonical, "alias %s points at itself", alias)
+		require.NotContains(t, brokerKeyTypedAttr, alias, "alias %s must not also be mirrored", alias)
+		require.Contains(t, brokerKeyTypedAttr, canonical,
+			"alias %s points at %s, which the provider does not know", alias, canonical)
 	}
 }
 

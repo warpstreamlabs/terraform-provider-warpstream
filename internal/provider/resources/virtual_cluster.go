@@ -1216,7 +1216,7 @@ func checkAPIConfigConsistency(cfg *api.VirtualClusterConfiguration, respDiags *
 // config values, keyed by canonical config name, so they can be compared with broker_configs.
 // Fields the API did not populate are omitted.
 func apiTypedConfigValues(cfg *api.VirtualClusterConfiguration) map[string]string {
-	out := make(map[string]string, len(typedAttrBrokerKey))
+	out := make(map[string]string, len(brokerKeyTypedAttr))
 	if cfg.AutoCreateTopic != nil {
 		out["auto.create.topics.enable"] = strconv.FormatBool(*cfg.AutoCreateTopic)
 	}
