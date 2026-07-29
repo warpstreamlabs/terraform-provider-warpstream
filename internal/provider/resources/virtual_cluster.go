@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -89,18 +90,7 @@ type brokerConfigOverride struct {
 }
 
 // ModifyPlan validates the generic `broker_configuration` map and reconciles it with the
-// typed `configuration` attribute. It:
-//
-//  1. rejects unsupported config names, write-only aliases, null values, and values that are
-//     not already in the canonical form describe reports back;
-//  2. rejects setting one cluster setting through both a typed attribute and the map with
-//     values that disagree, the one case the provider cannot resolve on the user's behalf;
-//  3. rewrites each mirrored typed attribute to the value declared in the map.
-//
-// Step 3 is what keeps an apply consistent. `configuration` carries a static default object,
-// so Terraform plans a value for every typed attribute even when the user wrote only the map.
-// Left alone, the apply would write the map's value, read it back, and Terraform would abort
-// because the result disagrees with the plan it approved.
+// typed `configuration` attribute.
 func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	// Nothing to reconcile on destroy.
 	if req.Plan.Raw.IsNull() {
@@ -119,11 +109,7 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 
 	// Report problems in a stable order so a configuration with several mistakes does not
 	// produce differently ordered output between runs.
-	keys := make([]string, 0, len(entries))
-	for k := range entries {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(entries))
 
 	brokerPath := path.Root("broker_configuration")
 	for _, key := range keys {
@@ -235,22 +221,12 @@ type brokerConfigConflict struct {
 }
 
 // resolveBrokerConfigOverrides pairs every `broker_configuration` entry that mirrors a typed
-// `configuration` attribute with that attribute, and reports the settings written through
-// both surfaces with values that disagree. Entries whose value is not known until apply are
-// still returned as overrides — the mirrored attribute has to plan as known-after-apply — but
-// cannot be compared, so they never conflict.
-//
-// A value the API normalises on write is not detected here; checkDeclaredConfigsApplied reports
-// it after the apply, so no knowledge of any config's canonical form is needed.
+// `configuration` attribute with that attribute.
 func resolveBrokerConfigOverrides(
 	entries map[string]types.String,
 	declaredTypedAttrs map[string]attr.Value,
 ) (map[string]brokerConfigOverride, []brokerConfigConflict, error) {
-	keys := make([]string, 0, len(entries))
-	for k := range entries {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(entries))
 
 	overrides := make(map[string]brokerConfigOverride)
 	var conflicts []brokerConfigConflict
@@ -1160,11 +1136,7 @@ func filterClusterConfigsToDeclared(ctx context.Context, apiConfigs map[string]*
 // catching it here lets us name the key and the value to write instead. On a refresh a
 // difference is ordinary drift, not an error, so this is deliberately not called from Read.
 func checkDeclaredConfigsApplied(declared map[string]string, apiConfigs map[string]*string, respDiags *diag.Diagnostics) {
-	keys := make([]string, 0, len(declared))
-	for k := range declared {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(declared))
 
 	brokerPath := path.Root("broker_configuration")
 	for _, key := range keys {
@@ -1214,11 +1186,7 @@ func checkAPIConfigConsistency(cfg *api.VirtualClusterConfiguration, respDiags *
 	}
 
 	typed := apiTypedConfigValues(cfg)
-	keys := make([]string, 0, len(typed))
-	for k := range typed {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(typed))
 
 	for _, key := range keys {
 		mapValue, ok := cfg.BrokerConfigs[key]
