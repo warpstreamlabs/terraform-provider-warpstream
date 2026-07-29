@@ -37,9 +37,7 @@ type VirtualClusterResource struct {
 	Tags          types.Map    `tfsdk:"tags"`
 	Configuration types.Object `tfsdk:"configuration"`
 	// BrokerConfiguration is a generic map of Kafka-style broker/cluster config
-	// (e.g. "message.max.bytes") for settings that don't have a dedicated typed
-	// attribute under `configuration`, and for settings the user prefers to manage
-	// generically. A given setting may be set via the typed attribute or this map,
+	// (e.g. "message.max.bytes"). A given setting may be set via the typed attribute (if supported) in the Configuration field or this map,
 	// never both.
 	BrokerConfiguration types.Map    `tfsdk:"broker_configuration"`
 	Events              types.Object `tfsdk:"events"`

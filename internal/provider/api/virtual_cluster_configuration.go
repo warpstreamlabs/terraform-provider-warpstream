@@ -30,8 +30,7 @@ type VirtualClusterConfiguration struct {
 
 	// BrokerConfigs is the canonical, generic representation of cluster-level broker
 	// configs, keyed by Kafka-style name (e.g. "message.max.bytes"); all values are
-	// strings. On describe it contains every supported broker config explicitly set on the
-	// cluster.
+	// strings.
 	BrokerConfigs map[string]*string `json:"broker_configs,omitempty"`
 }
 
