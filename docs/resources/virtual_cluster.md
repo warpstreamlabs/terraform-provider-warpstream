@@ -64,7 +64,7 @@ resource "warpstream_virtual_cluster" "test_broker_config" {
   # broker_configuration is the canonical, recommended way to set broker
   # settings: a map of Kafka-style config names to string values.
   #
-  # Removing a key does not reset the setting on the cluster- so set the value you want explicitly instead.
+  # Removing a key does not reset the setting on the cluster, so set the value you want explicitly instead.
   broker_configuration = {
     "message.max.bytes"   = "1048576"
     "delete.topic.enable" = "true"

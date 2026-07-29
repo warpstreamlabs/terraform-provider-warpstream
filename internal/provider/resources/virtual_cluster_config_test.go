@@ -48,13 +48,16 @@ func TestBrokerConfigTablesAgree(t *testing.T) {
 		seen[attrName] = key
 	}
 
-	// Every alias must point at a config the provider knows, so the advice in the error message
-	// names something usable.
+	// Every alias must point at a config the provider would actually accept, so the advice in the
+	// error message names something usable. That means anything except another rejected alias —
+	// not necessarily a mirrored config, since most configs have no typed attribute at all.
 	for alias, canonical := range writeOnlyAliasKeys {
 		require.NotEqual(t, alias, canonical, "alias %s points at itself", alias)
 		require.NotContains(t, brokerKeyTypedAttr, alias, "alias %s must not also be mirrored", alias)
-		require.Contains(t, brokerKeyTypedAttr, canonical,
-			"alias %s points at %s, which the provider does not know", alias, canonical)
+		require.NotContains(t, writeOnlyAliasKeys, canonical,
+			"alias %s points at %s, which is itself rejected as an alias", alias, canonical)
+		require.NoError(t, validateBrokerConfigKey(canonical),
+			"alias %s points at %s, which the provider would reject", alias, canonical)
 	}
 }
 
@@ -184,12 +187,21 @@ func TestBrokerConfigMapSkipsUnresolvedValues(t *testing.T) {
 func TestResolveBrokerConfigOverrides(t *testing.T) {
 	t.Parallel()
 
+	// wantParse is the checkable part of a brokerConfigParseError. The error text is matched by
+	// substring so the test does not have to restate strconv's exact wording.
+	type wantParse struct {
+		Key         string
+		TypedAttr   string
+		ErrContains string
+	}
+
 	tests := []struct {
 		name          string
 		entries       map[string]types.String
 		declaredTyped map[string]attr.Value
 		wantOverrides map[string]brokerConfigOverride
 		wantConflicts []brokerConfigConflict
+		wantParseErrs []wantParse
 	}{
 		{
 			name:          "key without a typed twin produces no override",
@@ -276,18 +288,157 @@ func TestResolveBrokerConfigOverrides(t *testing.T) {
 				"default_retention_millis": {Key: "log.retention.ms", Value: types.StringValue("7200000")},
 			},
 		},
+		{
+			name:    "a value that cannot be compared names its key",
+			entries: brokerConfigEntriesOf(map[string]types.String{"log.retention.ms": types.StringValue("1MB")}),
+			declaredTyped: map[string]attr.Value{
+				"default_retention_millis": types.Int64Value(3600000),
+			},
+			wantOverrides: map[string]brokerConfigOverride{
+				"default_retention_millis": {Key: "log.retention.ms", Value: types.StringValue("1MB")},
+			},
+			wantParseErrs: []wantParse{{
+				Key:         "log.retention.ms",
+				TypedAttr:   "default_retention_millis",
+				ErrContains: "is not an integer",
+			}},
+		},
+		{
+			// One bad value must not hide the next: the diagnostics name every offending key.
+			name: "several unusable values are all reported",
+			entries: brokerConfigEntriesOf(map[string]types.String{
+				"log.retention.ms":          types.StringValue("1MB"),
+				"auto.create.topics.enable": types.StringValue("yes-please"),
+			}),
+			declaredTyped: map[string]attr.Value{
+				"default_retention_millis": types.Int64Value(3600000),
+				"auto_create_topic":        types.BoolValue(true),
+			},
+			wantOverrides: map[string]brokerConfigOverride{
+				"default_retention_millis": {Key: "log.retention.ms", Value: types.StringValue("1MB")},
+				"auto_create_topic":        {Key: "auto.create.topics.enable", Value: types.StringValue("yes-please")},
+			},
+			// Sorted by key, so the output does not shuffle between runs.
+			wantParseErrs: []wantParse{
+				{
+					Key:         "auto.create.topics.enable",
+					TypedAttr:   "auto_create_topic",
+					ErrContains: "is not a boolean",
+				},
+				{
+					Key:         "log.retention.ms",
+					TypedAttr:   "default_retention_millis",
+					ErrContains: "is not an integer",
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			overrides, conflicts, err := resolveBrokerConfigOverrides(tt.entries, tt.declaredTyped)
-			require.NoError(t, err)
+			overrides, conflicts, parseErrs := resolveBrokerConfigOverrides(tt.entries, tt.declaredTyped)
 			require.Equal(t, tt.wantOverrides, overrides)
 			require.Equal(t, tt.wantConflicts, conflicts)
+
+			require.Len(t, parseErrs, len(tt.wantParseErrs))
+			for i, want := range tt.wantParseErrs {
+				require.Equal(t, want.Key, parseErrs[i].Key)
+				require.Equal(t, want.TypedAttr, parseErrs[i].TypedAttr)
+				require.ErrorContains(t, parseErrs[i].Err, want.ErrContains)
+			}
 		})
 	}
+}
+
+func TestPlannedTypedConfiguration(t *testing.T) {
+	t.Parallel()
+
+	// The plan as Terraform hands it over: `default_retention_millis` is mirrored by a map entry,
+	// the other two are not and hold their schema defaults because the user wrote neither.
+	planAttrs := map[string]attr.Value{
+		"default_retention_millis":   types.Int64Value(86400000),
+		"enable_acls":                types.BoolValue(false),
+		"enable_deletion_protection": types.BoolValue(false),
+	}
+	overrides := map[string]brokerConfigOverride{
+		"default_retention_millis": {Key: "log.retention.ms", Value: types.StringValue("3600000")},
+	}
+	stateBroker := map[string]string{"log.retention.ms": "3600000"}
+
+	t.Run("an attribute the user deleted reverts to its planned default", func(t *testing.T) {
+		t.Parallel()
+
+		// The user previously wrote `enable_acls = true`, applied, and has now deleted it. Prior
+		// state therefore says true while the plan says the default false. Carrying prior state
+		// over here would make the deletion a silent no-op and leave ACLs enabled.
+		stateAttrs := map[string]attr.Value{
+			"default_retention_millis":   types.Int64Value(3600000),
+			"enable_acls":                types.BoolValue(true),
+			"enable_deletion_protection": types.BoolValue(false),
+		}
+
+		got := plannedTypedConfiguration(planAttrs, overrides, map[string]attr.Value{}, stateAttrs, stateBroker)
+
+		require.Equal(t, types.BoolValue(false), got["enable_acls"])
+		require.Equal(t, types.BoolValue(false), got["enable_deletion_protection"])
+		// The mirrored attribute is unchanged since the last apply, so it reuses prior state.
+		require.Equal(t, types.Int64Value(3600000), got["default_retention_millis"])
+	})
+
+	t.Run("an attribute unknown until apply stays unknown", func(t *testing.T) {
+		t.Parallel()
+
+		// `enable_acls` derives from another resource, so the config value is unknown and the
+		// plan carries that through. Replacing it with prior state's known value would make
+		// Terraform abort with "planned value does not match config value".
+		unknownPlan := map[string]attr.Value{
+			"default_retention_millis": types.Int64Value(86400000),
+			"enable_acls":              types.BoolUnknown(),
+		}
+		stateAttrs := map[string]attr.Value{
+			"default_retention_millis": types.Int64Value(3600000),
+			"enable_acls":              types.BoolValue(false),
+		}
+
+		// An unknown config value is not in declaredTypedAttrs, which is what used to let prior
+		// state win.
+		got := plannedTypedConfiguration(unknownPlan, overrides, map[string]attr.Value{}, stateAttrs, stateBroker)
+
+		require.Equal(t, types.BoolUnknown(), got["enable_acls"])
+	})
+
+	t.Run("a mirrored attribute the user also wrote keeps the written value", func(t *testing.T) {
+		t.Parallel()
+
+		declaredTyped := map[string]attr.Value{"default_retention_millis": types.Int64Value(3600000)}
+		written := map[string]attr.Value{"default_retention_millis": types.Int64Value(3600000)}
+
+		got := plannedTypedConfiguration(written, overrides, declaredTyped, nil, nil)
+
+		require.Equal(t, types.Int64Value(3600000), got["default_retention_millis"])
+	})
+
+	t.Run("a changed map entry makes its attribute known-after-apply", func(t *testing.T) {
+		t.Parallel()
+
+		changed := map[string]brokerConfigOverride{
+			"default_retention_millis": {Key: "log.retention.ms", Value: types.StringValue("7200000")},
+		}
+		stateAttrs := map[string]attr.Value{"default_retention_millis": types.Int64Value(3600000)}
+
+		got := plannedTypedConfiguration(planAttrs, changed, map[string]attr.Value{}, stateAttrs, stateBroker)
+
+		require.Equal(t, types.Int64Unknown(), got["default_retention_millis"])
+	})
+
+	t.Run("every planned attribute is accounted for", func(t *testing.T) {
+		t.Parallel()
+
+		got := plannedTypedConfiguration(planAttrs, overrides, map[string]attr.Value{}, nil, nil)
+		require.Len(t, got, len(planAttrs))
+	})
 }
 
 func TestPlannedMirroredValue(t *testing.T) {
@@ -575,7 +726,7 @@ func TestFilterClusterConfigsToDeclared(t *testing.T) {
 	require.Equal(t, types.StringValue("1048576"), elems["message.max.bytes"])
 }
 
-func TestFilterClusterConfigsToDeclared_EmptyIsNull(t *testing.T) {
+func TestFilterClusterConfigsToDeclared_AbsentStaysNull(t *testing.T) {
 	t.Parallel()
 
 	var diags diag.Diagnostics
@@ -588,6 +739,45 @@ func TestFilterClusterConfigsToDeclared_EmptyIsNull(t *testing.T) {
 	)
 	require.False(t, diags.HasError())
 	require.True(t, got.IsNull())
+}
+
+// TestFilterClusterConfigsToDeclared_DeclaredEmptyStaysEmpty pins the distinction between an
+// absent `broker_configuration` and one declared as `{}`. The attribute is Optional and not
+// Computed, so Terraform requires state after an apply to equal the configured value exactly:
+// turning a declared empty map into null aborts the apply with "Provider produced inconsistent
+// result after apply". `broker_configuration = var.configs` with a `{}` default hits this.
+func TestFilterClusterConfigsToDeclared_DeclaredEmptyStaysEmpty(t *testing.T) {
+	t.Parallel()
+
+	var diags diag.Diagnostics
+	got := filterClusterConfigsToDeclared(
+		context.Background(),
+		map[string]*string{"message.max.bytes": nil},
+		brokerConfigMapOf(t, map[string]string{}),
+		&diags,
+	)
+	require.False(t, diags.HasError())
+	require.False(t, got.IsNull(), "a declared empty map must not round-trip to null")
+	require.Empty(t, got.Elements())
+}
+
+// TestFilterClusterConfigsToDeclared_NoneReturnedStaysEmpty is the same requirement for a
+// non-empty declaration the API answers with nothing: the result is empty, not null. The apply
+// still fails, but on checkDeclaredConfigsApplied's specific message rather than Terraform's
+// generic inconsistent-result error.
+func TestFilterClusterConfigsToDeclared_NoneReturnedStaysEmpty(t *testing.T) {
+	t.Parallel()
+
+	var diags diag.Diagnostics
+	got := filterClusterConfigsToDeclared(
+		context.Background(),
+		map[string]*string{"something.else": nil},
+		brokerConfigMapOf(t, map[string]string{"message.max.bytes": "1048576"}),
+		&diags,
+	)
+	require.False(t, diags.HasError())
+	require.False(t, got.IsNull())
+	require.Empty(t, got.Elements())
 }
 
 func TestBrokerConfigsPayload(t *testing.T) {

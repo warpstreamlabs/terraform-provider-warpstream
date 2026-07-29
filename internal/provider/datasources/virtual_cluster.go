@@ -248,18 +248,19 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 
 	// Map response body to model
 	state := models.VirtualClusterDataSource{
-		ID:                  types.StringValue(vc.ID),
-		Name:                types.StringValue(vc.Name),
-		Type:                types.StringValue(vc.Type),
-		AgentKeys:           agentKeys,
-		AgentPoolID:         types.StringValue(vc.AgentPoolID),
-		AgentPoolName:       types.StringValue(vc.AgentPoolName),
-		CreatedAt:           types.StringValue(vc.CreatedAt),
-		Configuration:       data.Configuration,
-		Events:              data.Events,
-		Cloud:               data.Cloud,
-		Tags:                data.Tags,
-		WorkspaceID:         types.StringValue(vc.WorkspaceID),
+		ID:            types.StringValue(vc.ID),
+		Name:          types.StringValue(vc.Name),
+		Type:          types.StringValue(vc.Type),
+		AgentKeys:     agentKeys,
+		AgentPoolID:   types.StringValue(vc.AgentPoolID),
+		AgentPoolName: types.StringValue(vc.AgentPoolName),
+		CreatedAt:     types.StringValue(vc.CreatedAt),
+		Configuration: data.Configuration,
+		Events:        data.Events,
+		Cloud:         data.Cloud,
+		Tags:          data.Tags,
+		WorkspaceID:   types.StringValue(vc.WorkspaceID),
+		// Filled in from the configuration read further down, once it is available.
 		BrokerConfiguration: types.MapNull(types.StringType),
 	}
 

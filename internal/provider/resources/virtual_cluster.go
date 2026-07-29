@@ -145,10 +145,18 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 		}
 	}
 
-	overrides, conflicts, err := resolveBrokerConfigOverrides(entries, declaredTypedAttrs)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid broker configuration", err.Error())
-		return
+	overrides, conflicts, parseErrs := resolveBrokerConfigOverrides(entries, declaredTypedAttrs)
+	for _, p := range parseErrs {
+		resp.Diagnostics.AddAttributeError(
+			brokerPath.AtMapKey(p.Key),
+			"Invalid broker configuration",
+			fmt.Sprintf(
+				"Cluster config %q: %v. It has to be readable as that type because "+
+					"`configuration.%s` controls the same cluster setting and the two values are "+
+					"compared before anything is written.",
+				p.Key, p.Err, p.TypedAttr,
+			),
+		)
 	}
 	for _, c := range conflicts {
 		resp.Diagnostics.AddError(
@@ -165,6 +173,8 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 	}
 
 	r.reconcileTypedConfiguration(ctx, req, resp, overrides, declaredTypedAttrs)
+	// Both of these only matter once a map entry mirrors a typed attribute, which the early
+	// return above has already established.
 	r.preserveNullEventTypes(ctx, req, resp)
 }
 
@@ -216,16 +226,26 @@ type brokerConfigConflict struct {
 	TypedValue attr.Value
 }
 
+// brokerConfigParseError is a `broker_configuration` value that could not be read as the type of
+// the typed `configuration` attribute mirroring it, so the two could not be compared.
+type brokerConfigParseError struct {
+	Key       string
+	TypedAttr string
+	Err       error
+}
+
 // resolveBrokerConfigOverrides pairs every `broker_configuration` entry that mirrors a typed
-// `configuration` attribute with that attribute.
+// `configuration` attribute with that attribute. Every problem it finds is returned rather than
+// only the first, so a configuration with several mistakes reports all of them in one run.
 func resolveBrokerConfigOverrides(
 	entries map[string]types.String,
 	declaredTypedAttrs map[string]attr.Value,
-) (map[string]brokerConfigOverride, []brokerConfigConflict, error) {
+) (map[string]brokerConfigOverride, []brokerConfigConflict, []brokerConfigParseError) {
 	keys := slices.Sorted(maps.Keys(entries))
 
 	overrides := make(map[string]brokerConfigOverride)
 	var conflicts []brokerConfigConflict
+	var parseErrs []brokerConfigParseError
 	for _, key := range keys {
 		typedAttr, mirrored := brokerKeyTypedAttr[key]
 		if !mirrored {
@@ -242,7 +262,8 @@ func resolveBrokerConfigOverrides(
 		// The type comes from the value the user wrote, not from any knowledge of the config.
 		mapVal, err := brokerConfigValueAs(value.ValueString(), typedVal)
 		if err != nil {
-			return nil, nil, err
+			parseErrs = append(parseErrs, brokerConfigParseError{Key: key, TypedAttr: typedAttr, Err: err})
+			continue
 		}
 		if !mapVal.Equal(typedVal) {
 			conflicts = append(conflicts, brokerConfigConflict{
@@ -253,7 +274,7 @@ func resolveBrokerConfigOverrides(
 			})
 		}
 	}
-	return overrides, conflicts, nil
+	return overrides, conflicts, parseErrs
 }
 
 // brokerConfigValueAs parses raw into the same Terraform type as tmpl, so a value declared in
@@ -281,13 +302,8 @@ func brokerConfigValueAs(raw string, tmpl attr.Value) (attr.Value, error) {
 }
 
 // reconcileTypedConfiguration sets each `configuration` attribute to the value the apply will
-// actually produce, so Terraform's own defaults do not fight the map:
-//
-//   - set by a map entry -> that entry's value;
-//   - written by the user -> what they wrote;
-//   - neither -> whatever the cluster already had.
-//
-// If nothing changed, the result equals the last apply, so the plan comes out empty.
+// actually produce, so Terraform's own defaults do not fight the map. It reads the prior state
+// and plan and delegates the decision to plannedTypedConfiguration.
 func (r *virtualClusterResource) reconcileTypedConfiguration(
 	ctx context.Context,
 	req resource.ModifyPlanRequest,
@@ -326,26 +342,7 @@ func (r *virtualClusterResource) reconcileTypedConfiguration(
 		}
 	}
 
-	attrs := make(map[string]attr.Value, len(planCfg.Attributes()))
-	for name, planVal := range planCfg.Attributes() {
-		// An attribute the user wrote keeps its planned value, which is that written value. This
-		// has to be checked before mirroring: Terraform rejects a plan that marks an attribute
-		// unknown when the configuration gives it a value, and a setting written through both
-		// surfaces has already been checked for agreement, so the two say the same thing anyway.
-		if _, wasDeclared := declaredTypedAttrs[name]; wasDeclared {
-			attrs[name] = planVal
-			continue
-		}
-		if override, mirrored := overrides[name]; mirrored {
-			attrs[name] = plannedMirroredValue(override, planVal, stateAttrs[name], stateBroker)
-			continue
-		}
-		if stateVal, ok := stateAttrs[name]; ok {
-			attrs[name] = stateVal
-			continue
-		}
-		attrs[name] = planVal
-	}
+	attrs := plannedTypedConfiguration(planCfg.Attributes(), overrides, declaredTypedAttrs, stateAttrs, stateBroker)
 
 	newObj, diags := types.ObjectValue(planCfg.AttributeTypes(ctx), attrs)
 	resp.Diagnostics.Append(diags...)
@@ -353,6 +350,44 @@ func (r *virtualClusterResource) reconcileTypedConfiguration(
 		return
 	}
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("configuration"), newObj)...)
+}
+
+// plannedTypedConfiguration decides what every typed `configuration` attribute should say in the
+// plan, so that Terraform's own defaults do not fight the map:
+//
+//   - mirrored by a map entry and not also written by the user -> see plannedMirroredValue;
+//   - anything else -> the planned value, unchanged.
+//
+// Leaving everything else alone is the point. The planned value already says the right thing: what
+// the user wrote, or the schema default where they wrote nothing. Substituting prior state instead
+// would make deleting an attribute a silent no-op — dropping `enable_acls` would leave ACLs on —
+// and would replace a value that is not known until apply with a known one, which Terraform
+// rejects as an invalid plan.
+func plannedTypedConfiguration(
+	planAttrs map[string]attr.Value,
+	overrides map[string]brokerConfigOverride,
+	declaredTypedAttrs map[string]attr.Value,
+	stateAttrs map[string]attr.Value,
+	stateBroker map[string]string,
+) map[string]attr.Value {
+	out := make(map[string]attr.Value, len(planAttrs))
+	for name, planVal := range planAttrs {
+		override, mirrored := overrides[name]
+		if !mirrored {
+			out[name] = planVal
+			continue
+		}
+		// A mirrored attribute the user also wrote keeps its planned value, which is that written
+		// value. Terraform rejects a plan that marks an attribute unknown when the configuration
+		// gives it a value, and the two surfaces have already been checked for agreement, so they
+		// say the same thing anyway.
+		if _, wasDeclared := declaredTypedAttrs[name]; wasDeclared {
+			out[name] = planVal
+			continue
+		}
+		out[name] = plannedMirroredValue(override, planVal, stateAttrs[name], stateBroker)
+	}
+	return out
 }
 
 // plannedMirroredValue decides what a typed `configuration` attribute should say in the plan when
@@ -822,13 +857,15 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	r.applyConfiguration(ctx, state, &resp.State, &resp.Diagnostics)
+	configInState := r.applyConfiguration(ctx, state, &resp.State, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		// The cluster exists but could not be configured, most often because the API rejected a
 		// broker config. Terraform refuses any state still holding unknown values and reports
-		// that as provider bug, which would bury the real error. Fill in what the cluster
-		// actually has to avoid this.
-		r.readConfiguration(ctx, *cluster, state.BrokerConfiguration, &resp.State, &resp.Diagnostics)
+		// that as a provider bug, which would bury the real error. Fill in what the cluster
+		// actually has to avoid this, unless the configuration is already in state.
+		if !configInState {
+			r.readConfiguration(ctx, *cluster, state.BrokerConfiguration, &resp.State, &resp.Diagnostics)
+		}
 		r.readEvents(ctx, *cluster, &resp.State, &resp.Diagnostics,
 			types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()}))
 		return
@@ -1074,9 +1111,18 @@ func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.I
 // the keys the user declared in `broker_configuration`, with the API-provided value. This
 // prevents Terraform from seeing perpetual drift when the API returns configs (including
 // typed-backed ones) that weren't declared.
+//
+// Only an absent attribute becomes null. A declaration that filters down to nothing becomes an
+// empty map, because the attribute is Optional and not Computed: Terraform requires state after
+// an apply to equal the configured value exactly, and reports any difference as the provider
+// producing an inconsistent result.
 func filterClusterConfigsToDeclared(ctx context.Context, apiConfigs map[string]*string, declared types.Map, respDiags *diag.Diagnostics) types.Map {
+	if declared.IsNull() || declared.IsUnknown() {
+		return types.MapNull(types.StringType)
+	}
+
 	declaredKeys := brokerConfigMap(ctx, declared, respDiags)
-	if respDiags.HasError() || len(declaredKeys) == 0 {
+	if respDiags.HasError() {
 		return types.MapNull(types.StringType)
 	}
 
@@ -1085,9 +1131,6 @@ func filterClusterConfigsToDeclared(ctx context.Context, apiConfigs map[string]*
 		if v, ok := apiConfigs[k]; ok {
 			out[k] = types.StringPointerValue(v)
 		}
-	}
-	if len(out) == 0 {
-		return types.MapNull(types.StringType)
 	}
 
 	m, diags := types.MapValue(types.StringType, out)
@@ -1301,32 +1344,31 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 	return cfg
 }
 
-func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics) {
+// applyConfiguration writes the planned configuration to the cluster and reads the result back
+// into state. It reports whether the configuration was read into state, which the caller needs on
+// the failure path: state still holding unknown values is rejected by Terraform as a provider bug,
+// which would bury the real error.
+func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics) (readIntoState bool) {
 	cluster := plan.Cluster()
 
 	brokerCfg := brokerConfigMap(ctx, plan.BrokerConfiguration, respDiags)
 	if respDiags.HasError() {
-		return
-	}
-
-	// If neither the typed configuration nor the generic broker_configuration map is set,
-	// just retrieve the current configuration from the API.
-	if plan.Configuration.IsNull() && len(brokerCfg) == 0 {
-		tflog.Info(ctx, "No virtual cluster configuration provided")
-		r.readConfiguration(ctx, cluster, plan.BrokerConfiguration, state, respDiags)
-		return
+		return false
 	}
 
 	cfg := &api.VirtualClusterConfiguration{}
 
-	// Retrieve typed configuration values from plan, if present.
+	// `configuration` has a schema default, so the plan always carries an object even where the
+	// user wrote none. Its attributes are then the schema defaults, and those get applied — this
+	// is why every apply re-asserts the six typed settings whether or not the map mentions them.
+	// The nil case is kept for a schema that stops defaulting the object.
 	var cfgPlan models.VirtualClusterConfiguration
 	var cfgPlanPtr *models.VirtualClusterConfiguration
 	if !plan.Configuration.IsNull() {
 		diags := plan.Configuration.As(ctx, &cfgPlan, basetypes.ObjectAsOptions{})
 		respDiags.Append(diags...)
 		if respDiags.HasError() {
-			return
+			return false
 		}
 		cfgPlanPtr = &cfgPlan
 
@@ -1346,22 +1388,21 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 			"Error Updating WarpStream Virtual Cluster Configuration",
 			"Could not update WarpStream Virtual Cluster Configuration, unexpected error: "+err.Error(),
 		)
-		return
+		return false
 	}
 
 	// Retrieve updated virtual cluster configuration
 	applied := r.readConfiguration(ctx, cluster, plan.BrokerConfiguration, state, respDiags)
-	if respDiags.HasError() {
-		return
+	if applied == nil {
+		return false
 	}
 
 	// Fail with a specific message if the API did not store a declared config verbatim, rather
-	// than letting Terraform abort with a generic inconsistent-result error.
-	if applied != nil {
-		checkDeclaredConfigsApplied(brokerCfg, applied.BrokerConfigs, respDiags)
-		if respDiags.HasError() {
-			return
-		}
+	// than letting Terraform abort with a generic inconsistent-result error. State has already
+	// been written at this point, so the caller does not need to read it again.
+	checkDeclaredConfigsApplied(brokerCfg, applied.BrokerConfigs, respDiags)
+	if respDiags.HasError() {
+		return true
 	}
 
 	// Preserve null value for default_topic_type if it wasn't explicitly set in the plan and
@@ -1378,6 +1419,7 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 			respDiags.Append(diags...)
 		}
 	}
+	return true
 }
 
 func (r *virtualClusterResource) readTags(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {

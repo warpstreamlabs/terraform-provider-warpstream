@@ -255,6 +255,17 @@ resource "warpstream_virtual_cluster" "test" {
 %s%s}`, vcNameSuffix, typed, broker)
 }
 
+// brokerConfigResourceEmptyMap renders the cluster with an explicitly empty
+// `broker_configuration`.
+func brokerConfigResourceEmptyMap(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name                 = "vcn_test_acc_%s"
+  tier                 = "fundamentals"
+  broker_configuration = {}
+}`, vcNameSuffix)
+}
+
 // TestAccVirtualClusterResourceBrokerConfigInvalid covers every input the provider refuses
 // before calling the API: unsupported names, write-only aliases, null values, values the API
 // would silently rewrite, and one setting given two disagreeing values. None of these steps
@@ -288,6 +299,14 @@ func TestAccVirtualClusterResourceBrokerConfigInvalid(t *testing.T) {
 			typedBody:  `    default_retention_millis = 3600000`,
 			brokerBody: `    "log.retention.ms" = "7200000"`,
 			wantErr:    `Conflicting\s+virtual\s+cluster\s+configuration`,
+		},
+		{
+			// The two surfaces cannot be compared, and the error has to name the key that could
+			// not be read rather than just quoting the value.
+			name:       "value that cannot be read as its typed twin's type",
+			typedBody:  `    default_retention_millis = 3600000`,
+			brokerBody: `    "log.retention.ms" = "1MB"`,
+			wantErr:    `"log\.retention\.ms":\s+"1MB"\s+is\s+not\s+an\s+integer`,
 		},
 	}
 
@@ -381,6 +400,18 @@ func TestAccVirtualClusterResourceBrokerConfigLifecycle(t *testing.T) {
 			},
 			{
 				Config:           brokerConfigResource(vcNameSuffix, "", ""),
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+			},
+			// An explicitly empty map is a distinct value from an absent attribute, and the
+			// attribute is Optional rather than Computed, so it has to round-trip as empty. A
+			// module writing `broker_configuration = var.configs` with a `{}` default lands here,
+			// and reporting it back as null aborts the apply as an inconsistent result.
+			{
+				Config: brokerConfigResourceEmptyMap(vcNameSuffix),
+				Check:  resource.TestCheckResourceAttr(addr, "broker_configuration.%", "0"),
+			},
+			{
+				Config:           brokerConfigResourceEmptyMap(vcNameSuffix),
 				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
 			},
 		},
