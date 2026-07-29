@@ -119,10 +119,7 @@ The WarpStream provider must be authenticated with an application key to read th
 			},
 			"broker_configuration": schema.MapAttribute{
 				Description: "Every cluster broker config explicitly set on this virtual cluster, as a " +
-					"map of Kafka-style config names to values. A config absent from this map is using " +
-					"the cluster default. Unlike the `broker_configuration` attribute on the " +
-					"`warpstream_virtual_cluster` resource, which tracks only the configs a Terraform " +
-					"configuration declares, this reports the complete set.",
+					"map of Kafka-style config names to values.",
 				Computed:    true,
 				ElementType: types.StringType,
 			},
@@ -251,20 +248,18 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 
 	// Map response body to model
 	state := models.VirtualClusterDataSource{
-		ID:            types.StringValue(vc.ID),
-		Name:          types.StringValue(vc.Name),
-		Type:          types.StringValue(vc.Type),
-		AgentKeys:     agentKeys,
-		AgentPoolID:   types.StringValue(vc.AgentPoolID),
-		AgentPoolName: types.StringValue(vc.AgentPoolName),
-		CreatedAt:     types.StringValue(vc.CreatedAt),
-		Configuration: data.Configuration,
-		Events:        data.Events,
-		Cloud:         data.Cloud,
-		Tags:          data.Tags,
-		WorkspaceID:   types.StringValue(vc.WorkspaceID),
-		// Filled in below, once the configuration has been fetched. A map value must carry its
-		// element type even when empty, so this cannot be left as the zero value.
+		ID:                  types.StringValue(vc.ID),
+		Name:                types.StringValue(vc.Name),
+		Type:                types.StringValue(vc.Type),
+		AgentKeys:           agentKeys,
+		AgentPoolID:         types.StringValue(vc.AgentPoolID),
+		AgentPoolName:       types.StringValue(vc.AgentPoolName),
+		CreatedAt:           types.StringValue(vc.CreatedAt),
+		Configuration:       data.Configuration,
+		Events:              data.Events,
+		Cloud:               data.Cloud,
+		Tags:                data.Tags,
+		WorkspaceID:         types.StringValue(vc.WorkspaceID),
 		BrokerConfiguration: types.MapNull(types.StringType),
 	}
 

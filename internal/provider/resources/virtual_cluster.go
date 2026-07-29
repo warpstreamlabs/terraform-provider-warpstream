@@ -392,18 +392,6 @@ func unknownLike(v attr.Value) attr.Value {
 	return v
 }
 
-// brokerConfigEntries extracts a `broker_configuration` map into Go, keeping each value as a
-// types.String so that entries which are not known until apply survive the conversion. It
-// returns nil when the attribute as a whole is null or unknown.
-func brokerConfigEntries(ctx context.Context, m types.Map, diags *diag.Diagnostics) map[string]types.String {
-	if m.IsNull() || m.IsUnknown() {
-		return nil
-	}
-	out := make(map[string]types.String, len(m.Elements()))
-	diags.Append(m.ElementsAs(ctx, &out, false)...)
-	return out
-}
-
 // brokerConfigMap extracts the known entries of a `broker_configuration` map into a plain Go
 // map, for the write path where every value has been resolved. Null and not-yet-known
 // entries are skipped: the API treats a null entry as absent, and by the time configuration
@@ -420,6 +408,18 @@ func brokerConfigMap(ctx context.Context, m types.Map, diags *diag.Diagnostics) 
 		}
 		out[k] = v.ValueString()
 	}
+	return out
+}
+
+// brokerConfigEntries extracts a `broker_configuration` map into Go, keeping each value as a
+// types.String so that entries which are not known until apply survive the conversion. It
+// returns nil when the attribute as a whole is null or unknown.
+func brokerConfigEntries(ctx context.Context, m types.Map, diags *diag.Diagnostics) map[string]types.String {
+	if m.IsNull() || m.IsUnknown() {
+		return nil
+	}
+	out := make(map[string]types.String, len(m.Elements()))
+	diags.Append(m.ElementsAs(ctx, &out, false)...)
 	return out
 }
 
@@ -567,31 +567,27 @@ The WarpStream provider must be authenticated with an application key to consume
 			"configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"auto_create_topic": schema.BoolAttribute{
-						Description:        "Enable topic autocreation feature, defaults to `true`.",
-						DeprecationMessage: "Set this via `broker_configuration` (key `auto.create.topics.enable`) instead, which is the canonical way to configure broker settings.",
-						Optional:           true,
-						Computed:           true,
-						Default:            booldefault.StaticBool(true),
+						Description: "Enable topic autocreation feature, defaults to `true`.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(true),
 					},
 					"default_num_partitions": schema.Int64Attribute{
-						Description:        "Number of partitions created by default.",
-						DeprecationMessage: "Set this via `broker_configuration` (key `num.partitions`) instead, which is the canonical way to configure broker settings.",
-						Optional:           true,
-						Computed:           true,
-						Default:            int64default.StaticInt64(1),
+						Description: "Number of partitions created by default.",
+						Optional:    true,
+						Computed:    true,
+						Default:     int64default.StaticInt64(1),
 					},
 					"default_retention_millis": schema.Int64Attribute{
-						Description:        "Default retention for topics that are created automatically using Kafka's topic auto-creation feature.",
-						DeprecationMessage: "Set this via `broker_configuration` (key `log.retention.ms`) instead, which is the canonical way to configure broker settings.",
-						Optional:           true,
-						Computed:           true,
-						Default:            int64default.StaticInt64(86400000),
+						Description: "Default retention for topics that are created automatically using Kafka's topic auto-creation feature.",
+						Optional:    true,
+						Computed:    true,
+						Default:     int64default.StaticInt64(86400000),
 					},
 					"default_topic_type": schema.StringAttribute{
-						Description:        "Default topic type for new topics. Valid values are `classic` or `lightning`. If not specified, the WarpStream API defaults to `classic`. See [Lightning Topics](https://docs.warpstream.com/warpstream/kafka/advanced-agent-deployment-options/low-latency-clusters/lightning-topics)",
-						DeprecationMessage: "Set this via `broker_configuration` (key `warpstream.default.topic.type`) instead, which is the canonical way to configure broker settings.",
-						Optional:           true,
-						Computed:           true,
+						Description: "Default topic type for new topics. Valid values are `classic` or `lightning`. If not specified, the WarpStream API defaults to `classic`. See [Lightning Topics](https://docs.warpstream.com/warpstream/kafka/advanced-agent-deployment-options/low-latency-clusters/lightning-topics)",
+						Optional:    true,
+						Computed:    true,
 						Validators: []validator.String{
 							stringvalidator.OneOf("classic", "lightning"),
 						},
@@ -618,18 +614,16 @@ The WarpStream provider must be authenticated with an application key to consume
 						Default:     booldefault.StaticBool(false),
 					},
 					"enable_soft_topic_deletion": schema.BoolAttribute{
-						Description:        "Enable soft deletion for topics. Defaults to `true`. If true, topic deletion will be a soft deletion. For clusters with the Fundamentals tier or above, it will be possible to restore topics for some time after deletion. If false, deleting a topic will immediately delete of all of its data, with no way to recover it.",
-						DeprecationMessage: "Set this via `broker_configuration` (key `warpstream.soft.delete.topic.enable`) instead, which is the canonical way to configure broker settings.",
-						Optional:           true,
-						Computed:           true,
-						Default:            booldefault.StaticBool(true),
+						Description: "Enable soft deletion for topics. Defaults to `true`. If true, topic deletion will be a soft deletion. For clusters with the Fundamentals tier or above, it will be possible to restore topics for some time after deletion. If false, deleting a topic will immediately delete of all of its data, with no way to recover it.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(true),
 					},
 					"soft_topic_deletion_ttl_millis": schema.Int64Attribute{
-						Description:        "If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many milliseconds before being irrecoverably deleted. Defaults to 24 hours.",
-						DeprecationMessage: "Set this via `broker_configuration` (key `warpstream.soft.delete.topic.ttl.ms`) instead, which is the canonical way to configure broker settings.",
-						Optional:           true,
-						Computed:           true,
-						Default:            int64default.StaticInt64(86400000),
+						Description: "If enable_soft_topic_deletion is true, a deleted topic's data will be kept for this many milliseconds before being irrecoverably deleted. Defaults to 24 hours.",
+						Optional:    true,
+						Computed:    true,
+						Default:     int64default.StaticInt64(86400000),
 					},
 				},
 				Description: "Virtual Cluster Configuration.",
@@ -713,9 +707,9 @@ The WarpStream provider must be authenticated with an application key to consume
 				// list, and a blank line would end the list and orphan every attribute after it.
 				Description: "Cluster-level broker configuration, as a map of Kafka-style config names to " +
 					"string values (e.g. `message.max.bytes = \"1048576\"`, `delete.topic.enable = \"true\"`). " +
-					"This is the canonical, recommended way to configure broker settings; the individual " +
-					"typed attributes under `configuration` (such as `default_retention_millis` and " +
-					"`default_topic_type`) are deprecated in favor of the equivalent key here. " +
+					"This is the recommended way to configure broker settings. The individual typed " +
+					"attributes under `configuration` (such as `default_retention_millis` and " +
+					"`default_topic_type`) set some of the same settings and continue to work. " +
 					"A setting that also has a typed `configuration` attribute may be set through either " +
 					"surface, or through both as long as the two values agree; setting them to different " +
 					"values is rejected at plan time. " +
@@ -1189,7 +1183,7 @@ func checkAPIConfigConsistency(cfg *api.VirtualClusterConfiguration, respDiags *
 		respDiags.AddWarning(
 			"Inconsistent virtual cluster configuration from the API",
 			fmt.Sprintf(
-				"The API reports cluster config %q as %q in broker_configs but as %q in its deprecated typed "+
+				"The API reports cluster config %q as %q in broker_configs but as %q in its older typed "+
 					"field, and the two are views of the same value. Please report this issue to the provider "+
 					"developers.",
 				key, *mapValue, typedValue,
@@ -1198,7 +1192,7 @@ func checkAPIConfigConsistency(cfg *api.VirtualClusterConfiguration, respDiags *
 	}
 }
 
-// apiTypedConfigValues renders the API's deprecated typed configuration fields as broker
+// apiTypedConfigValues renders the API's older typed configuration fields as broker
 // config values, keyed by canonical config name, so they can be compared with broker_configs.
 // Fields the API did not populate are omitted.
 func apiTypedConfigValues(cfg *api.VirtualClusterConfiguration) map[string]string {
@@ -1351,7 +1345,7 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 
 		// Only the settings with no broker_configs equivalent are sent as typed fields;
 		// everything the map supports goes through broker_configs (the typed request
-		// fields are deprecated).
+		// fields are the older way).
 		cfg.AclsEnabled = cfgPlan.AclsEnabled.ValueBool()
 		cfg.ACLShadowingEnabled = cfgPlan.ACLShadowingEnabled.ValueBool()
 		cfg.EnableDeletionProtection = cfgPlan.EnableDeletionProtection.ValueBool()

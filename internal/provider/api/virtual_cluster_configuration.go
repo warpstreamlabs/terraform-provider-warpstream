@@ -13,7 +13,7 @@ type VirtualClusterConfiguration struct {
 	AclsEnabled         bool `json:"are_acls_enabled"`
 	ACLShadowingEnabled bool `json:"acl_shadowing_enabled"`
 
-	// The following typed fields are deprecated in the API in favor of the generic
+	// The following typed fields are superseded in the API by the generic
 	// BrokerConfigs map.
 	AutoCreateTopic         *bool  `json:"is_auto_create_topic_enabled,omitempty"`
 	DefaultNumPartitions    *int64 `json:"default_num_partitions,omitempty"`

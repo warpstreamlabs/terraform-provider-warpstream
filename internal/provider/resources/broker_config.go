@@ -2,7 +2,7 @@ package resources
 
 import "fmt"
 
-// brokerKeyTypedAttr maps a cluster broker config name to the deprecated `configuration`
+// brokerKeyTypedAttr maps a cluster broker config name to the `configuration`
 // attribute that controls the same underlying setting.
 var brokerKeyTypedAttr = map[string]string{
 	"auto.create.topics.enable":           "auto_create_topic",
