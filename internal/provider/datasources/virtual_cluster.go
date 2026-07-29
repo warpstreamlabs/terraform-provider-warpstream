@@ -117,6 +117,15 @@ The WarpStream provider must be authenticated with an application key to read th
 				Computed:    true,
 				ElementType: types.StringType,
 			},
+			"broker_configuration": schema.MapAttribute{
+				Description: "Every cluster broker config explicitly set on this virtual cluster, as a " +
+					"map of Kafka-style config names to values. A config absent from this map is using " +
+					"the cluster default. Unlike the `broker_configuration` attribute on the " +
+					"`warpstream_virtual_cluster` resource, which tracks only the configs a Terraform " +
+					"configuration declares, this reports the complete set.",
+				Computed:    true,
+				ElementType: types.StringType,
+			},
 			"configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"auto_create_topic": schema.BoolAttribute{
@@ -254,6 +263,9 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		Cloud:         data.Cloud,
 		Tags:          data.Tags,
 		WorkspaceID:   types.StringValue(vc.WorkspaceID),
+		// Filled in below, once the configuration has been fetched. A map value must carry its
+		// element type even when empty, so this cannot be left as the zero value.
+		BrokerConfiguration: types.MapNull(types.StringType),
 	}
 
 	if vc.BootstrapURL != nil {
@@ -378,6 +390,19 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Set the generic broker configs.
+	brokerConfigs := make(map[string]attr.Value, len(cfg.BrokerConfigs))
+	for name, value := range cfg.BrokerConfigs {
+		brokerConfigs[name] = types.StringPointerValue(value)
+	}
+	brokerConfigsValue, diags := types.MapValue(types.StringType, brokerConfigs)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	diags = resp.State.SetAttribute(ctx, path.Root("broker_configuration"), brokerConfigsValue)
+	resp.Diagnostics.Append(diags...)
 }
 
 func buildEventTypesMap(eventsState *api.EventsState) (types.Map, diag.Diagnostics) {
