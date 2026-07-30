@@ -116,6 +116,23 @@ The WarpStream provider must be authenticated with an application key to consume
 				},
 				Validators: []validator.String{utils.ValidSchemaRegistryName()},
 			},
+			"tier": schema.StringAttribute{
+				Description: "Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, `pro`, `fundamentals`, and `enterprise`. Defaults to `pro`.",
+				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString(api.VirtualClusterTierPro),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						api.VirtualClusterTierDev,
+						api.VirtualClusterTierFundamentals,
+						api.VirtualClusterTierPro,
+						api.VirtualClusterTierEnterprise,
+					),
+				},
+			},
 			"created_at": schema.StringAttribute{
 				Description: "Virtual Cluster Creation Timestamp.",
 				Computed:    true,
@@ -156,7 +173,7 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 		plan.Name.ValueString(),
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeSchemaRegistry,
-			Tier:   api.VirtualClusterTierPro,
+			Tier:   plan.Tier.ValueString(),
 			Region: cloudPlan.Region.ValueStringPointer(),
 			Cloud:  cloudPlan.Provider.ValueString(),
 		})
@@ -180,6 +197,7 @@ func (r *schemaRegistryResource) Create(ctx context.Context, req resource.Create
 	state := models.SchemaRegistryResource{
 		ID:          types.StringValue(cluster.ID),
 		Name:        types.StringValue(cluster.Name),
+		Tier:        types.StringValue(cluster.Tier),
 		CreatedAt:   types.StringValue(cluster.CreatedAt),
 		Cloud:       plan.Cloud,
 		WorkspaceID: types.StringValue(cluster.WorkspaceID),
@@ -244,6 +262,7 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 
 	state.ID = types.StringValue(cluster.ID)
 	state.Name = types.StringValue(cluster.Name)
+	state.Tier = types.StringValue(cluster.Tier)
 	state.WorkspaceID = types.StringValue(cluster.WorkspaceID)
 	state.CreatedAt = types.StringValue(cluster.CreatedAt)
 	if cluster.BootstrapURL != nil {
@@ -272,11 +291,43 @@ func (r *schemaRegistryResource) Read(ctx context.Context, req resource.ReadRequ
 }
 
 func (r *schemaRegistryResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan models.VirtualClusterResource
+	var plan models.SchemaRegistryResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	var state models.SchemaRegistryResource
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Update tier if changed
+	if !plan.Tier.Equal(state.Tier) {
+		err := r.client.UpdateVirtualClusterTier(state.ID.ValueString(), plan.Tier.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error Updating WarpStream Schema Registry Tier",
+				"Could not update WarpStream Schema Registry Tier, unexpected error: "+err.Error(),
+			)
+			return
+		}
+
+		// Read back the updated cluster to get the new tier
+		cluster, err := r.client.GetVirtualCluster(state.ID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error Reading WarpStream Virtual Cluster after tier update",
+				"Could not read WarpStream Virtual Cluster ID "+state.ID.ValueString()+": "+err.Error(),
+			)
+			return
+		}
+
+		diags = resp.State.SetAttribute(ctx, path.Root("tier"), types.StringValue(cluster.Tier))
+		resp.Diagnostics.Append(diags...)
 	}
 }
 

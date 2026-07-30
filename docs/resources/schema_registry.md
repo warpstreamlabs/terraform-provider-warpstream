@@ -30,6 +30,7 @@ provider "warpstream" {
 
 resource "warpstream_schema_registry" "example_schema_registry" {
   name = "vcn_sr_example_schema_registry"
+  tier = "dev"
 }
 ```
 
@@ -43,6 +44,7 @@ resource "warpstream_schema_registry" "example_schema_registry" {
 ### Optional
 
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
+- `tier` (String) Virtual Cluster Tier. Currently, the valid virtual cluster tiers are `dev`, `pro`, `fundamentals`, and `enterprise`. Defaults to `pro`.
 
 ### Read-Only
 
