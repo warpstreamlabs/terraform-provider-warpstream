@@ -306,7 +306,7 @@ func TestAccVirtualClusterResourceBrokerConfigInvalid(t *testing.T) {
 			name:       "value that cannot be read as its typed twin's type",
 			typedBody:  `    default_retention_millis = 3600000`,
 			brokerBody: `    "log.retention.ms" = "1MB"`,
-			wantErr:    `"log\.retention\.ms":\s+"1MB"\s+is\s+not\s+an\s+integer`,
+			wantErr:    `"log\.retention\.ms"\]:\s+"1MB"\s+is\s+not\s+an\s+integer[\s\S]*e\.g\.\s+"3600000"`,
 		},
 	}
 

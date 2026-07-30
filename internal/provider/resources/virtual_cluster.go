@@ -103,16 +103,15 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 		return
 	}
 
-	// Read the typed configuration from the raw *config* rather than the plan, so that the
-	// schema's defaults are not mistaken for values the user wrote.
+	// Read the typed configuration from the raw config rather than the plan, so that the
+	// schema's defaults are not mistaken for values the user explicitly wrote.
 	declaredTypedAttrs := declaredTypedConfigAttrs(ctx, req.Config, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// A map that is unknown as a whole — `jsondecode` of a value that is not known until apply,
-	// say — hides its keys, so there is no way to tell which mirrored settings it is about to
-	// change. Plan all of them as known-after-apply rather than let a schema default stand and
+	// For a map that is unknown as a whole e.g.`jsondecode` of a value that is not known until apply,
+	// say, we plan all of them as known-after-apply rather than let a schema default stand and
 	// then be contradicted by the apply.
 	if declared.IsUnknown() {
 		r.reconcileTypedConfiguration(ctx, req, resp, allMirroredUnknown(), declaredTypedAttrs)
@@ -151,10 +150,12 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 			brokerPath.AtMapKey(p.Key),
 			"Invalid broker configuration",
 			fmt.Sprintf(
-				"Cluster config %q: %v. It has to be readable as that type because "+
-					"`configuration.%s` controls the same cluster setting and the two values are "+
-					"compared before anything is written.",
-				p.Key, p.Err, p.TypedAttr,
+				"broker_configuration[%q]: %v, so it cannot be checked against `configuration.%s` "+
+					"(currently %s), which controls the same cluster setting and must agree with it. "+
+					"Write the value as a plain %s, e.g. %q, or set this setting in only one of the "+
+					"two places.",
+				p.Key, p.Err, p.TypedAttr, p.TypedValue,
+				brokerConfigTypeNoun(p.TypedValue), brokerConfigStringOf(p.TypedValue),
 			),
 		)
 	}
@@ -223,7 +224,10 @@ type brokerConfigConflict struct {
 type brokerConfigParseError struct {
 	Key       string
 	TypedAttr string
-	Err       error
+	// TypedValue is the value the user wrote for the typed attribute; the error message uses
+	// it to show the expected type and a concrete example.
+	TypedValue attr.Value
+	Err        error
 }
 
 // resolveBrokerConfigOverrides pairs every `broker_configuration` entry that mirrors a typed
@@ -254,7 +258,7 @@ func resolveBrokerConfigOverrides(
 		// The type comes from the value the user wrote, not from any knowledge of the config.
 		mapVal, err := brokerConfigValueAs(value.ValueString(), typedVal)
 		if err != nil {
-			parseErrs = append(parseErrs, brokerConfigParseError{Key: key, TypedAttr: typedAttr, Err: err})
+			parseErrs = append(parseErrs, brokerConfigParseError{Key: key, TypedAttr: typedAttr, TypedValue: typedVal, Err: err})
 			continue
 		}
 		if !mapVal.Equal(typedVal) {
@@ -291,6 +295,32 @@ func brokerConfigValueAs(raw string, tmpl attr.Value) (attr.Value, error) {
 		return types.StringValue(raw), nil
 	}
 	return nil, fmt.Errorf("cannot interpret %q as %T", raw, tmpl)
+}
+
+// brokerConfigTypeNoun names the plain-language type a `broker_configuration` value must be
+// readable as to compare against v, for error messages.
+func brokerConfigTypeNoun(v attr.Value) string {
+	switch v.(type) {
+	case types.Bool:
+		return "boolean"
+	case types.Int64:
+		return "integer"
+	}
+	return "string"
+}
+
+// brokerConfigStringOf renders a typed attribute's value the way it would be written in
+// `broker_configuration`, for example text. (attr.Value.String() would double-quote strings.)
+func brokerConfigStringOf(v attr.Value) string {
+	switch t := v.(type) {
+	case types.Bool:
+		return strconv.FormatBool(t.ValueBool())
+	case types.Int64:
+		return strconv.FormatInt(t.ValueInt64(), 10)
+	case types.String:
+		return t.ValueString()
+	}
+	return v.String()
 }
 
 // reconcileTypedConfiguration sets each `configuration` attribute to the value the apply will
@@ -347,14 +377,8 @@ func (r *virtualClusterResource) reconcileTypedConfiguration(
 // plannedTypedConfiguration decides what every typed `configuration` attribute should say in the
 // plan, so that Terraform's own defaults do not fight the map:
 //
-//   - mirrored by a map entry and not also written by the user -> see plannedMirroredValue;
+//   - if a map entry controls the same setting and the user also wrote that attribute -> see plannedMirroredValue
 //   - anything else -> the planned value, unchanged.
-//
-// Leaving everything else alone is the point. The planned value already says the right thing: what
-// the user wrote, or the schema default where they wrote nothing. Substituting prior state instead
-// would make deleting an attribute a silent no-op — dropping `enable_acls` would leave ACLs on —
-// and would replace a value that is not known until apply with a known one, which Terraform
-// rejects as an invalid plan.
 func plannedTypedConfiguration(
 	planAttrs map[string]attr.Value,
 	overrides map[string]brokerConfigOverride,
@@ -369,10 +393,10 @@ func plannedTypedConfiguration(
 			out[name] = planVal
 			continue
 		}
-		// A mirrored attribute the user also wrote keeps its planned value, which is that written
-		// value. Terraform rejects a plan that marks an attribute unknown when the configuration
-		// gives it a value, and the two surfaces have already been checked for agreement, so they
-		// say the same thing anyway.
+
+		// A mirroed attribute the user wrote keeps its planned value- this value is guaranteed
+		// to be the same as the value in the broker_configuration map, because the two were
+		// checked for agreement in validation. So we never want to override this value.
 		if _, wasDeclared := declaredTypedAttrs[name]; wasDeclared {
 			out[name] = planVal
 			continue
@@ -392,8 +416,6 @@ func plannedTypedConfiguration(
 //   - value unchanged since the last apply -> reuse what the API said last time, and the plan
 //     comes out empty;
 //   - otherwise -> known-after-apply, and the read after the write fills it in.
-//
-// That works for any rewriting, including rules we have never heard of.
 func plannedMirroredValue(override brokerConfigOverride, planVal, priorVal attr.Value, priorBroker map[string]string) attr.Value {
 	prior, hadKey := priorBroker[override.Key]
 	declaredUnchanged := hadKey && !override.Value.IsNull() && !override.Value.IsUnknown() &&
@@ -421,9 +443,7 @@ func unknownLike(v attr.Value) attr.Value {
 }
 
 // brokerConfigMap extracts the known entries of a `broker_configuration` map into a plain Go
-// map, for the write path where every value has been resolved. Null and not-yet-known
-// entries are skipped: the API treats a null entry as absent, and by the time configuration
-// is written there is nothing left unknown.
+// map. Null and not-yet-known entries are skipped.
 func brokerConfigMap(ctx context.Context, m types.Map, diags *diag.Diagnostics) map[string]string {
 	// A local diagnostics set, so this reports only its own failure rather than reacting to
 	// whatever the caller had already recorded.
