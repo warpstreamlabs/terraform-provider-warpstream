@@ -350,6 +350,17 @@ func TestAccVirtualClusterResourceBrokerConfigRejectedByAPI(t *testing.T) {
 				Config:      brokerConfigResource(vcNameSuffix, "", `    "log.retention.ms" = "-5"`),
 				ExpectError: regexp.MustCompile(`the\s+API\s+reports\s+it\s+as\s+"-1"`),
 			},
+			// An empty value parses as a valid map entry, so it reaches the API, which rejects
+			// it while parsing the config's value.
+			{
+				Config:      brokerConfigResource(vcNameSuffix, "", `    "message.max.bytes" = ""`),
+				ExpectError: regexp.MustCompile(`invalid\s+cluster\s+config\s+"message\.max\.bytes"`),
+			},
+			// An empty key is just an unsupported config name.
+			{
+				Config:      brokerConfigResource(vcNameSuffix, "", `    "" = "1048576"`),
+				ExpectError: regexp.MustCompile(`unsupported\s+cluster\s+config\s+""`),
+			},
 		},
 	})
 }
@@ -611,45 +622,65 @@ func TestAccVirtualClusterResourceBrokerConfigWholeMapUnknown(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	const addr = "warpstream_virtual_cluster.test"
 
-	// The dependency cluster's id is unknown until it is created, so the JSON string built from it
-	// is unknown, and decoding it yields a map whose keys are not visible at plan time.
-	config := providerConfig + fmt.Sprintf(`
-resource "warpstream_virtual_cluster" "dep" {
-  name = "vcn_test_acc_%s_dep"
+	// The dependency cluster's id is unknown until it is created, so the JSON string built from
+	// it is unknown, and decoding it yields a map whose keys are not visible at plan time. The
+	// dep parameter picks which dependency cluster feeds the map, so a later step can make the
+	// whole map unknown again — on the update path this time — by deriving it from a dependency
+	// that does not exist yet.
+	config := func(dep string, multiplier int) string {
+		return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "%[1]s" {
+  name = "vcn_test_acc_%[2]s_%[1]s"
   tier = "dev"
 }
 
 locals {
-  encoded_%s = jsonencode({
-    "log.retention.ms" = tostring(length(warpstream_virtual_cluster.dep.id) * 100000)
+  encoded_%[2]s = jsonencode({
+    "log.retention.ms" = tostring(length(warpstream_virtual_cluster.%[1]s.id) * %[3]d)
   })
 }
 
 resource "warpstream_virtual_cluster" "test" {
-  name                 = "vcn_test_acc_%s"
+  name                 = "vcn_test_acc_%[2]s"
   tier                 = "fundamentals"
-  broker_configuration = jsondecode(local.encoded_%s)
-}`, vcNameSuffix, vcNameSuffix, vcNameSuffix, vcNameSuffix)
+  broker_configuration = jsondecode(local.encoded_%[2]s)
+}`, dep, vcNameSuffix, multiplier)
+	}
+
+	expectRetentionUnknown := resource.ConfigPlanChecks{
+		PreApply: []plancheck.PlanCheck{
+			// The schema default must not stand here: the map is about to set this.
+			plancheck.ExpectUnknownValue(addr,
+				tfjsonpath.New("configuration").AtMapKey("default_retention_millis")),
+		},
+	}
+	surfacesAgree := resource.TestCheckResourceAttrPair(
+		addr, "broker_configuration.log.retention.ms",
+		addr, "configuration.default_retention_millis",
+	)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
+			// Create with a wholly-unknown map.
 			{
-				Config: config,
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PreApply: []plancheck.PlanCheck{
-						// The schema default must not stand here: the map is about to set this.
-						plancheck.ExpectUnknownValue(addr,
-							tfjsonpath.New("configuration").AtMapKey("default_retention_millis")),
-					},
-				},
-				Check: resource.TestCheckResourceAttrPair(
-					addr, "broker_configuration.log.retention.ms",
-					addr, "configuration.default_retention_millis",
-				),
+				Config:           config("dep", 100000),
+				ConfigPlanChecks: expectRetentionUnknown,
+				Check:            surfacesAgree,
 			},
 			{
-				Config:           config,
+				Config:           config("dep", 100000),
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+			},
+			// Update with a wholly-unknown map: rekey it off a new dependency cluster with a new
+			// value, so the map is unknown while the cluster already has prior state.
+			{
+				Config:           config("dep2", 200000),
+				ConfigPlanChecks: expectRetentionUnknown,
+				Check:            surfacesAgree,
+			},
+			{
+				Config:           config("dep2", 200000),
 				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
 			},
 		},
