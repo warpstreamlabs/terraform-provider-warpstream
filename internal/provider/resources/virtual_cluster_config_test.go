@@ -25,16 +25,6 @@ func brokerConfigMapOf(t *testing.T, kv map[string]string) types.Map {
 	return m
 }
 
-// brokerConfigEntriesOf builds the extracted form of a `broker_configuration` map, so tests
-// can include values that are not known until apply.
-func brokerConfigEntriesOf(kv map[string]types.String) map[string]types.String {
-	out := make(map[string]types.String, len(kv))
-	for k, v := range kv {
-		out[k] = v
-	}
-	return out
-}
-
 func TestBrokerConfigTablesAgree(t *testing.T) {
 	t.Parallel()
 
@@ -205,23 +195,23 @@ func TestResolveBrokerConfigOverrides(t *testing.T) {
 	}{
 		{
 			name:          "key without a typed twin produces no override",
-			entries:       brokerConfigEntriesOf(map[string]types.String{"message.max.bytes": types.StringValue("1048576")}),
+			entries:       map[string]types.String{"message.max.bytes": types.StringValue("1048576")},
 			wantOverrides: map[string]brokerConfigOverride{},
 		},
 		{
 			name:    "typed-backed key overrides its attribute",
-			entries: brokerConfigEntriesOf(map[string]types.String{"log.retention.ms": types.StringValue("3600000")}),
+			entries: map[string]types.String{"log.retention.ms": types.StringValue("3600000")},
 			wantOverrides: map[string]brokerConfigOverride{
 				"default_retention_millis": {Key: "log.retention.ms", Value: types.StringValue("3600000")},
 			},
 		},
 		{
 			name: "several typed-backed keys each override their attribute",
-			entries: brokerConfigEntriesOf(map[string]types.String{
+			entries: map[string]types.String{
 				"num.partitions":                types.StringValue("16"),
 				"warpstream.default.topic.type": types.StringValue("lightning"),
 				"message.max.bytes":             types.StringValue("1048576"),
-			}),
+			},
 			wantOverrides: map[string]brokerConfigOverride{
 				"default_num_partitions": {Key: "num.partitions", Value: types.StringValue("16")},
 				"default_topic_type":     {Key: "warpstream.default.topic.type", Value: types.StringValue("lightning")},
@@ -229,7 +219,7 @@ func TestResolveBrokerConfigOverrides(t *testing.T) {
 		},
 		{
 			name:    "an unknown value still overrides but cannot conflict",
-			entries: brokerConfigEntriesOf(map[string]types.String{"log.retention.ms": types.StringUnknown()}),
+			entries: map[string]types.String{"log.retention.ms": types.StringUnknown()},
 			declaredTyped: map[string]attr.Value{
 				"default_retention_millis": types.Int64Value(86400000),
 			},
@@ -239,7 +229,7 @@ func TestResolveBrokerConfigOverrides(t *testing.T) {
 		},
 		{
 			name:    "both surfaces agree",
-			entries: brokerConfigEntriesOf(map[string]types.String{"log.retention.ms": types.StringValue("3600000")}),
+			entries: map[string]types.String{"log.retention.ms": types.StringValue("3600000")},
 			declaredTyped: map[string]attr.Value{
 				"default_retention_millis": types.Int64Value(3600000),
 			},
@@ -249,7 +239,7 @@ func TestResolveBrokerConfigOverrides(t *testing.T) {
 		},
 		{
 			name:    "both surfaces disagree",
-			entries: brokerConfigEntriesOf(map[string]types.String{"log.retention.ms": types.StringValue("7200000")}),
+			entries: map[string]types.String{"log.retention.ms": types.StringValue("7200000")},
 			declaredTyped: map[string]attr.Value{
 				"default_retention_millis": types.Int64Value(3600000),
 			},
@@ -265,7 +255,7 @@ func TestResolveBrokerConfigOverrides(t *testing.T) {
 		},
 		{
 			name:    "booleans compare by value, not string",
-			entries: brokerConfigEntriesOf(map[string]types.String{"auto.create.topics.enable": types.StringValue("false")}),
+			entries: map[string]types.String{"auto.create.topics.enable": types.StringValue("false")},
 			declaredTyped: map[string]attr.Value{
 				"auto_create_topic": types.BoolValue(true),
 			},
@@ -281,7 +271,7 @@ func TestResolveBrokerConfigOverrides(t *testing.T) {
 		},
 		{
 			name:    "a typed attribute the user did not write never conflicts",
-			entries: brokerConfigEntriesOf(map[string]types.String{"log.retention.ms": types.StringValue("7200000")}),
+			entries: map[string]types.String{"log.retention.ms": types.StringValue("7200000")},
 			// Empty: the schema's default is not something the user wrote.
 			declaredTyped: map[string]attr.Value{},
 			wantOverrides: map[string]brokerConfigOverride{
@@ -290,7 +280,7 @@ func TestResolveBrokerConfigOverrides(t *testing.T) {
 		},
 		{
 			name:    "a value that cannot be compared names its key",
-			entries: brokerConfigEntriesOf(map[string]types.String{"log.retention.ms": types.StringValue("1MB")}),
+			entries: map[string]types.String{"log.retention.ms": types.StringValue("1MB")},
 			declaredTyped: map[string]attr.Value{
 				"default_retention_millis": types.Int64Value(3600000),
 			},
@@ -306,10 +296,10 @@ func TestResolveBrokerConfigOverrides(t *testing.T) {
 		{
 			// One bad value must not hide the next: the diagnostics name every offending key.
 			name: "several unusable values are all reported",
-			entries: brokerConfigEntriesOf(map[string]types.String{
+			entries: map[string]types.String{
 				"log.retention.ms":          types.StringValue("1MB"),
 				"auto.create.topics.enable": types.StringValue("yes-please"),
-			}),
+			},
 			declaredTyped: map[string]attr.Value{
 				"default_retention_millis": types.Int64Value(3600000),
 				"auto_create_topic":        types.BoolValue(true),
