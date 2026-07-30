@@ -17,11 +17,12 @@ func TestAccSchemaRegistryDataSource(t *testing.T) {
 
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
+	tier := api.VirtualClusterTierFundamentals
 	vc, err := client.CreateVirtualCluster(
 		vcNameSuffix,
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeSchemaRegistry,
-			Tier:   api.VirtualClusterTierPro,
+			Tier:   tier,
 			Region: &region,
 			Cloud:  "aws",
 		},
@@ -43,7 +44,7 @@ func TestAccSchemaRegistryDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testSchemaRegistryDataSourceWithIDAndAgentKey(vc.ID, agentKeyName),
-				Check:  testAccSchemaRegistryDatasourceCheck(vc, datasourceName, agentKeyName),
+				Check:  testAccSchemaRegistryDatasourceCheck(vc, datasourceName, agentKeyName, tier),
 			},
 		},
 	})
@@ -83,12 +84,13 @@ func testAccSchemaRegistryDatasourceCheck(
 	vc *api.VirtualCluster,
 	datasourceName string,
 	agentKeyName string,
+	expectedTier string,
 ) resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet(datasourceName, "id"),
 		resource.TestCheckResourceAttr(datasourceName, "id", vc.ID),
 		resource.TestCheckResourceAttrSet(datasourceName, "created_at"),
-		resource.TestCheckResourceAttr(datasourceName, "tier", vc.Tier),
+		resource.TestCheckResourceAttr(datasourceName, "tier", expectedTier),
 		resource.TestCheckResourceAttr(datasourceName, "cloud.provider", "aws"),
 		resource.TestCheckResourceAttr(datasourceName, "cloud.region", "us-east-1"),
 		resource.TestCheckResourceAttr(datasourceName, "agent_keys.#", "1"),
