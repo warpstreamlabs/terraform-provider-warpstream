@@ -25,174 +25,115 @@ func noPriorState() tfsdk.State {
 	return tfsdk.State{Raw: tftypes.NewValue(emptyObject, nil)}
 }
 
-func TestUseStateForUnknownIncludingNullMap(t *testing.T) {
-	t.Parallel()
+// valueKind abstracts a value's shape so one table drives every typed variant of the modifier.
+type valueKind int
 
-	someMap := types.MapValueMust(types.StringType, map[string]attr.Value{
-		"topic_created": types.StringValue("on"),
-	})
+const (
+	kindNull valueKind = iota
+	kindUnknown
+	kindKnown
+)
+
+func TestUseStateForUnknownIncludingNull(t *testing.T) {
+	t.Parallel()
 
 	tests := []struct {
 		name        string
 		state       tfsdk.State
-		stateValue  types.Map
-		planValue   types.Map
-		configValue types.Map
-		want        types.Map
+		stateValue  valueKind
+		planValue   valueKind
+		configValue valueKind
+		want        valueKind
 	}{
 		{
-			// The reason this modifier exists. The built-in bails here because the prior value is
-			// null, so nothing undoes the framework marking the attribute known-after-apply and
-			// the plan never settles.
-			name:        "empty prior value is reused",
+			name:        "empty prior value is reused (diverges from the built-in)",
 			state:       priorStateExists(),
-			stateValue:  types.MapNull(types.StringType),
-			planValue:   types.MapUnknown(types.StringType),
-			configValue: types.MapNull(types.StringType),
-			want:        types.MapNull(types.StringType),
+			stateValue:  kindNull,
+			planValue:   kindUnknown,
+			configValue: kindNull,
+			want:        kindNull,
 		},
 		{
 			name:        "populated prior value is reused, as the built-in also does",
 			state:       priorStateExists(),
-			stateValue:  someMap,
-			planValue:   types.MapUnknown(types.StringType),
-			configValue: types.MapNull(types.StringType),
-			want:        someMap,
+			stateValue:  kindKnown,
+			planValue:   kindUnknown,
+			configValue: kindNull,
+			want:        kindKnown,
 		},
 		{
 			// Nothing to reuse while creating, and known-after-apply is the honest answer.
 			name:        "creating leaves the value unknown",
 			state:       noPriorState(),
-			stateValue:  types.MapNull(types.StringType),
-			planValue:   types.MapUnknown(types.StringType),
-			configValue: types.MapNull(types.StringType),
-			want:        types.MapUnknown(types.StringType),
+			stateValue:  kindNull,
+			planValue:   kindUnknown,
+			configValue: kindNull,
+			want:        kindUnknown,
 		},
 		{
 			name:        "a known planned value is left alone",
 			state:       priorStateExists(),
-			stateValue:  types.MapNull(types.StringType),
-			planValue:   someMap,
-			configValue: someMap,
-			want:        someMap,
+			stateValue:  kindNull,
+			planValue:   kindKnown,
+			configValue: kindKnown,
+			want:        kindKnown,
 		},
 		{
 			// The configuration supplies this value but has not resolved it, so it is not ours.
 			name:        "an unresolved configuration value is left alone",
 			state:       priorStateExists(),
-			stateValue:  someMap,
-			planValue:   types.MapUnknown(types.StringType),
-			configValue: types.MapUnknown(types.StringType),
-			want:        types.MapUnknown(types.StringType),
+			stateValue:  kindKnown,
+			planValue:   kindUnknown,
+			configValue: kindUnknown,
+			want:        kindUnknown,
 		},
+	}
+
+	stringOf := func(k valueKind) types.String {
+		switch k {
+		case kindUnknown:
+			return types.StringUnknown()
+		case kindKnown:
+			return types.StringValue("lightning")
+		}
+		return types.StringNull()
+	}
+	someMap := types.MapValueMust(types.StringType, map[string]attr.Value{
+		"topic_created": types.StringValue("on"),
+	})
+	mapOf := func(k valueKind) types.Map {
+		switch k {
+		case kindUnknown:
+			return types.MapUnknown(types.StringType)
+		case kindKnown:
+			return someMap
+		}
+		return types.MapNull(types.StringType)
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			resp := &planmodifier.MapResponse{PlanValue: tt.planValue}
-			UseStateForUnknownIncludingNullMap().PlanModifyMap(context.Background(), planmodifier.MapRequest{
-				State:       tt.state,
-				StateValue:  tt.stateValue,
-				PlanValue:   tt.planValue,
-				ConfigValue: tt.configValue,
-			}, resp)
-
-			require.False(t, resp.Diagnostics.HasError())
-			require.Equal(t, tt.want, resp.PlanValue)
-		})
-	}
-}
-
-func TestUseStateForUnknownIncludingNullString(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		state       tfsdk.State
-		stateValue  types.String
-		planValue   types.String
-		configValue types.String
-		want        types.String
-	}{
-		{
-			// configuration.default_topic_type is empty whenever nobody chose a topic type.
-			name:        "empty prior value is reused",
-			state:       priorStateExists(),
-			stateValue:  types.StringNull(),
-			planValue:   types.StringUnknown(),
-			configValue: types.StringNull(),
-			want:        types.StringNull(),
-		},
-		{
-			name:        "populated prior value is reused, as the built-in also does",
-			state:       priorStateExists(),
-			stateValue:  types.StringValue("lightning"),
-			planValue:   types.StringUnknown(),
-			configValue: types.StringNull(),
-			want:        types.StringValue("lightning"),
-		},
-		{
-			name:        "creating leaves the value unknown",
-			state:       noPriorState(),
-			stateValue:  types.StringNull(),
-			planValue:   types.StringUnknown(),
-			configValue: types.StringNull(),
-			want:        types.StringUnknown(),
-		},
-		{
-			name:        "a known planned value is left alone",
-			state:       priorStateExists(),
-			stateValue:  types.StringNull(),
-			planValue:   types.StringValue("classic"),
-			configValue: types.StringValue("classic"),
-			want:        types.StringValue("classic"),
-		},
-		{
-			name:        "an unresolved configuration value is left alone",
-			state:       priorStateExists(),
-			stateValue:  types.StringValue("classic"),
-			planValue:   types.StringUnknown(),
-			configValue: types.StringUnknown(),
-			want:        types.StringUnknown(),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			resp := &planmodifier.StringResponse{PlanValue: tt.planValue}
+			strResp := &planmodifier.StringResponse{PlanValue: stringOf(tt.planValue)}
 			UseStateForUnknownIncludingNullString().PlanModifyString(context.Background(), planmodifier.StringRequest{
 				State:       tt.state,
-				StateValue:  tt.stateValue,
-				PlanValue:   tt.planValue,
-				ConfigValue: tt.configValue,
-			}, resp)
+				StateValue:  stringOf(tt.stateValue),
+				PlanValue:   stringOf(tt.planValue),
+				ConfigValue: stringOf(tt.configValue),
+			}, strResp)
+			require.False(t, strResp.Diagnostics.HasError())
+			require.Equal(t, stringOf(tt.want), strResp.PlanValue, "string variant")
 
-			require.False(t, resp.Diagnostics.HasError())
-			require.Equal(t, tt.want, resp.PlanValue)
+			mapResp := &planmodifier.MapResponse{PlanValue: mapOf(tt.planValue)}
+			UseStateForUnknownIncludingNullMap().PlanModifyMap(context.Background(), planmodifier.MapRequest{
+				State:       tt.state,
+				StateValue:  mapOf(tt.stateValue),
+				PlanValue:   mapOf(tt.planValue),
+				ConfigValue: mapOf(tt.configValue),
+			}, mapResp)
+			require.False(t, mapResp.Diagnostics.HasError())
+			require.Equal(t, mapOf(tt.want), mapResp.PlanValue, "map variant")
 		})
 	}
-}
-
-// TestUseStateForUnknownIncludingNullDivergesFromBuiltIn pins the one difference from the upstream
-// modifier, so that swapping this back for the built-in fails here rather than silently
-// reintroducing a permanent phantom diff.
-func TestUseStateForUnknownIncludingNullDivergesFromBuiltIn(t *testing.T) {
-	t.Parallel()
-
-	// Prior state exists but the value in it is empty. The built-in returns early on
-	// StateValue.IsNull(); this modifier asks State.Raw.IsNull() instead, so it acts.
-	resp := &planmodifier.StringResponse{PlanValue: types.StringUnknown()}
-	UseStateForUnknownIncludingNullString().PlanModifyString(context.Background(), planmodifier.StringRequest{
-		State:       priorStateExists(),
-		StateValue:  types.StringNull(),
-		PlanValue:   types.StringUnknown(),
-		ConfigValue: types.StringNull(),
-	}, resp)
-
-	require.True(t, resp.PlanValue.IsNull(), "an empty prior value must be reused, not left unknown")
-	require.False(t, resp.PlanValue.IsUnknown())
 }

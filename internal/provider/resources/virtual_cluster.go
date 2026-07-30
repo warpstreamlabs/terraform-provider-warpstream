@@ -176,10 +176,8 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 	r.reconcileTypedConfiguration(ctx, req, resp, overrides, declaredTypedAttrs)
 }
 
-// declaredTypedConfigAttrs returns the `configuration` attributes the user actually wrote, keyed
-// by tfsdk name. It reads the raw configuration rather than the plan, because `configuration`
-// carries a schema default: in the plan every attribute looks set, so there is no way to tell a
-// value the user chose from one the schema filled in.
+// declaredTypedConfigAttrs returns the `configuration` attributes the user explicitly wrote, keyed
+// by tfsdk name.
 func declaredTypedConfigAttrs(ctx context.Context, config tfsdk.Config, diags *diag.Diagnostics) map[string]attr.Value {
 	var cfgObj types.Object
 	diags.Append(config.GetAttribute(ctx, path.Root("configuration"), &cfgObj)...)
