@@ -102,6 +102,23 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Read the typed configuration from the raw *config* rather than the plan, so that the
+	// schema's defaults are not mistaken for values the user wrote.
+	declaredTypedAttrs := declaredTypedConfigAttrs(ctx, req.Config, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// A map that is unknown as a whole — `jsondecode` of a value that is not known until apply,
+	// say — hides its keys, so there is no way to tell which mirrored settings it is about to
+	// change. Plan all of them as known-after-apply rather than let a schema default stand and
+	// then be contradicted by the apply.
+	if declared.IsUnknown() {
+		r.reconcileTypedConfiguration(ctx, req, resp, allMirroredUnknown(), declaredTypedAttrs)
+		return
+	}
+
 	entries := brokerConfigEntries(ctx, declared, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() || len(entries) == 0 {
 		return
@@ -122,27 +139,10 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 			resp.Diagnostics.AddAttributeError(brokerPath.AtMapKey(key), "Invalid broker configuration",
 				"null is not a valid value: the API ignores null entries, so Terraform would not be able to track this "+
 					"setting. Remove the key, or set it to the value you want.")
-			continue
 		}
 	}
 	if resp.Diagnostics.HasError() {
 		return
-	}
-
-	// Read the typed configuration from the raw *config* rather than the plan, so that the
-	// schema's defaults are not mistaken for values the user wrote.
-	var cfgObj types.Object
-	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("configuration"), &cfgObj)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	declaredTypedAttrs := make(map[string]attr.Value)
-	if !cfgObj.IsNull() && !cfgObj.IsUnknown() {
-		for name, v := range cfgObj.Attributes() {
-			if v != nil && !v.IsNull() && !v.IsUnknown() {
-				declaredTypedAttrs[name] = v
-			}
-		}
 	}
 
 	overrides, conflicts, parseErrs := resolveBrokerConfigOverrides(entries, declaredTypedAttrs)
@@ -173,6 +173,40 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 	}
 
 	r.reconcileTypedConfiguration(ctx, req, resp, overrides, declaredTypedAttrs)
+}
+
+// declaredTypedConfigAttrs returns the `configuration` attributes the user actually wrote, keyed
+// by tfsdk name. It reads the raw configuration rather than the plan, because `configuration`
+// carries a schema default: in the plan every attribute looks set, so there is no way to tell a
+// value the user chose from one the schema filled in.
+func declaredTypedConfigAttrs(ctx context.Context, config tfsdk.Config, diags *diag.Diagnostics) map[string]attr.Value {
+	var cfgObj types.Object
+	diags.Append(config.GetAttribute(ctx, path.Root("configuration"), &cfgObj)...)
+	if diags.HasError() {
+		return nil
+	}
+
+	out := make(map[string]attr.Value)
+	if cfgObj.IsNull() || cfgObj.IsUnknown() {
+		return out
+	}
+	for name, v := range cfgObj.Attributes() {
+		if v != nil && !v.IsNull() && !v.IsUnknown() {
+			out[name] = v
+		}
+	}
+	return out
+}
+
+// allMirroredUnknown returns an override for every mirrored setting with a value that is not known
+// until apply. It is used when the map is unknown as a whole and its keys cannot be inspected, so
+// any of them might be about to change.
+func allMirroredUnknown() map[string]brokerConfigOverride {
+	out := make(map[string]brokerConfigOverride, len(brokerKeyTypedAttr))
+	for key, attrName := range brokerKeyTypedAttr {
+		out[attrName] = brokerConfigOverride{Key: key, Value: types.StringUnknown()}
+	}
+	return out
 }
 
 // brokerConfigConflict is a cluster setting written through both the typed `configuration`
@@ -361,8 +395,9 @@ func plannedTypedConfiguration(
 //
 // That works for any rewriting, including rules we have never heard of.
 func plannedMirroredValue(override brokerConfigOverride, planVal, priorVal attr.Value, priorBroker map[string]string) attr.Value {
-	declaredUnchanged := !override.Value.IsNull() && !override.Value.IsUnknown() &&
-		priorBroker[override.Key] == override.Value.ValueString()
+	prior, hadKey := priorBroker[override.Key]
+	declaredUnchanged := hadKey && !override.Value.IsNull() && !override.Value.IsUnknown() &&
+		prior == override.Value.ValueString()
 
 	if declaredUnchanged && priorVal != nil && !priorVal.IsNull() && !priorVal.IsUnknown() {
 		return priorVal
@@ -390,8 +425,12 @@ func unknownLike(v attr.Value) attr.Value {
 // entries are skipped: the API treats a null entry as absent, and by the time configuration
 // is written there is nothing left unknown.
 func brokerConfigMap(ctx context.Context, m types.Map, diags *diag.Diagnostics) map[string]string {
-	entries := brokerConfigEntries(ctx, m, diags)
-	if diags.HasError() || len(entries) == 0 {
+	// A local diagnostics set, so this reports only its own failure rather than reacting to
+	// whatever the caller had already recorded.
+	var extractDiags diag.Diagnostics
+	entries := brokerConfigEntries(ctx, m, &extractDiags)
+	diags.Append(extractDiags...)
+	if extractDiags.HasError() || len(entries) == 0 {
 		return nil
 	}
 	out := make(map[string]string, len(entries))
@@ -1079,13 +1118,18 @@ func filterClusterConfigsToDeclared(ctx context.Context, apiConfigs map[string]*
 		return types.MapNull(types.StringType)
 	}
 
-	declaredKeys := brokerConfigMap(ctx, declared, respDiags)
-	if respDiags.HasError() {
+	// Extract with a local diagnostics set. Gating on respDiags would react to any error the
+	// caller had already recorded -- on the create-failure path that is the update error itself,
+	// which would null this attribute exactly when the recovery is trying to record reality.
+	var extractDiags diag.Diagnostics
+	declaredValues := brokerConfigMap(ctx, declared, &extractDiags)
+	respDiags.Append(extractDiags...)
+	if extractDiags.HasError() {
 		return types.MapNull(types.StringType)
 	}
 
-	out := make(map[string]attr.Value, len(declaredKeys))
-	for k := range declaredKeys {
+	out := make(map[string]attr.Value, len(declaredValues))
+	for k := range declaredValues {
 		if v, ok := apiConfigs[k]; ok {
 			out[k] = types.StringPointerValue(v)
 		}
@@ -1211,7 +1255,7 @@ func apiTypedConfigValues(cfg *api.VirtualClusterConfiguration) map[string]strin
 // user declared in the map win, so a value is never sent through both representations, which
 // is what the API rejects when the two disagree.
 func brokerConfigsPayload(cfgPlan *models.VirtualClusterConfiguration, brokerCfg map[string]string) map[string]*string {
-	out := make(map[string]*string, len(brokerCfg)+6)
+	out := make(map[string]*string, len(brokerCfg)+len(brokerKeyTypedAttr))
 	for k, v := range brokerCfg {
 		out[k] = &v
 	}

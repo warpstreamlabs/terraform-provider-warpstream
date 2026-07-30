@@ -605,12 +605,61 @@ resource "warpstream_virtual_cluster" "test" {
 	})
 }
 
+// TestAccVirtualClusterResourceBrokerConfigWholeMapUnknown covers a `broker_configuration` that
+// is unknown as a whole, rather than one whose individual values are unknown.
+func TestAccVirtualClusterResourceBrokerConfigWholeMapUnknown(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+
+	// The dependency cluster's id is unknown until it is created, so the JSON string built from it
+	// is unknown, and decoding it yields a map whose keys are not visible at plan time.
+	config := providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "dep" {
+  name = "vcn_test_acc_%s_dep"
+  tier = "dev"
+}
+
+locals {
+  encoded_%s = jsonencode({
+    "log.retention.ms" = tostring(length(warpstream_virtual_cluster.dep.id) * 100000)
+  })
+}
+
+resource "warpstream_virtual_cluster" "test" {
+  name                 = "vcn_test_acc_%s"
+  tier                 = "fundamentals"
+  broker_configuration = jsondecode(local.encoded_%s)
+}`, vcNameSuffix, vcNameSuffix, vcNameSuffix, vcNameSuffix)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						// The schema default must not stand here: the map is about to set this.
+						plancheck.ExpectUnknownValue(addr,
+							tfjsonpath.New("configuration").AtMapKey("default_retention_millis")),
+					},
+				},
+				Check: resource.TestCheckResourceAttrPair(
+					addr, "broker_configuration.log.retention.ms",
+					addr, "configuration.default_retention_millis",
+				),
+			},
+			{
+				Config:           config,
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+			},
+		},
+	})
+}
+
 // TestAccVirtualClusterResourceBrokerConfigLargeRetention covers a retention longer than an
 // int32 of milliseconds can hold (30 days is 2,592,000,000 ms, past the 2,147,483,647 limit).
 // The typed `default_retention_millis` attribute has always been a 64-bit integer, so this must
 // work through the map too, otherwise long retention would regress for anyone migrating.
-//
-// NOTE: expected to fail until the API change widening log.retention.ms to 64 bits is deployed.
 func TestAccVirtualClusterResourceBrokerConfigLargeRetention(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	const addr = "warpstream_virtual_cluster.test"
