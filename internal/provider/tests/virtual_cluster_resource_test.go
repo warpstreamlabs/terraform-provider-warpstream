@@ -351,15 +351,16 @@ func TestAccVirtualClusterResourceBrokerConfigRejectedByAPI(t *testing.T) {
 				ExpectError: regexp.MustCompile(`the\s+API\s+reports\s+it\s+as\s+"-1"`),
 			},
 			// An empty value parses as a valid map entry, so it reaches the API, which rejects
-			// it while parsing the config's value.
+			// it while parsing the config's value. The error arrives as raw JSON, so the quotes
+			// around the config name are backslash-escaped.
 			{
 				Config:      brokerConfigResource(vcNameSuffix, "", `    "message.max.bytes" = ""`),
-				ExpectError: regexp.MustCompile(`invalid\s+cluster\s+config\s+"message\.max\.bytes"`),
+				ExpectError: regexp.MustCompile(`invalid\s+cluster\s+config\s+\\?"message\.max\.bytes\\?"`),
 			},
 			// An empty key is just an unsupported config name.
 			{
 				Config:      brokerConfigResource(vcNameSuffix, "", `    "" = "1048576"`),
-				ExpectError: regexp.MustCompile(`unsupported\s+cluster\s+config\s+""`),
+				ExpectError: regexp.MustCompile(`unsupported\s+cluster\s+config\s+\\?"\\?"`),
 			},
 		},
 	})
