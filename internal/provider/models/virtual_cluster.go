@@ -39,7 +39,7 @@ type VirtualClusterResource struct {
 	Configuration types.Object `tfsdk:"configuration"`
 	// BrokerConfiguration is a generic map of Kafka-style broker/cluster config
 	// (e.g. "message.max.bytes"). A setting that also has a typed attribute in Configuration may
-	// be written through either surface, or through both as long as the two values agree;
+	// be written through either field, or through both as long as the two values agree;
 	// disagreeing values are rejected at plan time.
 	BrokerConfiguration types.Map    `tfsdk:"broker_configuration"`
 	Events              types.Object `tfsdk:"events"`

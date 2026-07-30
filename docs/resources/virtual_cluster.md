@@ -111,7 +111,7 @@ resource "warpstream_virtual_cluster" "test_with_events" {
 
 ### Optional
 
-- `broker_configuration` (Map of String) Cluster-level broker configuration, as a map of Kafka-style config names to string values (e.g. `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`). This is the recommended way to configure broker settings. The individual typed attributes under `configuration` (such as `default_retention_millis` and `default_topic_type`) set some of the same settings and continue to work. A setting that also has a typed `configuration` attribute may be set through either surface, or through both as long as the two values agree; setting them to different values is rejected at plan time.
+- `broker_configuration` (Map of String) Cluster-level broker configuration, as a map of Kafka-style config names to string values (e.g. `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`). This is the recommended way to configure broker settings. The individual typed attributes under `configuration` (such as `default_retention_millis` and `default_topic_type`) set some of the same settings and continue to work. A setting that also has a typed `configuration` attribute may be set through either field, or through both as long as the two values agree; setting them to different values is rejected at plan time.
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
 - `events` (Attributes) Virtual Cluster Events Configuration. (see [below for nested schema](#nestedatt--events))
