@@ -88,6 +88,7 @@ func testAccSchemaRegistryDatasourceCheck(
 		resource.TestCheckResourceAttrSet(datasourceName, "id"),
 		resource.TestCheckResourceAttr(datasourceName, "id", vc.ID),
 		resource.TestCheckResourceAttrSet(datasourceName, "created_at"),
+		resource.TestCheckResourceAttr(datasourceName, "tier", vc.Tier),
 		resource.TestCheckResourceAttr(datasourceName, "cloud.provider", "aws"),
 		resource.TestCheckResourceAttr(datasourceName, "cloud.region", "us-east-1"),
 		resource.TestCheckResourceAttr(datasourceName, "agent_keys.#", "1"),

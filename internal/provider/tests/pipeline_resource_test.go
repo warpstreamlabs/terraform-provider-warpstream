@@ -328,6 +328,7 @@ func testSchemaMigratorPipeline() string {
 	virtualClusterResource := fmt.Sprintf(`
 resource "warpstream_schema_registry" "test" {
   name = "vcn_sr_test_%s"
+  tier = "dev"
 }`, acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum))
 	return providerConfig + virtualClusterResource + `
 resource "warpstream_pipeline" "test_pipeline" {

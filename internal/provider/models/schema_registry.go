@@ -8,6 +8,7 @@ import (
 type SchemaRegistryDataSource struct {
 	ID           types.String `tfsdk:"id"`
 	Name         types.String `tfsdk:"name"`
+	Tier         types.String `tfsdk:"tier"`
 	AgentKeys    *[]AgentKey  `tfsdk:"agent_keys"`
 	CreatedAt    types.String `tfsdk:"created_at"`
 	Cloud        types.Object `tfsdk:"cloud"`
@@ -18,6 +19,7 @@ type SchemaRegistryDataSource struct {
 type SchemaRegistryResource struct {
 	ID           types.String `tfsdk:"id"`
 	Name         types.String `tfsdk:"name"`
+	Tier         types.String `tfsdk:"tier"`
 	CreatedAt    types.String `tfsdk:"created_at"`
 	Cloud        types.Object `tfsdk:"cloud"`
 	BootstrapURL types.String `tfsdk:"bootstrap_url"`

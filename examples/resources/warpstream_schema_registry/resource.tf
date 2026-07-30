@@ -12,4 +12,5 @@ provider "warpstream" {
 
 resource "warpstream_schema_registry" "example_schema_registry" {
   name = "vcn_sr_example_schema_registry"
+  tier = "dev"
 }
