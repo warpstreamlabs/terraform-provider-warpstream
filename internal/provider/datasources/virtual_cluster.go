@@ -280,21 +280,17 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	cfgState := models.VirtualClusterConfiguration{
 		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
 		ACLShadowingEnabled:      types.BoolValue(cfg.ACLShadowingEnabled),
-		AutoCreateTopic:          types.BoolPointerValue(cfg.AutoCreateTopic),
-		DefaultNumPartitions:     types.Int64PointerValue(cfg.DefaultNumPartitions),
-		DefaultRetention:         types.Int64PointerValue(cfg.DefaultRetentionMillis),
+		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
+		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
+		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
+		DefaultTopicType:         types.StringValue(cfg.DefaultTopicType),
 		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
-		EnableSoftTopicDeletion:  types.BoolPointerValue(cfg.EnableSoftTopicDeletion),
+		EnableSoftTopicDeletion:  types.BoolValue(cfg.EnableSoftTopicDeletion),
 	}
 	if cfg.SoftTopicDeletionTTL != nil {
 		cfgState.SoftTopicDeletionTTL = types.Int64Value(cfg.SoftTopicDeletionTTL.Milliseconds())
 	} else {
 		cfgState.SoftTopicDeletionTTL = types.Int64Value(86400000)
-	}
-	if cfg.DefaultTopicType != nil {
-		cfgState.DefaultTopicType = types.StringValue(*cfg.DefaultTopicType)
-	} else {
-		cfgState.DefaultTopicType = types.StringNull()
 	}
 
 	resp.Diagnostics.AddWarning("Virtual Cluster Tier", fmt.Sprintf("Tier: %s", cfg.Tier))
@@ -386,17 +382,14 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	// Set the generic broker configs.
+	// Set the generic broker configs. Unlike the resource, which tracks only the keys a
+	// configuration declared, the data source reports every config the cluster holds.
 	brokerConfigs := make(map[string]attr.Value, len(cfg.BrokerConfigs))
 	for name, value := range cfg.BrokerConfigs {
 		brokerConfigs[name] = types.StringPointerValue(value)
 	}
-	brokerConfigsValue, diags := types.MapValue(types.StringType, brokerConfigs)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	diags = resp.State.SetAttribute(ctx, path.Root("broker_configuration"), brokerConfigsValue)
+	diags = resp.State.SetAttribute(ctx, path.Root("broker_configuration"),
+		types.MapValueMust(types.StringType, brokerConfigs))
 	resp.Diagnostics.Append(diags...)
 }
 

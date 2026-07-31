@@ -37,10 +37,8 @@ type VirtualClusterResource struct {
 	Default       types.Bool   `tfsdk:"default"`
 	Tags          types.Map    `tfsdk:"tags"`
 	Configuration types.Object `tfsdk:"configuration"`
-	// BrokerConfiguration is a generic map of Kafka-style broker/cluster config
-	// (e.g. "message.max.bytes"). It is disjoint from Configuration: a setting that has a typed
-	// attribute there is rejected as a map key at plan time, with an error naming the attribute
-	// to use instead.
+	// BrokerConfiguration is a generic map of Kafka-style cluster config, disjoint from
+	// Configuration. See mirroredConfigs in the resources package.
 	BrokerConfiguration types.Map    `tfsdk:"broker_configuration"`
 	Events              types.Object `tfsdk:"events"`
 	Cloud               types.Object `tfsdk:"cloud"`

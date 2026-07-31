@@ -438,12 +438,23 @@ func TestAccVirtualClusterResourceBrokerConfigLifecycle(t *testing.T) {
 // configuration written against the released provider, which has no `broker_configuration`
 // attribute at all, must plan clean once this provider takes over. This protects every existing
 // user who never adopts the feature.
+//
+// Every setting whose wire representation this change moves to broker_configs is exercised,
+// because each one is a chance to translate the value wrongly: the soft-delete TTL in
+// particular used to be sent as a nanosecond duration under its own field and is now
+// milliseconds under `warpstream.soft.delete.topic.ttl.ms`.
 func TestAccVirtualClusterResourceBrokerConfigUpgrade(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
 
 	// A configuration the released provider understands: typed attributes, no map.
-	config := brokerConfigResource(vcNameSuffix, `    default_retention_millis = 3600000
-    enable_acls              = true`, "")
+	config := brokerConfigResource(vcNameSuffix, `    auto_create_topic              = false
+    default_num_partitions         = 4
+    default_retention_millis       = 3600000
+    default_topic_type             = "lightning"
+    enable_soft_topic_deletion     = true
+    soft_topic_deletion_ttl_millis = 172800000
+    enable_acls                    = true`, "")
 
 	resource.Test(t, resource.TestCase{
 		Steps: []resource.TestStep{
@@ -457,6 +468,23 @@ func TestAccVirtualClusterResourceBrokerConfigUpgrade(t *testing.T) {
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Config:                   config,
 				ConfigPlanChecks:         resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+			},
+			// Taking over is not enough: the new provider must also be able to write these
+			// settings through their new representation without changing what they mean.
+			{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Config: brokerConfigResource(vcNameSuffix, `    auto_create_topic              = false
+    default_num_partitions         = 4
+    default_retention_millis       = 7200000
+    default_topic_type             = "lightning"
+    enable_soft_topic_deletion     = true
+    soft_topic_deletion_ttl_millis = 259200000
+    enable_acls                    = true`, ""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(addr, "configuration.default_retention_millis", "7200000"),
+					resource.TestCheckResourceAttr(addr, "configuration.soft_topic_deletion_ttl_millis", "259200000"),
+					resource.TestCheckResourceAttr(addr, "configuration.default_topic_type", "lightning"),
+				),
 			},
 		},
 	})

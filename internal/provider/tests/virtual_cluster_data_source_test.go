@@ -83,10 +83,10 @@ func TestAccVirtualClusterDataSourceBrokerConfiguration(t *testing.T) {
 	// Set two configs straight through the API, so Terraform has no configuration declaring them
 	// and can only be reporting what the cluster actually holds.
 	maxBytes, retention := "1048576", "604800000"
-	require.NoError(t, client.UpdateConfiguration(api.VirtualClusterConfiguration{
-		BrokerConfigs: map[string]*string{
-			"message.max.bytes": &maxBytes,
-			"log.retention.ms":  &retention,
+	require.NoError(t, client.UpdateConfiguration(api.ConfigurationUpdate{
+		BrokerConfigs: map[string]string{
+			"message.max.bytes": maxBytes,
+			"log.retention.ms":  retention,
 		},
 	}, *vc))
 
@@ -162,11 +162,6 @@ func testAccVCDataSourceCheck_byoc(
 		softTopicDeletionTTL = cfg.SoftTopicDeletionTTL.Milliseconds()
 	}
 
-	enableSoftTopicDeletion := true
-	if cfg.EnableSoftTopicDeletion != nil {
-		enableSoftTopicDeletion = *cfg.EnableSoftTopicDeletion
-	}
-
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "type", "byoc"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "tags.test_tag", "test_value"),
@@ -178,7 +173,7 @@ func testAccVCDataSourceCheck_byoc(
 		),
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_cluster.test", "configuration.enable_soft_topic_deletion",
-			fmt.Sprintf("%t", enableSoftTopicDeletion),
+			fmt.Sprintf("%t", cfg.EnableSoftTopicDeletion),
 		),
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_cluster.test", "configuration.soft_topic_deletion_ttl_millis",

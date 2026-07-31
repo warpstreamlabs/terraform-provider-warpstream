@@ -3,13 +3,15 @@ package resources
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/stretchr/testify/require"
-	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/models"
 )
 
@@ -20,22 +22,73 @@ func brokerConfigMapOf(t *testing.T, kv map[string]string) types.Map {
 	for k, v := range kv {
 		elems[k] = types.StringValue(v)
 	}
-	m, diags := types.MapValue(types.StringType, elems)
-	require.False(t, diags.HasError())
-	return m
+	return types.MapValueMust(types.StringType, elems)
+}
+
+// virtualClusterSchema returns the resource's own schema, so plan fixtures cannot drift from it.
+func virtualClusterSchema(t *testing.T) schema.Schema {
+	t.Helper()
+	var resp resource.SchemaResponse
+	(&virtualClusterResource{}).Schema(context.Background(), resource.SchemaRequest{}, &resp)
+	require.False(t, resp.Diagnostics.HasError(), "schema: %v", resp.Diagnostics)
+	return resp.Schema
+}
+
+func planObjectType(t *testing.T) tftypes.Type {
+	t.Helper()
+	return virtualClusterSchema(t).Type().TerraformType(context.Background())
+}
+
+// planWithBrokerConfiguration builds a plan whose attributes are all null except
+// `broker_configuration`, which is the only one ModifyPlan looks at.
+func planWithBrokerConfiguration(t *testing.T, declared types.Map) tfsdk.Plan {
+	t.Helper()
+
+	ctx := context.Background()
+	s := virtualClusterSchema(t)
+	objType, ok := planObjectType(t).(tftypes.Object)
+	require.True(t, ok)
+
+	attrs := make(map[string]tftypes.Value, len(objType.AttributeTypes))
+	for name, ty := range objType.AttributeTypes {
+		attrs[name] = tftypes.NewValue(ty, nil)
+	}
+	raw, err := declared.ToTerraformValue(ctx)
+	require.NoError(t, err)
+	attrs["broker_configuration"] = raw
+
+	return tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(objType, attrs)}
 }
 
 func TestBrokerConfigTablesAgree(t *testing.T) {
 	t.Parallel()
 
-	// Every mirrored config must name a distinct typed attribute. Two configs claiming the same
-	// attribute would mean one silently overwrites the other.
-	seen := make(map[string]string, len(brokerKeyTypedAttr))
-	for key, attrName := range brokerKeyTypedAttr {
-		if other, dup := seen[attrName]; dup {
-			t.Fatalf("configs %q and %q both claim attribute %q", other, key, attrName)
+	// Every mirrored config must name a distinct config name and a distinct typed attribute.
+	// Two entries claiming either would mean one silently overwrites the other.
+	seenKey := make(map[string]bool, len(mirroredConfigs))
+	seenAttr := make(map[string]string, len(mirroredConfigs))
+	for _, m := range mirroredConfigs {
+		require.False(t, seenKey[m.key], "config %q is listed twice", m.key)
+		seenKey[m.key] = true
+		if other, dup := seenAttr[m.typedAttr]; dup {
+			t.Fatalf("configs %q and %q both claim attribute %q", other, m.key, m.typedAttr)
 		}
-		seen[attrName] = key
+		seenAttr[m.typedAttr] = m.key
+	}
+
+	// Every mirrored setting must be renderable, or brokerConfigsPayload would silently stop
+	// writing it when a configuration sets it.
+	populated := models.VirtualClusterConfiguration{
+		AutoCreateTopic:         types.BoolValue(true),
+		DefaultNumPartitions:    types.Int64Value(4),
+		DefaultRetention:        types.Int64Value(86400000),
+		DefaultTopicType:        types.StringValue("lightning"),
+		EnableSoftTopicDeletion: types.BoolValue(false),
+		SoftTopicDeletionTTL:    types.Int64Value(172800000),
+	}
+	for _, m := range mirroredConfigs {
+		_, ok := renderConfigValue(m.planValue(populated))
+		require.True(t, ok, "config %q has no renderable plan value", m.key)
 	}
 
 	// Every alias must resolve to advice that names something usable: either a canonical key
@@ -43,10 +96,10 @@ func TestBrokerConfigTablesAgree(t *testing.T) {
 	// attribute. An alias pointing at another rejected alias would send users in a circle.
 	for alias, canonical := range writeOnlyAliasKeys {
 		require.NotEqual(t, alias, canonical, "alias %s points at itself", alias)
-		require.NotContains(t, brokerKeyTypedAttr, alias, "alias %s must not also be mirrored", alias)
+		require.False(t, seenKey[alias], "alias %s must not also be mirrored", alias)
 		require.NotContains(t, writeOnlyAliasKeys, canonical,
 			"alias %s points at %s, which is itself rejected as an alias", alias, canonical)
-		if typedAttr, mirrored := brokerKeyTypedAttr[canonical]; mirrored {
+		if typedAttr, mirrored := typedAttrFor(canonical); mirrored {
 			// The alias's error must redirect users to the typed attribute, not to the
 			// canonical key, which the map also rejects.
 			require.ErrorContains(t, validateBrokerConfigKey(alias), "configuration."+typedAttr,
@@ -106,50 +159,81 @@ func TestValidateBrokerConfigKey(t *testing.T) {
 	}
 }
 
-func TestBrokerConfigEntriesKeepsUnknownValues(t *testing.T) {
-	t.Parallel()
-
-	// A value derived from another resource is not known at plan time. Extracting it must not
-	// fail, or `terraform plan` breaks with a "report this to the provider developer" error.
-	m, diags := types.MapValue(types.StringType, map[string]attr.Value{
-		"message.max.bytes": types.StringValue("1048576"),
-		"log.retention.ms":  types.StringUnknown(),
-	})
-	require.False(t, diags.HasError())
-
-	var extractDiags diag.Diagnostics
-	entries := brokerConfigEntries(context.Background(), m, &extractDiags)
-
-	require.False(t, extractDiags.HasError(), "unknown value must not produce a diagnostic")
-	require.Len(t, entries, 2)
-	require.Equal(t, types.StringValue("1048576"), entries["message.max.bytes"])
-	require.True(t, entries["log.retention.ms"].IsUnknown())
-}
-
-func TestBrokerConfigEntriesNullOrUnknownMap(t *testing.T) {
-	t.Parallel()
-
-	var diags diag.Diagnostics
-	require.Nil(t, brokerConfigEntries(context.Background(), types.MapNull(types.StringType), &diags))
-	require.Nil(t, brokerConfigEntries(context.Background(), types.MapUnknown(types.StringType), &diags))
-	require.False(t, diags.HasError())
-}
-
 func TestBrokerConfigMapSkipsUnresolvedValues(t *testing.T) {
 	t.Parallel()
 
-	m, diags := types.MapValue(types.StringType, map[string]attr.Value{
+	// A value derived from another resource is not known at plan time. Extracting it must skip
+	// the entry rather than fail, or `terraform plan` breaks with a "report this to the provider
+	// developer" error.
+	m := types.MapValueMust(types.StringType, map[string]attr.Value{
 		"message.max.bytes":   types.StringValue("1048576"),
 		"log.retention.ms":    types.StringUnknown(),
 		"delete.topic.enable": types.StringNull(),
 	})
-	require.False(t, diags.HasError())
 
-	var extractDiags diag.Diagnostics
-	got := brokerConfigMap(context.Background(), m, &extractDiags)
+	require.Equal(t, map[string]string{"message.max.bytes": "1048576"}, brokerConfigMap(m))
+}
 
-	require.False(t, extractDiags.HasError())
-	require.Equal(t, map[string]string{"message.max.bytes": "1048576"}, got)
+func TestBrokerConfigMapNullOrUnknownMap(t *testing.T) {
+	t.Parallel()
+
+	require.Nil(t, brokerConfigMap(types.MapNull(types.StringType)))
+	require.Nil(t, brokerConfigMap(types.MapUnknown(types.StringType)))
+}
+
+// TestModifyPlanRejectsInvalidKeys drives the plan-time validation end to end: every problem in
+// the map is reported, each against its own key, so a configuration with several mistakes takes
+// one round trip to fix.
+func TestModifyPlanRejectsInvalidKeys(t *testing.T) {
+	t.Parallel()
+
+	declared := types.MapValueMust(types.StringType, map[string]attr.Value{
+		"message.max.bytes":     types.StringValue("1048576"),
+		"log.retention.ms":      types.StringValue("3600000"),
+		"log.retention.hours":   types.StringValue("24"),
+		"delete.topic.enable":   types.StringNull(),
+		"some.brand.new.config": types.StringValue("on"),
+	})
+
+	resp := &resource.ModifyPlanResponse{}
+	(&virtualClusterResource{}).ModifyPlan(
+		context.Background(),
+		resource.ModifyPlanRequest{Plan: planWithBrokerConfiguration(t, declared)},
+		resp,
+	)
+
+	require.Len(t, resp.Diagnostics.Errors(), 3)
+	byPath := map[string]string{}
+	for _, d := range resp.Diagnostics.Errors() {
+		withPath, ok := d.(diag.DiagnosticWithPath)
+		require.True(t, ok, "every problem must name the key it is about")
+		byPath[withPath.Path().String()] = d.Detail()
+	}
+	require.Contains(t, byPath[`broker_configuration["log.retention.ms"]`], "configuration.default_retention_millis")
+	require.Contains(t, byPath[`broker_configuration["log.retention.hours"]`], "alternate unit")
+	require.Contains(t, byPath[`broker_configuration["delete.topic.enable"]`], "null is not a valid value")
+}
+
+// TestModifyPlanSkipsUnvalidatableMaps covers the plans ModifyPlan must leave alone: a destroy
+// carries no plan at all, and a map that is unknown as a whole has no keys to look at yet.
+func TestModifyPlanSkipsUnvalidatableMaps(t *testing.T) {
+	t.Parallel()
+
+	for name, plan := range map[string]tfsdk.Plan{
+		"destroy":     {Schema: virtualClusterSchema(t), Raw: tftypes.NewValue(planObjectType(t), nil)},
+		"unknown map": planWithBrokerConfiguration(t, types.MapUnknown(types.StringType)),
+		"absent map":  planWithBrokerConfiguration(t, types.MapNull(types.StringType)),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			resp := &resource.ModifyPlanResponse{}
+			(&virtualClusterResource{}).ModifyPlan(
+				context.Background(), resource.ModifyPlanRequest{Plan: plan}, resp,
+			)
+			require.Empty(t, resp.Diagnostics, "nothing to validate yet")
+		})
+	}
 }
 
 func TestCheckDeclaredConfigsApplied(t *testing.T) {
@@ -229,103 +313,6 @@ func TestCheckDeclaredConfigsApplied(t *testing.T) {
 	}
 }
 
-func TestCheckAPIConfigConsistency(t *testing.T) {
-	t.Parallel()
-
-	strPtr := func(s string) *string { return &s }
-	boolPtr := func(b bool) *bool { return &b }
-	i64Ptr := func(i int64) *int64 { return &i }
-	durPtr := func(d time.Duration) *time.Duration { return &d }
-
-	tests := []struct {
-		name        string
-		cfg         api.VirtualClusterConfiguration
-		wantWarning string
-	}{
-		{
-			name: "no broker configs means nothing to compare",
-			cfg: api.VirtualClusterConfiguration{
-				DefaultRetentionMillis: i64Ptr(86400000),
-			},
-		},
-		{
-			name: "both representations agree",
-			cfg: api.VirtualClusterConfiguration{
-				DefaultRetentionMillis: i64Ptr(86400000),
-				AutoCreateTopic:        boolPtr(true),
-				BrokerConfigs: map[string]*string{
-					"log.retention.ms":          strPtr("86400000"),
-					"auto.create.topics.enable": strPtr("true"),
-				},
-			},
-		},
-		{
-			name: "a config absent from the map is on the built-in default and not compared",
-			cfg: api.VirtualClusterConfiguration{
-				DefaultRetentionMillis: i64Ptr(86400000),
-				BrokerConfigs:          map[string]*string{"message.max.bytes": strPtr("1048576")},
-			},
-		},
-		{
-			name: "representations disagree",
-			cfg: api.VirtualClusterConfiguration{
-				DefaultRetentionMillis: i64Ptr(86400000),
-				BrokerConfigs:          map[string]*string{"log.retention.ms": strPtr("3600000")},
-			},
-			wantWarning: `"log.retention.ms"`,
-		},
-		{
-			name: "boolean disagreement",
-			cfg: api.VirtualClusterConfiguration{
-				AutoCreateTopic: boolPtr(true),
-				BrokerConfigs:   map[string]*string{"auto.create.topics.enable": strPtr("false")},
-			},
-			wantWarning: `"auto.create.topics.enable"`,
-		},
-		// Infinite is encoded differently by the two representations, so a negative value on
-		// either side is not a real disagreement.
-		{
-			name: "infinite retention is not a disagreement",
-			cfg: api.VirtualClusterConfiguration{
-				DefaultRetentionMillis: i64Ptr(3153600000000),
-				BrokerConfigs:          map[string]*string{"log.retention.ms": strPtr("-1")},
-			},
-		},
-		{
-			name: "infinite soft-delete ttl is not a disagreement",
-			cfg: api.VirtualClusterConfiguration{
-				SoftTopicDeletionTTL: durPtr(100 * 365 * 24 * time.Hour),
-				BrokerConfigs:        map[string]*string{"warpstream.soft.delete.topic.ttl.ms": strPtr("-1")},
-			},
-		},
-		{
-			name: "soft-delete ttl is compared in milliseconds",
-			cfg: api.VirtualClusterConfiguration{
-				SoftTopicDeletionTTL: durPtr(48 * time.Hour),
-				BrokerConfigs:        map[string]*string{"warpstream.soft.delete.topic.ttl.ms": strPtr("172800000")},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			var diags diag.Diagnostics
-			checkAPIConfigConsistency(&tt.cfg, &diags)
-
-			require.False(t, diags.HasError(), "must never be fatal")
-			if tt.wantWarning == "" {
-				require.Empty(t, diags.Warnings(), "unexpected warnings: %v", diags.Warnings())
-				return
-			}
-			require.Len(t, diags.Warnings(), 1)
-			require.Contains(t, diags.Warnings()[0].Detail(), tt.wantWarning)
-			require.Contains(t, diags.Warnings()[0].Detail(), "report this issue to the provider developers")
-		})
-	}
-}
-
 func TestFilterClusterConfigsToDeclared(t *testing.T) {
 	t.Parallel()
 
@@ -344,10 +331,8 @@ func TestFilterClusterConfigsToDeclared(t *testing.T) {
 		"not.returned": "x",
 	})
 
-	var diags diag.Diagnostics
-	got := filterClusterConfigsToDeclared(context.Background(), apiConfigs, declared, &diags)
+	got := filterClusterConfigsToDeclared(apiConfigs, declared)
 
-	require.False(t, diags.HasError())
 	require.False(t, got.IsNull())
 	elems := got.Elements()
 	require.Len(t, elems, 1)
@@ -357,15 +342,8 @@ func TestFilterClusterConfigsToDeclared(t *testing.T) {
 func TestFilterClusterConfigsToDeclared_AbsentStaysNull(t *testing.T) {
 	t.Parallel()
 
-	var diags diag.Diagnostics
 	// Nothing declared -> null map, so an absent attribute round-trips to null.
-	got := filterClusterConfigsToDeclared(
-		context.Background(),
-		map[string]*string{"a": nil},
-		types.MapNull(types.StringType),
-		&diags,
-	)
-	require.False(t, diags.HasError())
+	got := filterClusterConfigsToDeclared(map[string]*string{"a": nil}, types.MapNull(types.StringType))
 	require.True(t, got.IsNull())
 }
 
@@ -377,14 +355,10 @@ func TestFilterClusterConfigsToDeclared_AbsentStaysNull(t *testing.T) {
 func TestFilterClusterConfigsToDeclared_DeclaredEmptyStaysEmpty(t *testing.T) {
 	t.Parallel()
 
-	var diags diag.Diagnostics
 	got := filterClusterConfigsToDeclared(
-		context.Background(),
 		map[string]*string{"message.max.bytes": nil},
 		brokerConfigMapOf(t, map[string]string{}),
-		&diags,
 	)
-	require.False(t, diags.HasError())
 	require.False(t, got.IsNull(), "a declared empty map must not round-trip to null")
 	require.Empty(t, got.Elements())
 }
@@ -396,14 +370,10 @@ func TestFilterClusterConfigsToDeclared_DeclaredEmptyStaysEmpty(t *testing.T) {
 func TestFilterClusterConfigsToDeclared_NoneReturnedStaysEmpty(t *testing.T) {
 	t.Parallel()
 
-	var diags diag.Diagnostics
 	got := filterClusterConfigsToDeclared(
-		context.Background(),
 		map[string]*string{"something.else": nil},
 		brokerConfigMapOf(t, map[string]string{"message.max.bytes": "1048576"}),
-		&diags,
 	)
-	require.False(t, diags.HasError())
 	require.False(t, got.IsNull())
 	require.Empty(t, got.Elements())
 }
@@ -411,29 +381,24 @@ func TestFilterClusterConfigsToDeclared_NoneReturnedStaysEmpty(t *testing.T) {
 func TestBrokerConfigsPayload(t *testing.T) {
 	t.Parallel()
 
-	deref := func(m map[string]*string) map[string]string {
-		out := make(map[string]string, len(m))
-		for k, v := range m {
-			require.NotNil(t, v, "unexpected nil value for %s", k)
-			out[k] = *v
-		}
-		return out
-	}
+	// An unset `configuration`: every attribute is null, as it would be if the schema stopped
+	// defaulting the object.
+	var unset models.VirtualClusterConfiguration
 
-	t.Run("nil plan and empty map returns nil", func(t *testing.T) {
+	t.Run("nothing set on either surface returns nil", func(t *testing.T) {
 		t.Parallel()
-		require.Nil(t, brokerConfigsPayload(nil, nil))
+		require.Nil(t, brokerConfigsPayload(unset, nil))
 	})
 
 	t.Run("generic entries pass through", func(t *testing.T) {
 		t.Parallel()
-		got := brokerConfigsPayload(nil, map[string]string{"message.max.bytes": "1048576"})
-		require.Equal(t, map[string]string{"message.max.bytes": "1048576"}, deref(got))
+		got := brokerConfigsPayload(unset, map[string]string{"message.max.bytes": "1048576"})
+		require.Equal(t, map[string]string{"message.max.bytes": "1048576"}, got)
 	})
 
 	t.Run("typed attributes translate to canonical keys", func(t *testing.T) {
 		t.Parallel()
-		cfg := &models.VirtualClusterConfiguration{
+		cfg := models.VirtualClusterConfiguration{
 			AutoCreateTopic:         types.BoolValue(true),
 			DefaultNumPartitions:    types.Int64Value(4),
 			DefaultRetention:        types.Int64Value(86400000),
@@ -441,7 +406,6 @@ func TestBrokerConfigsPayload(t *testing.T) {
 			DefaultTopicType:        types.StringValue("lightning"),
 			SoftTopicDeletionTTL:    types.Int64Value(172800000),
 		}
-		got := brokerConfigsPayload(cfg, nil)
 		require.Equal(t, map[string]string{
 			"auto.create.topics.enable":           "true",
 			"num.partitions":                      "4",
@@ -449,12 +413,12 @@ func TestBrokerConfigsPayload(t *testing.T) {
 			"warpstream.soft.delete.topic.enable": "false",
 			"warpstream.default.topic.type":       "lightning",
 			"warpstream.soft.delete.topic.ttl.ms": "172800000",
-		}, deref(got))
+		}, brokerConfigsPayload(cfg, nil))
 	})
 
 	t.Run("null and unknown typed attributes are skipped", func(t *testing.T) {
 		t.Parallel()
-		cfg := &models.VirtualClusterConfiguration{
+		cfg := models.VirtualClusterConfiguration{
 			AutoCreateTopic:         types.BoolNull(),
 			DefaultNumPartitions:    types.Int64Unknown(),
 			DefaultRetention:        types.Int64Unknown(),
@@ -467,10 +431,8 @@ func TestBrokerConfigsPayload(t *testing.T) {
 
 	t.Run("generic map entry wins over typed attribute", func(t *testing.T) {
 		t.Parallel()
-		cfg := &models.VirtualClusterConfiguration{
-			DefaultRetention: types.Int64Value(86400000),
-		}
+		cfg := models.VirtualClusterConfiguration{DefaultRetention: types.Int64Value(86400000)}
 		got := brokerConfigsPayload(cfg, map[string]string{"log.retention.ms": "3600000"})
-		require.Equal(t, map[string]string{"log.retention.ms": "3600000"}, deref(got))
+		require.Equal(t, map[string]string{"log.retention.ms": "3600000"}, got)
 	})
 }
