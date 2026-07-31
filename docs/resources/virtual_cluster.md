@@ -57,6 +57,24 @@ resource "warpstream_virtual_cluster" "test_soft_deletion" {
   }
 }
 
+resource "warpstream_virtual_cluster" "test_broker_config" {
+  name = "vcn_test_broker_config"
+  tier = "dev"
+
+  # broker_configuration sets any broker setting that has no typed attribute
+  # under `configuration`, as a map of Kafka-style config names to string
+  # values. Settings with a typed attribute (like log.retention.ms /
+  # default_retention_millis) must be set through `configuration` instead.
+  #
+  # Removing a key does not reset the setting on the cluster — set the value you
+  # want explicitly instead.
+  broker_configuration = {
+    "message.max.bytes"         = "1048576"
+    "delete.topic.enable"       = "true"
+    "offsets.retention.minutes" = "10080"
+  }
+}
+
 resource "warpstream_virtual_cluster" "test_cloud_region" {
   name = "vcn_test_cloud_region"
   tier = "dev"
@@ -95,6 +113,7 @@ resource "warpstream_virtual_cluster" "test_with_events" {
 
 ### Optional
 
+- `broker_configuration` (Map of String) Cluster-level broker configuration, as a map of Kafka-style config names to string values (e.g. `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`). Settings that have a typed attribute under `configuration` (such as `default_retention_millis` and `default_topic_type`) must be set through that attribute instead; their config names (for example `log.retention.ms`) are rejected here at plan time with a message naming the attribute to use. Note that removing a key from this map does **not** reset the config on the cluster: to change a setting back, set it explicitly to the value you want.
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
 - `events` (Attributes) Virtual Cluster Events Configuration. (see [below for nested schema](#nestedatt--events))

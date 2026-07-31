@@ -56,6 +56,56 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 	})
 }
 
+// TestAccVirtualClusterDataSourceBrokerConfiguration verifies that the data source reports every
+// broker config set on a cluster.
+func TestAccVirtualClusterDataSourceBrokerConfiguration(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	region := "us-east-1"
+	vc, err := client.CreateVirtualCluster(
+		vcNameSuffix,
+		api.ClusterParameters{
+			Type:   api.VirtualClusterTypeBYOC,
+			Tier:   api.VirtualClusterTierPro,
+			Region: &region,
+			Cloud:  "aws",
+		},
+	)
+	require.NoError(t, err)
+	defer func() {
+		if err := client.DeleteVirtualCluster(vc.ID, vc.Name); err != nil {
+			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		}
+	}()
+
+	// Set two configs straight through the API, so Terraform has no configuration declaring them
+	// and can only be reporting what the cluster actually holds.
+	maxBytes, retention := "1048576", "604800000"
+	require.NoError(t, client.UpdateConfiguration(api.VirtualClusterConfiguration{
+		BrokerConfigs: map[string]*string{
+			"message.max.bytes": &maxBytes,
+			"log.retention.ms":  &retention,
+		},
+	}, *vc))
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterDataSourceWithID(vc.ID),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(
+						"data.warpstream_virtual_cluster.test", "broker_configuration.message.max.bytes", maxBytes),
+					resource.TestCheckResourceAttr(
+						"data.warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", retention),
+				),
+			},
+		},
+	})
+}
+
 func testAccVirtualClusterDataSourceWithID(id string) string {
 	return providerConfig + fmt.Sprintf(`
 data "warpstream_virtual_cluster" "test" {
@@ -112,6 +162,11 @@ func testAccVCDataSourceCheck_byoc(
 		softTopicDeletionTTL = cfg.SoftTopicDeletionTTL.Milliseconds()
 	}
 
+	enableSoftTopicDeletion := true
+	if cfg.EnableSoftTopicDeletion != nil {
+		enableSoftTopicDeletion = *cfg.EnableSoftTopicDeletion
+	}
+
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "type", "byoc"),
 		resource.TestCheckResourceAttr("data.warpstream_virtual_cluster.test", "tags.test_tag", "test_value"),
@@ -123,7 +178,7 @@ func testAccVCDataSourceCheck_byoc(
 		),
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_cluster.test", "configuration.enable_soft_topic_deletion",
-			fmt.Sprintf("%t", cfg.EnableSoftTopicDeletion),
+			fmt.Sprintf("%t", enableSoftTopicDeletion),
 		),
 		resource.TestCheckResourceAttr(
 			"data.warpstream_virtual_cluster.test", "configuration.soft_topic_deletion_ttl_millis",

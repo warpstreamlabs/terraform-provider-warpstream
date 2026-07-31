@@ -117,6 +117,12 @@ The WarpStream provider must be authenticated with an application key to read th
 				Computed:    true,
 				ElementType: types.StringType,
 			},
+			"broker_configuration": schema.MapAttribute{
+				Description: "Every cluster broker config explicitly set on this virtual cluster, as a " +
+					"map of Kafka-style config names to values.",
+				Computed:    true,
+				ElementType: types.StringType,
+			},
 			"configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"auto_create_topic": schema.BoolAttribute{
@@ -242,18 +248,19 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 
 	// Map response body to model
 	state := models.VirtualClusterDataSource{
-		ID:            types.StringValue(vc.ID),
-		Name:          types.StringValue(vc.Name),
-		Type:          types.StringValue(vc.Type),
-		AgentKeys:     agentKeys,
-		AgentPoolID:   types.StringValue(vc.AgentPoolID),
-		AgentPoolName: types.StringValue(vc.AgentPoolName),
-		CreatedAt:     types.StringValue(vc.CreatedAt),
-		Configuration: data.Configuration,
-		Events:        data.Events,
-		Cloud:         data.Cloud,
-		Tags:          data.Tags,
-		WorkspaceID:   types.StringValue(vc.WorkspaceID),
+		ID:                  types.StringValue(vc.ID),
+		Name:                types.StringValue(vc.Name),
+		Type:                types.StringValue(vc.Type),
+		AgentKeys:           agentKeys,
+		AgentPoolID:         types.StringValue(vc.AgentPoolID),
+		AgentPoolName:       types.StringValue(vc.AgentPoolName),
+		CreatedAt:           types.StringValue(vc.CreatedAt),
+		Configuration:       data.Configuration,
+		Events:              data.Events,
+		Cloud:               data.Cloud,
+		Tags:                data.Tags,
+		WorkspaceID:         types.StringValue(vc.WorkspaceID),
+		BrokerConfiguration: types.MapNull(types.StringType),
 	}
 
 	if vc.BootstrapURL != nil {
@@ -273,11 +280,11 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	cfgState := models.VirtualClusterConfiguration{
 		AclsEnabled:              types.BoolValue(cfg.AclsEnabled),
 		ACLShadowingEnabled:      types.BoolValue(cfg.ACLShadowingEnabled),
-		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
-		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
-		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
+		AutoCreateTopic:          types.BoolPointerValue(cfg.AutoCreateTopic),
+		DefaultNumPartitions:     types.Int64PointerValue(cfg.DefaultNumPartitions),
+		DefaultRetention:         types.Int64PointerValue(cfg.DefaultRetentionMillis),
 		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
-		EnableSoftTopicDeletion:  types.BoolValue(cfg.EnableSoftTopicDeletion),
+		EnableSoftTopicDeletion:  types.BoolPointerValue(cfg.EnableSoftTopicDeletion),
 	}
 	if cfg.SoftTopicDeletionTTL != nil {
 		cfgState.SoftTopicDeletionTTL = types.Int64Value(cfg.SoftTopicDeletionTTL.Milliseconds())
@@ -378,6 +385,19 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Set the generic broker configs.
+	brokerConfigs := make(map[string]attr.Value, len(cfg.BrokerConfigs))
+	for name, value := range cfg.BrokerConfigs {
+		brokerConfigs[name] = types.StringPointerValue(value)
+	}
+	brokerConfigsValue, diags := types.MapValue(types.StringType, brokerConfigs)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	diags = resp.State.SetAttribute(ctx, path.Root("broker_configuration"), brokerConfigsValue)
+	resp.Diagnostics.Append(diags...)
 }
 
 func buildEventTypesMap(eventsState *api.EventsState) (types.Map, diag.Diagnostics) {

@@ -39,6 +39,24 @@ resource "warpstream_virtual_cluster" "test_soft_deletion" {
   }
 }
 
+resource "warpstream_virtual_cluster" "test_broker_config" {
+  name = "vcn_test_broker_config"
+  tier = "dev"
+
+  # broker_configuration sets any broker setting that has no typed attribute
+  # under `configuration`, as a map of Kafka-style config names to string
+  # values. Settings with a typed attribute (like log.retention.ms /
+  # default_retention_millis) must be set through `configuration` instead.
+  #
+  # Removing a key does not reset the setting on the cluster — set the value you
+  # want explicitly instead.
+  broker_configuration = {
+    "message.max.bytes"         = "1048576"
+    "delete.topic.enable"       = "true"
+    "offsets.retention.minutes" = "10080"
+  }
+}
+
 resource "warpstream_virtual_cluster" "test_cloud_region" {
   name = "vcn_test_cloud_region"
   tier = "dev"
