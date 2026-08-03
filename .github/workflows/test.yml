@@ -96,14 +96,16 @@ jobs:
           # whether or not WARPSTREAM_API_URL is set in the environment.
           API_URL="${WARPSTREAM_API_URL:-https://api.prod.us-east-1.warpstream.com/api/v1}"
           echo "target: $API_URL"
-          curl -sS -X POST "$API_URL/list_workspaces" \
-            -H "warpstream-api-key: $WARPSTREAM_API_KEY" \
-            | jq '.workspaces[] | {id, name}'
+          # Grouped by workspace rather than calling list_workspaces, which needs an account key
+          # and returns null for the application key this job uses. total is the number the
+          # 100-cluster quota counts, and includes schema-registry and tableflow clusters.
           curl -sS -X POST "$API_URL/list_virtual_clusters" \
             -H "warpstream-api-key: $WARPSTREAM_API_KEY" \
             | jq '{total: (.virtual_clusters | length),
                    by_type: (.virtual_clusters | group_by(.type) | map({(.[0].type): length}) | add),
-                   test_named: ([.virtual_clusters[] | select(.name | test("test"))] | length),
+                   by_workspace: (.virtual_clusters | group_by(.workspace_id) | map({(.[0].workspace_id // "none"): length}) | add),
+                   acceptance_fixtures: ([.virtual_clusters[] | select(.name | startswith("vcn_test_acc_"))] | length),
+                   name_contains_test: ([.virtual_clusters[] | select(.name | test("test"))] | length),
                    oldest: ([.virtual_clusters[].created_at] | sort | .[0]),
                    newest: ([.virtual_clusters[].created_at] | sort | .[-1])}'
       - name: Run acceptance tests that require an application key
