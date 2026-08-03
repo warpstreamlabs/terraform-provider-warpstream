@@ -79,6 +79,13 @@ func (d *ssoConfigurationDataSource) Read(ctx context.Context, req datasource.Re
 		resp.Diagnostics.AddError("Unable to Read WarpStream SSO configuration", err.Error())
 		return
 	}
+	if ssoConfig == nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read WarpStream SSO configuration",
+			"No SSO configuration found for this tenant.",
+		)
+		return
+	}
 
 	data.ID = types.StringValue(ssoConfig.ID)
 	data.EnableSSORoleMapping = types.BoolValue(ssoConfig.EnableSSORoleMapping)

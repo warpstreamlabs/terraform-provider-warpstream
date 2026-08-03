@@ -54,6 +54,10 @@ The WarpStream provider must be authenticated with an application key to read th
 				Optional:   true,
 				Validators: []validator.String{utils.StartsWithAndAlphanumeric("vcn_sr_")},
 			},
+			"tier": schema.StringAttribute{
+				Description: "Virtual Cluster Tier.",
+				Computed:    true,
+			},
 			"agent_keys": schema.ListNestedAttribute{
 				Description:  "List of keys to authenticate an agent with this cluster.",
 				Computed:     true,
@@ -126,6 +130,7 @@ func (d *schemaRegistryDataSource) Read(ctx context.Context, req datasource.Read
 	state := models.SchemaRegistryDataSource{
 		ID:          types.StringValue(vc.ID),
 		Name:        types.StringValue(vc.Name),
+		Tier:        types.StringValue(vc.Tier),
 		AgentKeys:   agentKeys,
 		CreatedAt:   types.StringValue(vc.CreatedAt),
 		Cloud:       data.Cloud,

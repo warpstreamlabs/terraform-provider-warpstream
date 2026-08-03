@@ -16,6 +16,7 @@ func testSchemaRegistryResource(nameSuffix string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_schema_registry" "test" {
   name = "vcn_sr_test_%s"
+  tier = "dev"
 }`, nameSuffix)
 }
 
@@ -71,6 +72,8 @@ func testCheckSchemaRegistry(resourceName string) resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttrSet(resourceName, "id"),
 		resource.TestCheckResourceAttrSet(resourceName, "created_at"),
+		resource.TestCheckResourceAttrSet(resourceName, "tier"),
+		resource.TestCheckResourceAttr(resourceName, "tier", "dev"),
 		resource.TestCheckResourceAttr(resourceName, "cloud.provider", "aws"),
 		resource.TestCheckResourceAttr(resourceName, "cloud.region", "us-east-1"),
 		utils.TestCheckResourceAttrStartsWith(resourceName, "id", "vci_sr_"),
