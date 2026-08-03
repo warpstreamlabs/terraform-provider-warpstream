@@ -19,6 +19,7 @@ on:
 permissions:
   contents: read
 
+
 jobs:
   # Ensure project builds before running testing matrix
   build:
@@ -82,6 +83,27 @@ jobs:
           terraform_version: ${{ matrix.terraform }}
           terraform_wrapper: false
       - run: go mod download
+      # TEMPORARY — remove once the virtual_cluster_too_many failures are understood.
+      #
+      # Secrets are write-only, so the only way to learn which account TF_ACCEPTANCE_TEST_API_KEY
+      # belongs to is to have CI report it. Prints workspace identity and a cluster census; never
+      # echoes the key. continue-on-error so a diagnostic can't be what breaks the run.
+      - name: Identify which account CI is using
+        continue-on-error: true
+        env:
+          WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_API_KEY }}
+        run: |
+          echo "target: $WARPSTREAM_API_URL"
+          curl -sS -X POST "$WARPSTREAM_API_URL/list_workspaces" \
+            -H "warpstream-api-key: $WARPSTREAM_API_KEY" \
+            | jq '.workspaces[] | {id, name}'
+          curl -sS -X POST "$WARPSTREAM_API_URL/list_virtual_clusters" \
+            -H "warpstream-api-key: $WARPSTREAM_API_KEY" \
+            | jq '{total: (.virtual_clusters | length),
+                   by_type: (.virtual_clusters | group_by(.type) | map({(.[0].type): length}) | add),
+                   test_named: ([.virtual_clusters[] | select(.name | test("test"))] | length),
+                   oldest: ([.virtual_clusters[].created_at] | sort | .[0]),
+                   newest: ([.virtual_clusters[].created_at] | sort | .[-1])}'
       - name: Run acceptance tests that require an application key
         env:
           TF_ACC: "1"
