@@ -726,10 +726,6 @@ func TestAccVirtualClusterResourceBrokerConfigLargeRetention(t *testing.T) {
 	})
 }
 
-// TestAccVirtualClusterResourceBrokerConfigDrift is the read path's central claim: declared keys
-// track the cluster, undeclared ones are invisible. Both halves matter — the first is what makes
-// the attribute usable, the second is why a config someone sets outside Terraform (or through a
-// typed attribute) never shows up as churn on an unrelated cluster.
 func TestAccVirtualClusterResourceBrokerConfigDrift(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
@@ -793,11 +789,6 @@ func TestAccVirtualClusterResourceBrokerConfigDrift(t *testing.T) {
 	})
 }
 
-// TestAccVirtualClusterResourceBrokerConfigUpgradeDefaults is the other half of the upgrade
-// guard, and the more common configuration by far: name and tier only, every `configuration`
-// attribute left at its default, `default_topic_type` never set. The released provider sent those
-// defaults as typed request fields and this one sends them as broker configs, so taking such a
-// cluster over must plan clean — and must not invent a topic type where the user never chose one.
 func TestAccVirtualClusterResourceBrokerConfigUpgradeDefaults(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	const addr = "warpstream_virtual_cluster.test"
@@ -837,11 +828,6 @@ func TestAccVirtualClusterResourceBrokerConfigUpgradeDefaults(t *testing.T) {
 // TestAccVirtualClusterResourceBrokerConfigFailureRecovery covers both ways an apply can be
 // rejected by the API — during the create that follows a fresh cluster, and during a later update
 // — and requires the resource to be recoverable from each.
-//
-// The final empty plan is the load-bearing assertion. A failure path that writes partial state
-// persists whatever unknowns the plan was carrying, and `events.event_types` is one of them; once
-// that lands as null it is re-planned as "known after apply" forever, so a single rejected value
-// would leave the resource with a permanent diff no apply can clear.
 func TestAccVirtualClusterResourceBrokerConfigFailureRecovery(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	const addr = "warpstream_virtual_cluster.test"
@@ -910,9 +896,7 @@ resource "warpstream_virtual_cluster" "test" {
 }
 
 // TestAccVirtualClusterResourceBrokerConfigImport covers importing a cluster whose configs are
-// map-managed. Import has no configuration to learn the declared keys from, so it records none;
-// what has to hold is that everything else round-trips and the follow-up plan settles rather than
-// erroring or proposing a replace.
+// map-managed.
 func TestAccVirtualClusterResourceBrokerConfigImport(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	const addr = "warpstream_virtual_cluster.test"

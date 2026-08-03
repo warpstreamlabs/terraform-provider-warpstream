@@ -107,12 +107,6 @@ func TestAccVirtualClusterDataSourceBrokerConfiguration(t *testing.T) {
 	})
 }
 
-// TestAccVirtualClusterDataSourceTopicTypeNeverEmpty guards the data source's half of describe's
-// `default_topic_type` being a plain string rather than a pointer. The resource can fall back on
-// forcing the value to null when the configuration never set one; the data source has no
-// equivalent, so an absent value has to read back as absent and never as "".
-//
-// The cluster is created straight through the API so that nothing has ever set a topic type on it.
 func TestAccVirtualClusterDataSourceTopicTypeNeverEmpty(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
