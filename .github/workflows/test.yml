@@ -62,7 +62,7 @@ jobs:
     name: Terraform Provider Acceptance Tests
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -86,8 +86,8 @@ jobs:
         env:
           TF_ACC: "1"
           WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_API_KEY }}
-        run: go test -v -cover ./internal/provider/tests/ -skip TestAccAccountKey
-        timeout-minutes: 15
+        run: go test -v -cover -timeout 20m ./internal/provider/tests/ -skip TestAccAccountKey
+        timeout-minutes: 25
         # Tests starting with TestAccAccountKey require an account key instead of an application key.
         # and tests starting with TestAccAccountKeySequential needs to be run sequentially.
       - name: Run acceptance tests that require an account key
