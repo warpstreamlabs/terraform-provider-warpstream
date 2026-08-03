@@ -893,9 +893,7 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 }
 
 // applyConfiguration writes the planned configuration to the cluster and reads the result back
-// into state. When the write fails it still reads the cluster's actual configuration into
-// state: state left holding unknown values is rejected by Terraform as a provider bug, which
-// would bury the real error.
+// into state. When the write fails it leaves state alone.
 func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics) {
 	cluster := plan.Cluster()
 
@@ -917,7 +915,6 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 				"would reset settings such as `enable_acls` and `enable_deletion_protection`. "+
 				"Please report this as a provider bug.",
 		)
-		r.readConfiguration(ctx, cluster, plan.BrokerConfiguration, state, respDiags)
 		return
 	}
 
@@ -925,7 +922,6 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 	diags := plan.Configuration.As(ctx, &cfgPlan, basetypes.ObjectAsOptions{})
 	respDiags.Append(diags...)
 	if respDiags.HasError() {
-		r.readConfiguration(ctx, cluster, plan.BrokerConfiguration, state, respDiags)
 		return
 	}
 
@@ -942,8 +938,6 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 			"Error Updating WarpStream Virtual Cluster Configuration",
 			"Could not update WarpStream Virtual Cluster Configuration, unexpected error: "+err.Error(),
 		)
-		// The write failed but the cluster exists; record what it actually holds.
-		r.readConfiguration(ctx, cluster, plan.BrokerConfiguration, state, respDiags)
 		return
 	}
 
