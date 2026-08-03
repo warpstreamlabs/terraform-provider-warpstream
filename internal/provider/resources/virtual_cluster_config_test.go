@@ -111,6 +111,51 @@ func TestBrokerConfigTablesAgree(t *testing.T) {
 	}
 }
 
+// TestEveryConfigurationAttributeIsWritten asserts that every attribute under `configuration` is written to the API
+// in some way.
+func TestEveryConfigurationAttributeIsWritten(t *testing.T) {
+	t.Parallel()
+
+	// sentAsOwnField names the attributes ConfigurationUpdate carries as their own JSON field,
+	// because the API has no Kafka-style config name for them. Everything else must be mirrored.
+	sentAsOwnField := map[string]bool{
+		"enable_acls":                true,
+		"enable_acl_shadowing":       true,
+		"enable_deletion_protection": true,
+	}
+
+	cfgAttr, ok := virtualClusterSchema(t).Attributes["configuration"].(schema.SingleNestedAttribute)
+	require.True(t, ok, "`configuration` is no longer a single nested attribute")
+
+	mirroredByAttr := make(map[string]string, len(mirroredConfigs))
+	for _, m := range mirroredConfigs {
+		mirroredByAttr[m.typedAttr] = m.key
+	}
+
+	for name := range cfgAttr.Attributes {
+		key, mirrored := mirroredByAttr[name]
+		if sentAsOwnField[name] {
+			require.False(t, mirrored,
+				"configuration.%s is sent as its own field but is also mirrored as %q; it would be "+
+					"written through both representations, which the API rejects when they disagree", name, key)
+			continue
+		}
+		require.True(t, mirrored,
+			"configuration.%s is written nowhere: add it to mirroredConfigs, or to sentAsOwnField "+
+				"in this test if ConfigurationUpdate carries it as its own field", name)
+	}
+
+	// The reverse, so neither table can outlive the attribute it names.
+	for _, m := range mirroredConfigs {
+		require.Contains(t, cfgAttr.Attributes, m.typedAttr,
+			"mirrored config %q names attribute configuration.%s, which is not in the schema", m.key, m.typedAttr)
+	}
+	for name := range sentAsOwnField {
+		require.Contains(t, cfgAttr.Attributes, name,
+			"sentAsOwnField names configuration.%s, which is not in the schema", name)
+	}
+}
+
 func TestValidateBrokerConfigKey(t *testing.T) {
 	t.Parallel()
 

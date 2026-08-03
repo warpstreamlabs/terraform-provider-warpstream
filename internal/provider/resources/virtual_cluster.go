@@ -902,6 +902,25 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 	// `configuration` has a schema default, so the plan always carries an object even where the
 	// user wrote none. Its attributes are then the schema defaults, and those get applied — this
 	// is why every apply re-asserts the six mirrored settings whether or not the map mentions them.
+	//
+	// Say so explicitly rather than letting the conversion below fail on its own: if that
+	// invariant ever breaks, the readable failure mode is an error naming the invariant, not a
+	// value-conversion diagnostic. Filling in Go zero values instead would be worse than either,
+	// because a null object reads back as `enable_acls = false` and friends, and writing those
+	// would disable ACLs and deletion protection on a live cluster.
+	if plan.Configuration.IsNull() || plan.Configuration.IsUnknown() {
+		respDiags.AddAttributeError(
+			path.Root("configuration"),
+			"Missing Virtual Cluster Configuration",
+			"The plan carried no `configuration` object, which the schema's default is supposed to "+
+				"make impossible. Refusing to write a configuration built from zero values, which "+
+				"would reset settings such as `enable_acls` and `enable_deletion_protection`. "+
+				"Please report this as a provider bug.",
+		)
+		r.readConfiguration(ctx, cluster, plan.BrokerConfiguration, state, respDiags)
+		return
+	}
+
 	var cfgPlan models.VirtualClusterConfiguration
 	diags := plan.Configuration.As(ctx, &cfgPlan, basetypes.ObjectAsOptions{})
 	respDiags.Append(diags...)
