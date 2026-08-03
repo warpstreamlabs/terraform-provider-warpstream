@@ -279,9 +279,7 @@ resource "warpstream_virtual_cluster" "test" {
 }
 
 // TestAccVirtualClusterResourceBrokerConfigInvalid covers every input the provider refuses
-// before calling the API: settings owned by a typed `configuration` attribute, write-only
-// aliases (which redirect to the typed attribute when the setting has one), and null values.
-// None of these steps reach the backend, so they are cheap enough to keep in one table.
+// before calling the API.
 func TestAccVirtualClusterResourceBrokerConfigInvalid(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 
@@ -382,9 +380,8 @@ func TestAccVirtualClusterResourceBrokerConfigRejectedByAPI(t *testing.T) {
 	})
 }
 
-// TestAccVirtualClusterResourceBrokerConfigLifecycle walks the create/update/remove cycle for
-// configs that have no typed `configuration` equivalent, which is the majority of the surface
-// and the plain case with no typed attribute involved.
+// TestAccVirtualClusterResourceBrokerConfigLifecycle asserts the create/update/remove cycle for
+// configs that have no typed `configuration` equivalent.
 func TestAccVirtualClusterResourceBrokerConfigLifecycle(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	const addr = "warpstream_virtual_cluster.test"
@@ -446,15 +443,9 @@ func TestAccVirtualClusterResourceBrokerConfigLifecycle(t *testing.T) {
 	})
 }
 
-// TestAccVirtualClusterResourceBrokerConfigUpgrade is the backwards-compatibility guard. A
+// TestAccVirtualClusterResourceBrokerConfigUpgrade is a backwards-compatibility guard. A
 // configuration written against the released provider, which has no `broker_configuration`
-// attribute at all, must plan clean once this provider takes over. This protects every existing
-// user who never adopts the feature.
-//
-// Every setting whose wire representation this change moves to broker_configs is exercised,
-// because each one is a chance to translate the value wrongly: the soft-delete TTL in
-// particular used to be sent as a nanosecond duration under its own field and is now
-// milliseconds under `warpstream.soft.delete.topic.ttl.ms`.
+// attribute at all, must plan clean.
 func TestAccVirtualClusterResourceBrokerConfigUpgrade(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	const addr = "warpstream_virtual_cluster.test"
@@ -500,11 +491,9 @@ func TestAccVirtualClusterResourceBrokerConfigUpgrade(t *testing.T) {
 	})
 }
 
-// TestAccVirtualClusterResourceBrokerConfigTypedSettings pins the typed-only path for the six
-// settings the map rejects: all of them must round-trip (their wire representation is now the
-// generic broker_configs field, so this also guards that translation) and a re-apply must plan
-// nothing. Deleting a typed attribute reverts the cluster to the schema default; that
-// pre-existing semantic is pinned here too.
+// TestAccVirtualClusterResourceBrokerConfigTypedSettings asserts the typed-only path for the six
+// settings the map rejects: all of them must round-trip  and a re-apply must plan
+// nothing. Deleting a typed attribute reverts the cluster to the schema default.
 func TestAccVirtualClusterResourceBrokerConfigTypedSettings(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	const addr = "warpstream_virtual_cluster.test"
