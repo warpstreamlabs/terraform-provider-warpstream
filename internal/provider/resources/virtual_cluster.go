@@ -352,12 +352,10 @@ The WarpStream provider must be authenticated with an application key to consume
 			"broker_configuration": schema.MapAttribute{
 				// Kept to a single paragraph: tfplugindocs renders this inline in the attribute
 				// list, and a blank line would end the list and orphan every attribute after it.
-				Description: "Cluster-level broker configuration, as a map of Kafka-style config names to " +
-					"string values (e.g. `message.max.bytes = \"1048576\"`, `delete.topic.enable = \"true\"`). " +
-					"Settings that have a typed attribute under `configuration` (such as " +
-					"`default_retention_millis` and `default_topic_type`) must be set through that " +
-					"attribute instead; their config names (for example `log.retention.ms`) are rejected " +
-					"here at plan time with a message naming the attribute to use. " +
+				Description: "Additional cluster-level broker configuration, as a map of Kafka-style " +
+					"config names to string values. Use it for settings that have no dedicated " +
+					"attribute under `configuration`, for example `message.max.bytes = \"1048576\"`, " +
+					"`delete.topic.enable = \"true\"`, or `offsets.retention.minutes = \"10080\"`. " +
 					"Note that removing a key from this map does **not** reset the config on the cluster: " +
 					"to change a setting back, set it explicitly to the value you want.",
 				Optional:    true,

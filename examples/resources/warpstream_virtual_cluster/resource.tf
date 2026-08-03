@@ -43,10 +43,9 @@ resource "warpstream_virtual_cluster" "test_broker_config" {
   name = "vcn_test_broker_config"
   tier = "dev"
 
-  # broker_configuration sets any broker setting that has no typed attribute
-  # under `configuration`, as a map of Kafka-style config names to string
-  # values. Settings with a typed attribute (like log.retention.ms /
-  # default_retention_millis) must be set through `configuration` instead.
+  # broker_configuration holds the broker settings that have no dedicated
+  # attribute under `configuration` — message sizes, topic deletion, offset
+  # retention, and so on — as Kafka-style config names to string values.
   #
   # Removing a key does not reset the setting on the cluster — set the value you
   # want explicitly instead.
