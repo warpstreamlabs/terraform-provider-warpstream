@@ -9,8 +9,8 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/models"
 )
 
-// mirroredConfig is a cluster broker config that also has a typed `configuration` attribute.
-type mirroredConfig struct {
+// typedAttrConfig is a cluster broker config that also has a typed `configuration` attribute.
+type typedAttrConfig struct {
 	// key is the Kafka-style config name the API knows the setting by.
 	key string
 	// typedAttr is the `configuration` attribute that controls it.
@@ -19,7 +19,7 @@ type mirroredConfig struct {
 	planValue func(models.VirtualClusterConfiguration) attr.Value
 }
 
-// mirroredConfigs is the one place these config names are spelled, so key validation and the
+// typedAttrConfigs is the one place these config names are spelled, so key validation and the
 // update payload cannot drift apart.
 //
 // The two surfaces are disjoint: a setting listed here can only be written through its typed
@@ -27,7 +27,7 @@ type mirroredConfig struct {
 // policy — new cluster configs are map-only and must not grow it — so the typed attributes can
 // be removed wholesale in the next major version, at which point these keys become legal in
 // the map.
-var mirroredConfigs = []mirroredConfig{
+var typedAttrConfigs = []typedAttrConfig{
 	{"auto.create.topics.enable", "auto_create_topic",
 		func(c models.VirtualClusterConfiguration) attr.Value { return c.AutoCreateTopic }},
 	{"num.partitions", "default_num_partitions",
@@ -44,7 +44,7 @@ var mirroredConfigs = []mirroredConfig{
 
 // typedAttrFor returns the `configuration` attribute that owns a config name.
 func typedAttrFor(key string) (string, bool) {
-	for _, m := range mirroredConfigs {
+	for _, m := range typedAttrConfigs {
 		if m.key == key {
 			return m.typedAttr, true
 		}
@@ -89,23 +89,21 @@ func validateBrokerConfigKey(key string) error {
 	if !isAlias {
 		canonical = key
 	}
-	typedAttr, isMirrored := typedAttrFor(canonical)
+	typedAttr, hasTypedAttr := typedAttrFor(canonical)
 
 	var problem string
 	switch {
 	case isAlias:
 		problem = fmt.Sprintf("%q is an alternate unit for %q, which the API never reports back, "+
 			"so Terraform could not track it", key, canonical)
-	case isMirrored:
+	case hasTypedAttr:
 		problem = fmt.Sprintf("%q is controlled by the `configuration.%s` attribute in this provider",
 			key, typedAttr)
 	default:
 		return nil
 	}
 
-	// An alias for a mirrored setting redirects to the typed attribute, as the canonical key
-	// itself would; anything else redirects to the canonical spelling.
-	if isMirrored {
+	if hasTypedAttr {
 		return fmt.Errorf("%s; set `configuration.%s` instead", problem, typedAttr)
 	}
 	return fmt.Errorf("%s; specify this setting as %q instead", problem, canonical)

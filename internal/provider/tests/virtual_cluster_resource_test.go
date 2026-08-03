@@ -372,7 +372,7 @@ func TestAccVirtualClusterResourceBrokerConfigRejectedByAPI(t *testing.T) {
 
 // TestAccVirtualClusterResourceBrokerConfigLifecycle walks the create/update/remove cycle for
 // configs that have no typed `configuration` equivalent, which is the majority of the surface
-// and the plain case with no mirroring involved.
+// and the plain case with no typed attribute involved.
 func TestAccVirtualClusterResourceBrokerConfigLifecycle(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	const addr = "warpstream_virtual_cluster.test"

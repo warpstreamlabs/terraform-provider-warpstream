@@ -63,11 +63,11 @@ func planWithBrokerConfiguration(t *testing.T, declared types.Map) tfsdk.Plan {
 func TestBrokerConfigTablesAgree(t *testing.T) {
 	t.Parallel()
 
-	// Every mirrored config must name a distinct config name and a distinct typed attribute.
+	// Every entry must name a distinct config name and a distinct typed attribute.
 	// Two entries claiming either would mean one silently overwrites the other.
-	seenKey := make(map[string]bool, len(mirroredConfigs))
-	seenAttr := make(map[string]string, len(mirroredConfigs))
-	for _, m := range mirroredConfigs {
+	seenKey := make(map[string]bool, len(typedAttrConfigs))
+	seenAttr := make(map[string]string, len(typedAttrConfigs))
+	for _, m := range typedAttrConfigs {
 		require.False(t, seenKey[m.key], "config %q is listed twice", m.key)
 		seenKey[m.key] = true
 		if other, dup := seenAttr[m.typedAttr]; dup {
@@ -76,7 +76,7 @@ func TestBrokerConfigTablesAgree(t *testing.T) {
 		seenAttr[m.typedAttr] = m.key
 	}
 
-	// Every mirrored setting must be renderable, or brokerConfigsPayload would silently stop
+	// Every listed setting must be renderable, or brokerConfigsPayload would silently stop
 	// writing it when a configuration sets it.
 	populated := models.VirtualClusterConfiguration{
 		AutoCreateTopic:         types.BoolValue(true),
@@ -86,7 +86,7 @@ func TestBrokerConfigTablesAgree(t *testing.T) {
 		EnableSoftTopicDeletion: types.BoolValue(false),
 		SoftTopicDeletionTTL:    types.Int64Value(172800000),
 	}
-	for _, m := range mirroredConfigs {
+	for _, m := range typedAttrConfigs {
 		_, ok := renderConfigValue(m.planValue(populated))
 		require.True(t, ok, "config %q has no renderable plan value", m.key)
 	}
@@ -96,10 +96,10 @@ func TestBrokerConfigTablesAgree(t *testing.T) {
 	// attribute. An alias pointing at another rejected alias would send users in a circle.
 	for alias, canonical := range writeOnlyAliasKeys {
 		require.NotEqual(t, alias, canonical, "alias %s points at itself", alias)
-		require.False(t, seenKey[alias], "alias %s must not also be mirrored", alias)
+		require.False(t, seenKey[alias], "alias %s must not also have a typed attribute", alias)
 		require.NotContains(t, writeOnlyAliasKeys, canonical,
 			"alias %s points at %s, which is itself rejected as an alias", alias, canonical)
-		if typedAttr, mirrored := typedAttrFor(canonical); mirrored {
+		if typedAttr, hasTypedAttr := typedAttrFor(canonical); hasTypedAttr {
 			// The alias's error must redirect users to the typed attribute, not to the
 			// canonical key, which the map also rejects.
 			require.ErrorContains(t, validateBrokerConfigKey(alias), "configuration."+typedAttr,
@@ -117,7 +117,8 @@ func TestEveryConfigurationAttributeIsWritten(t *testing.T) {
 	t.Parallel()
 
 	// sentAsOwnField names the attributes ConfigurationUpdate carries as their own JSON field,
-	// because the API has no Kafka-style config name for them. Everything else must be mirrored.
+	// because the API has no Kafka-style config name for them. Everything else must be in
+	// typedAttrConfigs.
 	sentAsOwnField := map[string]bool{
 		"enable_acls":                true,
 		"enable_acl_shadowing":       true,
@@ -127,28 +128,28 @@ func TestEveryConfigurationAttributeIsWritten(t *testing.T) {
 	cfgAttr, ok := virtualClusterSchema(t).Attributes["configuration"].(schema.SingleNestedAttribute)
 	require.True(t, ok, "`configuration` is no longer a single nested attribute")
 
-	mirroredByAttr := make(map[string]string, len(mirroredConfigs))
-	for _, m := range mirroredConfigs {
-		mirroredByAttr[m.typedAttr] = m.key
+	keyByTypedAttr := make(map[string]string, len(typedAttrConfigs))
+	for _, m := range typedAttrConfigs {
+		keyByTypedAttr[m.typedAttr] = m.key
 	}
 
 	for name := range cfgAttr.Attributes {
-		key, mirrored := mirroredByAttr[name]
+		key, hasTypedAttr := keyByTypedAttr[name]
 		if sentAsOwnField[name] {
-			require.False(t, mirrored,
-				"configuration.%s is sent as its own field but is also mirrored as %q; it would be "+
+			require.False(t, hasTypedAttr,
+				"configuration.%s is sent as its own field but is also listed as %q; it would be "+
 					"written through both representations, which the API rejects when they disagree", name, key)
 			continue
 		}
-		require.True(t, mirrored,
-			"configuration.%s is written nowhere: add it to mirroredConfigs, or to sentAsOwnField "+
+		require.True(t, hasTypedAttr,
+			"configuration.%s is written nowhere: add it to typedAttrConfigs, or to sentAsOwnField "+
 				"in this test if ConfigurationUpdate carries it as its own field", name)
 	}
 
 	// The reverse, so neither table can outlive the attribute it names.
-	for _, m := range mirroredConfigs {
+	for _, m := range typedAttrConfigs {
 		require.Contains(t, cfgAttr.Attributes, m.typedAttr,
-			"mirrored config %q names attribute configuration.%s, which is not in the schema", m.key, m.typedAttr)
+			"listed config %q names attribute configuration.%s, which is not in the schema", m.key, m.typedAttr)
 	}
 	for name := range sentAsOwnField {
 		require.Contains(t, cfgAttr.Attributes, name,

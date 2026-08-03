@@ -822,14 +822,14 @@ func checkDeclaredConfigsApplied(declared map[string]string, apiConfigs map[stri
 
 // brokerConfigsPayload builds the generic broker_configs request body from the declared map
 // plus the typed `configuration` attributes, which the API also stores as broker configs. The
-// two can never overlap — plan validation rejects mirrored keys in the map — but map entries
+// two can never overlap — plan validation rejects typed-attribute keys in the map — but map entries
 // keep precedence as defence in depth, so a validator bug could never send a value through both
 // representations (which the API rejects when they disagree).
 func brokerConfigsPayload(cfgPlan models.VirtualClusterConfiguration, brokerCfg map[string]string) map[string]string {
-	out := make(map[string]string, len(brokerCfg)+len(mirroredConfigs))
+	out := make(map[string]string, len(brokerCfg)+len(typedAttrConfigs))
 	maps.Copy(out, brokerCfg)
 
-	for _, m := range mirroredConfigs {
+	for _, m := range typedAttrConfigs {
 		if _, declared := out[m.key]; declared {
 			continue
 		}
@@ -899,7 +899,8 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 
 	// `configuration` has a schema default, so the plan always carries an object even where the
 	// user wrote none. Its attributes are then the schema defaults, and those get applied — this
-	// is why every apply re-asserts the six mirrored settings whether or not the map mentions them.
+	// is why every apply re-asserts the six settings with typed attributes whether or not the map
+	// mentions them.
 	//
 	// Say so explicitly rather than letting the conversion below fail on its own: if that
 	// invariant ever breaks, the readable failure mode is an error naming the invariant, not a
