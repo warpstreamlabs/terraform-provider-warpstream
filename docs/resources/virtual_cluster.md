@@ -57,6 +57,22 @@ resource "warpstream_virtual_cluster" "test_soft_deletion" {
   }
 }
 
+resource "warpstream_virtual_cluster" "test_broker_config" {
+  name = "vcn_test_broker_config"
+  tier = "dev"
+
+  # broker_configuration holds the broker settings that have no dedicated
+  # attribute under `configuration` as Kafka-style config names to string values.
+  #
+  # Removing a key does not reset the setting on the cluster — set the value you
+  # want explicitly instead.
+  broker_configuration = {
+    "message.max.bytes"         = "1048576"
+    "delete.topic.enable"       = "true"
+    "offsets.retention.minutes" = "10080"
+  }
+}
+
 resource "warpstream_virtual_cluster" "test_cloud_region" {
   name = "vcn_test_cloud_region"
   tier = "dev"
@@ -95,6 +111,7 @@ resource "warpstream_virtual_cluster" "test_with_events" {
 
 ### Optional
 
+- `broker_configuration` (Map of String) Additional cluster-level broker configuration, as a map of Kafka-style config names to string values. Use it for settings that have no dedicated attribute under `configuration`, for example `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`, or `offsets.retention.minutes = "10080"`. Note that removing a key from this map does **not** reset the config on the cluster: to change a setting back, set it explicitly to the value you want.
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
 - `events` (Attributes) Virtual Cluster Events Configuration. (see [below for nested schema](#nestedatt--events))

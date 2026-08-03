@@ -8,21 +8,22 @@ import (
 
 // VirtualClusterDataSource maps virtual cluster schema data.
 type VirtualClusterDataSource struct {
-	ID            types.String `tfsdk:"id"`
-	Name          types.String `tfsdk:"name"`
-	Type          types.String `tfsdk:"type"`
-	Tier          types.String `tfsdk:"tier"`
-	AgentKeys     *[]AgentKey  `tfsdk:"agent_keys"`
-	AgentPoolID   types.String `tfsdk:"agent_pool_id"`
-	AgentPoolName types.String `tfsdk:"agent_pool_name"`
-	CreatedAt     types.String `tfsdk:"created_at"`
-	Default       types.Bool   `tfsdk:"default"`
-	Tags          types.Map    `tfsdk:"tags"`
-	Configuration types.Object `tfsdk:"configuration"`
-	Events        types.Object `tfsdk:"events"`
-	Cloud         types.Object `tfsdk:"cloud"`
-	BootstrapURL  types.String `tfsdk:"bootstrap_url"`
-	WorkspaceID   types.String `tfsdk:"workspace_id"`
+	ID                  types.String `tfsdk:"id"`
+	Name                types.String `tfsdk:"name"`
+	Type                types.String `tfsdk:"type"`
+	Tier                types.String `tfsdk:"tier"`
+	AgentKeys           *[]AgentKey  `tfsdk:"agent_keys"`
+	AgentPoolID         types.String `tfsdk:"agent_pool_id"`
+	AgentPoolName       types.String `tfsdk:"agent_pool_name"`
+	CreatedAt           types.String `tfsdk:"created_at"`
+	Default             types.Bool   `tfsdk:"default"`
+	Tags                types.Map    `tfsdk:"tags"`
+	Configuration       types.Object `tfsdk:"configuration"`
+	BrokerConfiguration types.Map    `tfsdk:"broker_configuration"`
+	Events              types.Object `tfsdk:"events"`
+	Cloud               types.Object `tfsdk:"cloud"`
+	BootstrapURL        types.String `tfsdk:"bootstrap_url"`
+	WorkspaceID         types.String `tfsdk:"workspace_id"`
 }
 
 type VirtualClusterResource struct {
@@ -36,10 +37,13 @@ type VirtualClusterResource struct {
 	Default       types.Bool   `tfsdk:"default"`
 	Tags          types.Map    `tfsdk:"tags"`
 	Configuration types.Object `tfsdk:"configuration"`
-	Events        types.Object `tfsdk:"events"`
-	Cloud         types.Object `tfsdk:"cloud"`
-	BootstrapURL  types.String `tfsdk:"bootstrap_url"`
-	WorkspaceID   types.String `tfsdk:"workspace_id"`
+	// BrokerConfiguration is a generic map of Kafka-style cluster config, disjoint from
+	// Configuration.
+	BrokerConfiguration types.Map    `tfsdk:"broker_configuration"`
+	Events              types.Object `tfsdk:"events"`
+	Cloud               types.Object `tfsdk:"cloud"`
+	BootstrapURL        types.String `tfsdk:"bootstrap_url"`
+	WorkspaceID         types.String `tfsdk:"workspace_id"`
 }
 
 func (m VirtualClusterResource) Cluster() api.VirtualCluster {

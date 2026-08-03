@@ -9,20 +9,26 @@ import (
 	"time"
 )
 
+// VirtualClusterConfiguration is what is returned in a cluster config describe.
 type VirtualClusterConfiguration struct {
-	AclsEnabled              bool    `json:"are_acls_enabled"`
-	ACLShadowingEnabled      bool    `json:"acl_shadowing_enabled"`
-	AutoCreateTopic          bool    `json:"is_auto_create_topic_enabled"`
-	DefaultNumPartitions     int64   `json:"default_num_partitions"`
-	DefaultRetentionMillis   int64   `json:"default_retention_millis"`
-	DefaultTopicType         *string `json:"default_topic_type,omitempty"`
-	EnableDeletionProtection bool    `json:"enable_deletion_protection"`
-	EnableSoftTopicDeletion  bool    `json:"soft_delete_topics_enabled"`
-	Tier                     string  `json:"tier,omitempty"`
+	AclsEnabled              bool   `json:"are_acls_enabled"`
+	ACLShadowingEnabled      bool   `json:"acl_shadowing_enabled"`
+	AutoCreateTopic          bool   `json:"is_auto_create_topic_enabled"`
+	DefaultNumPartitions     int64  `json:"default_num_partitions"`
+	DefaultRetentionMillis   int64  `json:"default_retention_millis"`
+	DefaultTopicType         string `json:"default_topic_type"`
+	EnableDeletionProtection bool   `json:"enable_deletion_protection"`
+	EnableSoftTopicDeletion  bool   `json:"soft_delete_topics_enabled"`
+	Tier                     string `json:"tier,omitempty"`
 
 	// The api returns the raw time.Duration value so we have to parse it accordingly.
 	// Unlike default_retention_millis which is returned from the api in milliseconds.
 	SoftTopicDeletionTTL *time.Duration `json:"inactive_topics_ttl,omitempty"`
+
+	// BrokerConfigs is the generic representation of cluster-level broker configs, keyed by
+	// Kafka-style name (e.g. "message.max.bytes"); all values are strings. It is absent until
+	// a config has been written through it.
+	BrokerConfigs map[string]*string `json:"broker_configs,omitempty"`
 }
 
 type ConfigurationDescribeRequest struct {
@@ -34,8 +40,19 @@ type ConfigurationDescribeResponse struct {
 }
 
 type ConfigurationUpdateRequest struct {
-	VirtualClusterID string                      `json:"virtual_cluster_id"`
-	Configuration    VirtualClusterConfiguration `json:"virtual_cluster_configuration"`
+	VirtualClusterID string              `json:"virtual_cluster_id"`
+	Configuration    ConfigurationUpdate `json:"virtual_cluster_configuration"`
+}
+
+// ConfigurationUpdate is the update request body. The settings that have a Kafka-style config
+// name are all written through BrokerConfigs; only the ones with no equivalent there are still
+// sent as their own field.
+type ConfigurationUpdate struct {
+	AclsEnabled              bool              `json:"are_acls_enabled"`
+	ACLShadowingEnabled      bool              `json:"acl_shadowing_enabled"`
+	EnableDeletionProtection bool              `json:"enable_deletion_protection"`
+	Tier                     string            `json:"tier,omitempty"`
+	BrokerConfigs            map[string]string `json:"broker_configs,omitempty"`
 }
 
 // GetConfiguration - Describe virtual cluster configuration.
@@ -65,7 +82,7 @@ func (c *Client) GetConfiguration(vc VirtualCluster) (*VirtualClusterConfigurati
 }
 
 // UpdateConfiguration - Update virtual cluster configuration.
-func (c *Client) UpdateConfiguration(cfg VirtualClusterConfiguration, vc VirtualCluster) error {
+func (c *Client) UpdateConfiguration(cfg ConfigurationUpdate, vc VirtualCluster) error {
 	payload, err := json.Marshal(ConfigurationUpdateRequest{VirtualClusterID: vc.ID, Configuration: cfg})
 	if err != nil {
 		return err

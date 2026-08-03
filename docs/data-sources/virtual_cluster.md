@@ -47,6 +47,7 @@ output "vc_default_id" {
 - `agent_pool_id` (String)
 - `agent_pool_name` (String)
 - `bootstrap_url` (String) Bootstrap URL to connect to the Virtual Cluster.
+- `broker_configuration` (Map of String) Cluster broker config set on this virtual cluster, as a map of Kafka-style config names to values.
 - `cloud` (Attributes) (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) (see [below for nested schema](#nestedatt--configuration))
 - `created_at` (String)

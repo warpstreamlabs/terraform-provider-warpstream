@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
@@ -51,6 +52,98 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 			{
 				Config: testAccVirtualClusterDataSourceWithNameAndAgentKey(vc.Name, vc.ID, agentKeyName),
 				Check:  testAccVCDataSourceCheck_byoc(vc, cfg, agentKeyName),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterDataSourceBrokerConfiguration verifies that the data source reports every
+// broker config set on a cluster.
+func TestAccVirtualClusterDataSourceBrokerConfiguration(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	region := "us-east-1"
+	vc, err := client.CreateVirtualCluster(
+		vcNameSuffix,
+		api.ClusterParameters{
+			Type:   api.VirtualClusterTypeBYOC,
+			Tier:   api.VirtualClusterTierPro,
+			Region: &region,
+			Cloud:  "aws",
+		},
+	)
+	require.NoError(t, err)
+	defer func() {
+		if err := client.DeleteVirtualCluster(vc.ID, vc.Name); err != nil {
+			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		}
+	}()
+
+	// Set two configs straight through the API, so Terraform has no configuration declaring them
+	// and can only be reporting what the cluster actually holds.
+	maxBytes, retention := "1048576", "604800000"
+	require.NoError(t, client.UpdateConfiguration(api.ConfigurationUpdate{
+		BrokerConfigs: map[string]string{
+			"message.max.bytes": maxBytes,
+			"log.retention.ms":  retention,
+		},
+	}, *vc))
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterDataSourceWithID(vc.ID),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(
+						"data.warpstream_virtual_cluster.test", "broker_configuration.message.max.bytes", maxBytes),
+					resource.TestCheckResourceAttr(
+						"data.warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", retention),
+				),
+			},
+		},
+	})
+}
+
+func TestAccVirtualClusterDataSourceTopicTypeNeverEmpty(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	region := "us-east-1"
+	vc, err := client.CreateVirtualCluster(vcNameSuffix, api.ClusterParameters{
+		Type:   api.VirtualClusterTypeBYOC,
+		Tier:   api.VirtualClusterTierPro,
+		Region: &region,
+		Cloud:  "aws",
+	})
+	require.NoError(t, err)
+	defer func() {
+		if err := client.DeleteVirtualCluster(vc.ID, vc.Name); err != nil {
+			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		}
+	}()
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterDataSourceWithID(vc.ID),
+				Check: func(s *terraform.State) error {
+					const addr = "data.warpstream_virtual_cluster.test"
+					rs, ok := s.RootModule().Resources[addr]
+					if !ok {
+						return fmt.Errorf("%s not found in state", addr)
+					}
+					// Absent is fine, a real value is fine, "" is the bug.
+					if v, ok := rs.Primary.Attributes["configuration.default_topic_type"]; ok && v == "" {
+						return fmt.Errorf(`configuration.default_topic_type read back as "", ` +
+							`expected either a real value or no attribute at all`)
+					}
+					return nil
+				},
 			},
 		},
 	})
