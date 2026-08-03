@@ -118,7 +118,7 @@ The WarpStream provider must be authenticated with an application key to read th
 				ElementType: types.StringType,
 			},
 			"broker_configuration": schema.MapAttribute{
-				Description: "Every cluster broker config explicitly set on this virtual cluster, as a " +
+				Description: "Cluster broker config set on this virtual cluster, as a " +
 					"map of Kafka-style config names to values.",
 				Computed:    true,
 				ElementType: types.StringType,
