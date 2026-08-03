@@ -92,11 +92,14 @@ jobs:
         env:
           WARPSTREAM_API_KEY: ${{ secrets.TF_ACCEPTANCE_TEST_API_KEY }}
         run: |
-          echo "target: $WARPSTREAM_API_URL"
-          curl -sS -X POST "$WARPSTREAM_API_URL/list_workspaces" \
+          # Same fallback as api.HostURL, so this reports whatever the tests will actually hit
+          # whether or not WARPSTREAM_API_URL is set in the environment.
+          API_URL="${WARPSTREAM_API_URL:-https://api.prod.us-east-1.warpstream.com/api/v1}"
+          echo "target: $API_URL"
+          curl -sS -X POST "$API_URL/list_workspaces" \
             -H "warpstream-api-key: $WARPSTREAM_API_KEY" \
             | jq '.workspaces[] | {id, name}'
-          curl -sS -X POST "$WARPSTREAM_API_URL/list_virtual_clusters" \
+          curl -sS -X POST "$API_URL/list_virtual_clusters" \
             -H "warpstream-api-key: $WARPSTREAM_API_KEY" \
             | jq '{total: (.virtual_clusters | length),
                    by_type: (.virtual_clusters | group_by(.type) | map({(.[0].type): length}) | add),
