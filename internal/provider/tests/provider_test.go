@@ -26,6 +26,13 @@ var (
 	nameSuffix = acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 )
 
+// testClusterName names a cluster created directly through the API rather than by Terraform. The
+// API prefixes `vcn_`, so the result matches the `vcn_test_acc_*` shape the Terraform-managed
+// fixtures use.
+func testClusterName(suffix string) string {
+	return "test_acc_" + suffix
+}
+
 // testAccProtoV6ProviderFactories are used to instantiate a provider during
 // acceptance testing. The factory function will be invoked for every Terraform
 // CLI command executed to create a provider server to which the CLI can

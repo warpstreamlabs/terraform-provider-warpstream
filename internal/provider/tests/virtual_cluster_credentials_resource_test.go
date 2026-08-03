@@ -28,7 +28,7 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
-					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_%s", nameSuffix))
+					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_test_acc_%s", nameSuffix))
 					require.NoError(t, err)
 
 					credentials, err := client.GetCredentials(*virtualCluster)
@@ -66,7 +66,7 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					client, err := api.NewClientDefault()
 					require.NoError(t, err)
 
-					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_%s", nameSuffix))
+					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_test_acc_%s", nameSuffix))
 					require.NoError(t, err)
 
 					err = client.DeleteVirtualCluster(virtualCluster.ID, virtualCluster.Name)
@@ -167,7 +167,7 @@ func TestAccVirtualClusterCredentialsResourcePassword(t *testing.T) {
 func testAccVirtualClusterCredentialsResource_withSuperuser(su bool) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
@@ -182,7 +182,7 @@ resource "warpstream_virtual_cluster_credentials" "test" {
 func testAccVirtualClusterCredentialsResource_vcField(vcFieldName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
@@ -197,7 +197,7 @@ resource "warpstream_virtual_cluster_credentials" "test" {
 func testAccVirtualClusterCredentialsResource_vcFieldMissing() string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
@@ -211,7 +211,7 @@ resource "warpstream_virtual_cluster_credentials" "test" {
 func testAccVirtualClusterCredentialsResource_withPassword(nameSuffix string, password string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 

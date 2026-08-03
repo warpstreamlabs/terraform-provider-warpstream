@@ -6,8 +6,10 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
@@ -513,4 +515,47 @@ func TestBrokerConfigsPayload(t *testing.T) {
 		require.ErrorContains(t, err, "3600000")
 		require.ErrorContains(t, err, "86400000")
 	})
+}
+
+func TestBrokerConfigValidatorMatchesModifyPlan(t *testing.T) {
+	t.Parallel()
+
+	declared := types.MapValueMust(types.StringType, map[string]attr.Value{
+		"message.max.bytes":     types.StringValue("1048576"),
+		"log.retention.ms":      types.StringValue("3600000"),
+		"log.retention.hours":   types.StringValue("24"),
+		"delete.topic.enable":   types.StringNull(),
+		"some.brand.new.config": types.StringValue("on"),
+	})
+
+	attrDef, ok := virtualClusterSchema(t).Attributes["broker_configuration"].(schema.MapAttribute)
+	require.True(t, ok, "broker_configuration is no longer a map attribute")
+	require.Len(t, attrDef.Validators, 1, "broker_configuration must carry the key validator")
+
+	var vResp validator.MapResponse
+	attrDef.Validators[0].ValidateMap(context.Background(), validator.MapRequest{
+		Path:        path.Root("broker_configuration"),
+		ConfigValue: declared,
+	}, &vResp)
+
+	var planResp resource.ModifyPlanResponse
+	(&virtualClusterResource{}).ModifyPlan(
+		context.Background(),
+		resource.ModifyPlanRequest{Plan: planWithBrokerConfiguration(t, declared)},
+		&planResp,
+	)
+
+	detailsByPath := func(diags diag.Diagnostics) map[string]string {
+		out := map[string]string{}
+		for _, d := range diags.Errors() {
+			withPath, ok := d.(diag.DiagnosticWithPath)
+			require.True(t, ok, "every problem must name the key it is about")
+			out[withPath.Path().String()] = d.Detail()
+		}
+		return out
+	}
+
+	fromValidator, fromPlan := detailsByPath(vResp.Diagnostics), detailsByPath(planResp.Diagnostics)
+	require.Len(t, fromValidator, 3)
+	require.Equal(t, fromPlan, fromValidator, "validate-time and plan-time diagnostics must be identical")
 }

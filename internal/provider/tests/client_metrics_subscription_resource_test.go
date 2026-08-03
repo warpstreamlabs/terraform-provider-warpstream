@@ -22,7 +22,7 @@ const cmsResourceAddr = "warpstream_client_metrics_subscription.test"
 func testAccCMSConfigAllFields(vcRand string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-  name = "vcn_%s"
+  name = "vcn_test_acc_%s"
   tier = "dev"
 }
 
@@ -40,7 +40,7 @@ resource "warpstream_client_metrics_subscription" "test" {
 func testAccCMSConfigPartial(vcRand string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-  name = "vcn_%s"
+  name = "vcn_test_acc_%s"
   tier = "dev"
 }
 
@@ -114,7 +114,7 @@ func TestAccClientMetricsSubscriptionResource_RequiresReplace(t *testing.T) {
 
 	renamed := providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-  name = "vcn_%s"
+  name = "vcn_test_acc_%s"
   tier = "dev"
 }
 
@@ -198,7 +198,7 @@ func TestAccClientMetricsSubscriptionResource_ConfigValidation(t *testing.T) {
 			vcRand := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 			config := providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-  name = "vcn_%s"
+  name = "vcn_test_acc_%s"
   tier = "dev"
 }
 
@@ -229,7 +229,7 @@ resource "warpstream_client_metrics_subscription" "test" {
 // confirms Read maps the API's 404 onto resource removal in state.
 func TestAccClientMetricsSubscriptionResource_DriftRecreate(t *testing.T) {
 	vcRand := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	vcName := fmt.Sprintf("vcn_%s", vcRand)
+	vcName := fmt.Sprintf("vcn_test_acc_%s", vcRand)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

@@ -28,7 +28,7 @@ func TestAccVirtualClustersDataSource(t *testing.T) {
 	for range 5 {
 		vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 		vc, err := client.CreateVirtualCluster(
-			vcNameSuffix,
+			testClusterName(vcNameSuffix),
 			api.ClusterParameters{
 				Type:   api.VirtualClusterTypeBYOC,
 				Tier:   api.VirtualClusterTierPro,

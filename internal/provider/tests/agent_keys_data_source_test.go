@@ -23,7 +23,7 @@ func TestAccAgentKeyDataSource(t *testing.T) {
 func testAccAgentKeyDataSource() string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
