@@ -9,9 +9,7 @@ import (
 	"time"
 )
 
-// VirtualClusterConfiguration is what describe reports. Every field here is always populated by
-// the API, so reads never have to invent a value; write requests use ConfigurationUpdate, which
-// carries only the fields the provider actually sends.
+// VirtualClusterConfiguration is what is returned in a cluster config describe.
 type VirtualClusterConfiguration struct {
 	AclsEnabled              bool   `json:"are_acls_enabled"`
 	ACLShadowingEnabled      bool   `json:"acl_shadowing_enabled"`
@@ -33,17 +31,6 @@ type VirtualClusterConfiguration struct {
 	BrokerConfigs map[string]*string `json:"broker_configs,omitempty"`
 }
 
-// ConfigurationUpdate is the update request body. The settings that have a Kafka-style config
-// name are all written through BrokerConfigs; only the ones with no equivalent there are still
-// sent as their own field.
-type ConfigurationUpdate struct {
-	AclsEnabled              bool              `json:"are_acls_enabled"`
-	ACLShadowingEnabled      bool              `json:"acl_shadowing_enabled"`
-	EnableDeletionProtection bool              `json:"enable_deletion_protection"`
-	Tier                     string            `json:"tier,omitempty"`
-	BrokerConfigs            map[string]string `json:"broker_configs,omitempty"`
-}
-
 type ConfigurationDescribeRequest struct {
 	VirtualClusterID string `json:"virtual_cluster_id"`
 }
@@ -55,6 +42,17 @@ type ConfigurationDescribeResponse struct {
 type ConfigurationUpdateRequest struct {
 	VirtualClusterID string              `json:"virtual_cluster_id"`
 	Configuration    ConfigurationUpdate `json:"virtual_cluster_configuration"`
+}
+
+// ConfigurationUpdate is the update request body. The settings that have a Kafka-style config
+// name are all written through BrokerConfigs; only the ones with no equivalent there are still
+// sent as their own field.
+type ConfigurationUpdate struct {
+	AclsEnabled              bool              `json:"are_acls_enabled"`
+	ACLShadowingEnabled      bool              `json:"acl_shadowing_enabled"`
+	EnableDeletionProtection bool              `json:"enable_deletion_protection"`
+	Tier                     string            `json:"tier,omitempty"`
+	BrokerConfigs            map[string]string `json:"broker_configs,omitempty"`
 }
 
 // GetConfiguration - Describe virtual cluster configuration.

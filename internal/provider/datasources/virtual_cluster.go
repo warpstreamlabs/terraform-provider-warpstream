@@ -382,8 +382,7 @@ func (d *virtualClusterDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	// Set the generic broker configs. Unlike the resource, which tracks only the keys a
-	// configuration declared, the data source reports every config the cluster holds.
+	// Set the generic broker configs.
 	brokerConfigs := make(map[string]attr.Value, len(cfg.BrokerConfigs))
 	for name, value := range cfg.BrokerConfigs {
 		brokerConfigs[name] = types.StringPointerValue(value)
