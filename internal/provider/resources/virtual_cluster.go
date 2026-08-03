@@ -618,14 +618,10 @@ func (r *virtualClusterResource) Read(ctx context.Context, req resource.ReadRequ
 		}
 	}
 
-	r.readConfiguration(ctx, *cluster, state.BrokerConfiguration, &resp.State, &resp.Diagnostics)
+	r.readConfiguration(ctx, *cluster, state.BrokerConfiguration, hadNullDefaultTopicType,
+		&resp.State, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
-	}
-
-	// Preserve null value for default_topic_type if it was null in the previous state.
-	if hadNullDefaultTopicType {
-		preserveNullTopicType(ctx, &resp.State, &resp.Diagnostics)
 	}
 
 	// Get current event types from state to filter API response.
@@ -816,7 +812,9 @@ func brokerConfigsPayload(cfgPlan models.VirtualClusterConfiguration, brokerCfg 
 // readConfiguration writes the cluster's configuration from the API into state, and returns
 // the API's response so a caller on the apply path can check what was actually stored. It
 // returns nil if the configuration could not be read.
-func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster, declared types.Map, state *tfsdk.State, respDiags *diag.Diagnostics) *api.VirtualClusterConfiguration {
+func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster api.VirtualCluster,
+	declared types.Map, keepTopicTypeNull bool, state *tfsdk.State, respDiags *diag.Diagnostics,
+) *api.VirtualClusterConfiguration {
 	// Get virtual cluster configuration
 	cfg, err := r.client.GetConfiguration(cluster)
 	if err != nil {
@@ -837,12 +835,10 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
 		EnableSoftTopicDeletion:  types.BoolValue(cfg.EnableSoftTopicDeletion),
 	}
-	// Describe is expected to always report a topic type, but keep an absent one as null rather
-	// than storing "".
-	if cfg.DefaultTopicType == "" {
+
+	cfgState.DefaultTopicType = types.StringValue(cfg.DefaultTopicType)
+	if keepTopicTypeNull || cfg.DefaultTopicType == "" {
 		cfgState.DefaultTopicType = types.StringNull()
-	} else {
-		cfgState.DefaultTopicType = types.StringValue(cfg.DefaultTopicType)
 	}
 	if cfg.SoftTopicDeletionTTL != nil {
 		cfgState.SoftTopicDeletionTTL = types.Int64Value(cfg.SoftTopicDeletionTTL.Milliseconds())
@@ -917,7 +913,9 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 	}
 
 	// Retrieve updated virtual cluster configuration
-	applied := r.readConfiguration(ctx, cluster, plan.BrokerConfiguration, state, respDiags)
+	keepTopicTypeNull := cfgPlan.DefaultTopicType.IsNull() || cfgPlan.DefaultTopicType.IsUnknown()
+	applied := r.readConfiguration(ctx, cluster, plan.BrokerConfiguration, keepTopicTypeNull,
+		state, respDiags)
 	if applied == nil {
 		return
 	}
@@ -930,23 +928,6 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 		return
 	}
 
-	// Preserve null value for default_topic_type if it wasn't explicitly set in the plan.
-	if cfgPlan.DefaultTopicType.IsNull() || cfgPlan.DefaultTopicType.IsUnknown() {
-		preserveNullTopicType(ctx, state, respDiags)
-	}
-}
-
-// preserveNullTopicType forces configuration.default_topic_type back to null in state. The API
-// reports "classic" where the type was never set, but state keeps null so that "explicitly set
-// to classic" and "using the default" stay distinguishable.
-func preserveNullTopicType(ctx context.Context, state *tfsdk.State, respDiags *diag.Diagnostics) {
-	var cfgState models.VirtualClusterConfiguration
-	if diags := state.GetAttribute(ctx, path.Root("configuration"), &cfgState); diags.HasError() {
-		// Best effort: state then simply keeps the value the API reported.
-		return
-	}
-	cfgState.DefaultTopicType = types.StringNull()
-	respDiags.Append(state.SetAttribute(ctx, path.Root("configuration"), cfgState)...)
 }
 
 func (r *virtualClusterResource) readTags(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics) {
