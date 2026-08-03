@@ -105,13 +105,6 @@ func validateBrokerConfigKey(key string) error {
 	return fmt.Errorf("%s; specify this setting as %q instead", problem, canonical)
 }
 
-// validateBrokerConfiguration reports every problem in a declared `broker_configuration` map.
-//
-// Shared by two callers on purpose. The schema validator runs it at `terraform validate` time, so a
-// bad key is caught before any plan or API call. ModifyPlan runs it again during planning — and
-// crucially during the apply-time re-plan, which is the only point at which the keys of a map that
-// was unknown as a whole (`jsondecode` of an unresolved value) become visible. One implementation
-// means the two can never disagree about what is legal or how it is phrased.
 func validateBrokerConfiguration(m types.Map, at path.Path, diags *diag.Diagnostics) {
 	if m.IsNull() || m.IsUnknown() {
 		return

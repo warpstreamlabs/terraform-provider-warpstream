@@ -517,10 +517,6 @@ func TestBrokerConfigsPayload(t *testing.T) {
 	})
 }
 
-// TestBrokerConfigValidatorMatchesModifyPlan pins two things: that the schema actually carries the
-// key validator — a validator that exists but is never attached is invisible — and that it reports
-// the same problems, with the same wording, that ModifyPlan reports. They share one implementation
-// precisely so `terraform validate` and `terraform plan` cannot disagree about what is legal.
 func TestBrokerConfigValidatorMatchesModifyPlan(t *testing.T) {
 	t.Parallel()
 
