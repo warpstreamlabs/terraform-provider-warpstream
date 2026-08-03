@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
@@ -101,6 +102,54 @@ func TestAccVirtualClusterDataSourceBrokerConfiguration(t *testing.T) {
 					resource.TestCheckResourceAttr(
 						"data.warpstream_virtual_cluster.test", "broker_configuration.log.retention.ms", retention),
 				),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterDataSourceTopicTypeNeverEmpty guards the data source's half of describe's
+// `default_topic_type` being a plain string rather than a pointer. The resource can fall back on
+// forcing the value to null when the configuration never set one; the data source has no
+// equivalent, so an absent value has to read back as absent and never as "".
+//
+// The cluster is created straight through the API so that nothing has ever set a topic type on it.
+func TestAccVirtualClusterDataSourceTopicTypeNeverEmpty(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	region := "us-east-1"
+	vc, err := client.CreateVirtualCluster(vcNameSuffix, api.ClusterParameters{
+		Type:   api.VirtualClusterTypeBYOC,
+		Tier:   api.VirtualClusterTierPro,
+		Region: &region,
+		Cloud:  "aws",
+	})
+	require.NoError(t, err)
+	defer func() {
+		if err := client.DeleteVirtualCluster(vc.ID, vc.Name); err != nil {
+			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		}
+	}()
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVirtualClusterDataSourceWithID(vc.ID),
+				Check: func(s *terraform.State) error {
+					const addr = "data.warpstream_virtual_cluster.test"
+					rs, ok := s.RootModule().Resources[addr]
+					if !ok {
+						return fmt.Errorf("%s not found in state", addr)
+					}
+					// Absent is fine, a real value is fine, "" is the bug.
+					if v, ok := rs.Primary.Attributes["configuration.default_topic_type"]; ok && v == "" {
+						return fmt.Errorf(`configuration.default_topic_type read back as "", ` +
+							`expected either a real value or no attribute at all`)
+					}
+					return nil
+				},
 			},
 		},
 	})

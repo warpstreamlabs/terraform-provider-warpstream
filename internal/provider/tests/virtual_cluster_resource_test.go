@@ -236,6 +236,18 @@ func testAccVirtualClusterResourceCheck(acls bool, aclShadowing bool, autoTopic 
 // The tests below are deliberately few and broad. Each one owns a theme and walks a cluster
 // through several steps, rather than spreading one assertion per test across many clusters.
 
+// emptyPlanChecks asserts a step's plan is a no-op, which is how every "does this settle?"
+// requirement in this section is expressed.
+var emptyPlanChecks = resource.ConfigPlanChecks{
+	PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+}
+
+// releasedProvider pins the published provider used by the upgrade tests. Bump both callers
+// together when a newer release becomes the meaningful "before" state.
+var releasedProvider = map[string]resource.ExternalProvider{
+	"warpstream": {Source: "warpstreamlabs/warpstream", VersionConstraint: "2.7.9"},
+}
+
 // brokerConfigResource renders a virtual cluster with an optional typed `configuration` body
 // and an optional `broker_configuration` map, so a single fixture covers every combination the
 // tests need.
@@ -396,7 +408,7 @@ func TestAccVirtualClusterResourceBrokerConfigLifecycle(t *testing.T) {
 			},
 			{
 				Config:           brokerConfigResource(vcNameSuffix, "", twoConfigs),
-				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+				ConfigPlanChecks: emptyPlanChecks,
 			},
 			// Change one value and add a key the provider has never sent before.
 			{
@@ -416,7 +428,7 @@ func TestAccVirtualClusterResourceBrokerConfigLifecycle(t *testing.T) {
 			},
 			{
 				Config:           brokerConfigResource(vcNameSuffix, "", ""),
-				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+				ConfigPlanChecks: emptyPlanChecks,
 			},
 			// An explicitly empty map is a distinct value from an absent attribute, and the
 			// attribute is Optional rather than Computed, so it has to round-trip as empty. A
@@ -428,7 +440,7 @@ func TestAccVirtualClusterResourceBrokerConfigLifecycle(t *testing.T) {
 			},
 			{
 				Config:           brokerConfigResourceEmptyMap(vcNameSuffix),
-				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+				ConfigPlanChecks: emptyPlanChecks,
 			},
 		},
 	})
@@ -459,15 +471,13 @@ func TestAccVirtualClusterResourceBrokerConfigUpgrade(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		Steps: []resource.TestStep{
 			{
-				ExternalProviders: map[string]resource.ExternalProvider{
-					"warpstream": {Source: "warpstreamlabs/warpstream", VersionConstraint: "2.7.9"},
-				},
-				Config: config,
+				ExternalProviders: releasedProvider,
+				Config:            config,
 			},
 			{
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Config:                   config,
-				ConfigPlanChecks:         resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+				ConfigPlanChecks:         emptyPlanChecks,
 			},
 			// Taking over is not enough: the new provider must also be able to write these
 			// settings through their new representation without changing what they mean.
@@ -529,7 +539,7 @@ func TestAccVirtualClusterResourceBrokerConfigTypedSettings(t *testing.T) {
 			},
 			{
 				Config:           brokerConfigResource(vcNameSuffix, allSixTyped, ""),
-				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+				ConfigPlanChecks: emptyPlanChecks,
 			},
 			// Delete default_num_partitions: the schema default reasserts and the cluster
 			// reverts to 1.
@@ -539,7 +549,7 @@ func TestAccVirtualClusterResourceBrokerConfigTypedSettings(t *testing.T) {
 			},
 			{
 				Config:           brokerConfigResource(vcNameSuffix, fiveTyped, ""),
-				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+				ConfigPlanChecks: emptyPlanChecks,
 			},
 		},
 	})
@@ -552,7 +562,6 @@ func TestAccVirtualClusterResourceBrokerConfigCoexist(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	const addr = "warpstream_virtual_cluster.test"
 
-	emptyPlan := resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}}
 	both := func(retention, maxBytes string) string {
 		return brokerConfigResource(vcNameSuffix,
 			"    default_retention_millis = "+retention,
@@ -569,7 +578,7 @@ func TestAccVirtualClusterResourceBrokerConfigCoexist(t *testing.T) {
 					resource.TestCheckResourceAttr(addr, "broker_configuration.message.max.bytes", "1048576"),
 				),
 			},
-			{Config: both("3600000", "1048576"), ConfigPlanChecks: emptyPlan},
+			{Config: both("3600000", "1048576"), ConfigPlanChecks: emptyPlanChecks},
 			// Change only the typed side.
 			{
 				Config: both("7200000", "1048576"),
@@ -586,7 +595,7 @@ func TestAccVirtualClusterResourceBrokerConfigCoexist(t *testing.T) {
 					resource.TestCheckResourceAttr(addr, "broker_configuration.message.max.bytes", "2097152"),
 				),
 			},
-			{Config: both("7200000", "2097152"), ConfigPlanChecks: emptyPlan},
+			{Config: both("7200000", "2097152"), ConfigPlanChecks: emptyPlanChecks},
 		},
 	})
 }
@@ -623,7 +632,7 @@ resource "warpstream_virtual_cluster" "test" {
 			},
 			{
 				Config:           config,
-				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+				ConfigPlanChecks: emptyPlanChecks,
 			},
 		},
 	})
@@ -666,7 +675,6 @@ resource "warpstream_virtual_cluster" "test" {
 			plancheck.ExpectUnknownValue(addr, tfjsonpath.New("broker_configuration")),
 		},
 	}
-	emptyPlan := resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}}
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -677,14 +685,14 @@ resource "warpstream_virtual_cluster" "test" {
 				ConfigPlanChecks: expectMapUnknown,
 				Check:            resource.TestCheckResourceAttrSet(addr, "broker_configuration.message.max.bytes"),
 			},
-			{Config: config("dep", "message.max.bytes", 1000000), ConfigPlanChecks: emptyPlan},
+			{Config: config("dep", "message.max.bytes", 1000000), ConfigPlanChecks: emptyPlanChecks},
 			// Update with a wholly-unknown map: rekey it off a new dependency cluster.
 			{
 				Config:           config("dep2", "message.max.bytes", 2000000),
 				ConfigPlanChecks: expectMapUnknown,
 				Check:            resource.TestCheckResourceAttrSet(addr, "broker_configuration.message.max.bytes"),
 			},
-			{Config: config("dep2", "message.max.bytes", 2000000), ConfigPlanChecks: emptyPlan},
+			{Config: config("dep2", "message.max.bytes", 2000000), ConfigPlanChecks: emptyPlanChecks},
 			// A typed-owned key hiding in an opaque map: plan-time validation cannot see it, so
 			// the rejection must fire during the apply-time re-plan instead.
 			{
@@ -698,7 +706,7 @@ resource "warpstream_virtual_cluster" "test" {
 				Config: config("dep2", "message.max.bytes", 2000000),
 				Check:  resource.TestCheckResourceAttrSet(addr, "broker_configuration.message.max.bytes"),
 			},
-			{Config: config("dep2", "message.max.bytes", 2000000), ConfigPlanChecks: emptyPlan},
+			{Config: config("dep2", "message.max.bytes", 2000000), ConfigPlanChecks: emptyPlanChecks},
 		},
 	})
 }
@@ -723,10 +731,280 @@ func TestAccVirtualClusterResourceBrokerConfigLargeRetention(t *testing.T) {
 			},
 			{
 				Config:           config,
-				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+				ConfigPlanChecks: emptyPlanChecks,
 			},
 		},
 	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigDrift is the read path's central claim: declared keys
+// track the cluster, undeclared ones are invisible. Both halves matter — the first is what makes
+// the attribute usable, the second is why a config someone sets outside Terraform (or through a
+// typed attribute) never shows up as churn on an unrelated cluster.
+func TestAccVirtualClusterResourceBrokerConfigDrift(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+	config := brokerConfigResource(vcNameSuffix, "", `    "message.max.bytes" = "1048576"`)
+
+	// The cluster id only exists once the first step has applied, so capture it from state and
+	// let the later steps reach past Terraform to change the cluster behind its back.
+	var clusterID string
+	writeOutOfBand := func(kv map[string]string) func() {
+		return func() {
+			require.NoError(t, client.UpdateConfiguration(
+				api.ConfigurationUpdate{BrokerConfigs: kv},
+				api.VirtualCluster{ID: clusterID},
+			))
+		}
+	}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(addr, "broker_configuration.message.max.bytes", "1048576"),
+					func(s *terraform.State) error {
+						rs, ok := s.RootModule().Resources[addr]
+						if !ok {
+							return fmt.Errorf("resource %s not found in state", addr)
+						}
+						clusterID = rs.Primary.Attributes["id"]
+						if clusterID == "" {
+							return fmt.Errorf("resource %s has no id in state", addr)
+						}
+						return nil
+					},
+				),
+			},
+			// A config the configuration never mentioned must not surface as drift.
+			{
+				PreConfig:        writeOutOfBand(map[string]string{"offsets.retention.minutes": "20160"}),
+				Config:           config,
+				ConfigPlanChecks: emptyPlanChecks,
+			},
+			// A declared config changed behind Terraform's back must surface as drift, and the
+			// apply must put the configured value back.
+			{
+				PreConfig: writeOutOfBand(map[string]string{"message.max.bytes": "2097152"}),
+				Config:    config,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(addr, plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: resource.TestCheckResourceAttr(addr, "broker_configuration.message.max.bytes", "1048576"),
+			},
+			{Config: config, ConfigPlanChecks: emptyPlanChecks},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigUpgradeDefaults is the other half of the upgrade
+// guard, and the more common configuration by far: name and tier only, every `configuration`
+// attribute left at its default, `default_topic_type` never set. The released provider sent those
+// defaults as typed request fields and this one sends them as broker configs, so taking such a
+// cluster over must plan clean — and must not invent a topic type where the user never chose one.
+func TestAccVirtualClusterResourceBrokerConfigUpgradeDefaults(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+	config := brokerConfigResource(vcNameSuffix, "", "")
+
+	resource.Test(t, resource.TestCase{
+		Steps: []resource.TestStep{
+			{
+				ExternalProviders: releasedProvider,
+				Config:            config,
+			},
+			{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Config:                   config,
+				ConfigPlanChecks:         emptyPlanChecks,
+			},
+			// Planning clean is not enough: the defaults must still be the defaults once this
+			// provider has written them through their new representation.
+			{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Config:                   config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(addr, "configuration.auto_create_topic", "true"),
+					resource.TestCheckResourceAttr(addr, "configuration.default_num_partitions", "1"),
+					resource.TestCheckResourceAttr(addr, "configuration.default_retention_millis", "86400000"),
+					resource.TestCheckResourceAttr(addr, "configuration.enable_soft_topic_deletion", "true"),
+					resource.TestCheckResourceAttr(addr, "configuration.soft_topic_deletion_ttl_millis", "86400000"),
+					resource.TestCheckResourceAttr(addr, "configuration.enable_acls", "false"),
+					resource.TestCheckNoResourceAttr(addr, "configuration.default_topic_type"),
+					resource.TestCheckNoResourceAttr(addr, "broker_configuration.%"),
+				),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigFailureRecovery covers both ways an apply can be
+// rejected by the API — during the create that follows a fresh cluster, and during a later update
+// — and requires the resource to be recoverable from each.
+//
+// The final empty plan is the load-bearing assertion. A failure path that writes partial state
+// persists whatever unknowns the plan was carrying, and `events.event_types` is one of them; once
+// that lands as null it is re-planned as "known after apply" forever, so a single rejected value
+// would leave the resource with a permanent diff no apply can clear.
+func TestAccVirtualClusterResourceBrokerConfigFailureRecovery(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+	good := brokerConfigResource(vcNameSuffix, "", `    "message.max.bytes" = "1048576"`)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// The cluster is created and then fails to configure.
+			{
+				Config:      brokerConfigResource(vcNameSuffix, "", `    "nope.not.a.config" = "1"`),
+				ExpectError: regexp.MustCompile(`unsupported\s+cluster\s+config`),
+			},
+			{
+				Config: good,
+				Check:  resource.TestCheckResourceAttr(addr, "broker_configuration.message.max.bytes", "1048576"),
+			},
+			{Config: good, ConfigPlanChecks: emptyPlanChecks},
+			// Now the same thing on the update path, from a healthy resource.
+			{
+				Config:      brokerConfigResource(vcNameSuffix, "", `    "message.max.bytes" = "not-a-number"`),
+				ExpectError: regexp.MustCompile(`invalid\s+cluster\s+config`),
+			},
+			{
+				Config: good,
+				Check:  resource.TestCheckResourceAttr(addr, "broker_configuration.message.max.bytes", "1048576"),
+			},
+			{Config: good, ConfigPlanChecks: emptyPlanChecks},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigWithEvents pins the map alongside an events block.
+// Events are the attribute a botched failure path corrupts first, because it is the one carrying
+// unknowns through the apply, so the plain case with both populated is worth holding still.
+func TestAccVirtualClusterResourceBrokerConfigWithEvents(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+	config := providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+
+  broker_configuration = {
+    "message.max.bytes" = "1048576"
+  }
+
+  events = {
+    enabled = true
+  }
+}`, vcNameSuffix)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(addr, "broker_configuration.message.max.bytes", "1048576"),
+					resource.TestCheckResourceAttr(addr, "events.enabled", "true"),
+				),
+			},
+			{Config: config, ConfigPlanChecks: emptyPlanChecks},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceBrokerConfigImport covers importing a cluster whose configs are
+// map-managed. Import has no configuration to learn the declared keys from, so it records none;
+// what has to hold is that everything else round-trips and the follow-up plan settles rather than
+// erroring or proposing a replace.
+func TestAccVirtualClusterResourceBrokerConfigImport(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+	config := brokerConfigResource(vcNameSuffix, `    default_retention_millis = 3600000`,
+		`    "message.max.bytes" = "1048576"`)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{Config: config},
+			{
+				Config:            config,
+				ResourceName:      addr,
+				ImportState:       true,
+				ImportStateVerify: true,
+				// broker_configuration is expected to differ, per the doc comment above.
+				//
+				// default_topic_type differs for an unrelated and pre-existing reason: a topic
+				// type the configuration never set is null in applied state but "classic" after
+				// import, because import has no prior state to learn "unset" from. Verified to
+				// behave identically on the released provider, so it is not this attribute's
+				// doing; it is ignored here to keep the assertion about broker configs.
+				ImportStateVerifyIgnore: []string{"broker_configuration", "configuration.default_topic_type"},
+				ImportStateCheck: func(states []*terraform.InstanceState) error {
+					if len(states) != 1 {
+						return fmt.Errorf("expected 1 imported instance, got %d", len(states))
+					}
+					if v, ok := states[0].Attributes["broker_configuration.%"]; ok {
+						return fmt.Errorf("imported state tracks %s broker configs, expected none", v)
+					}
+					return nil
+				},
+			},
+			{Config: config, ConfigPlanChecks: emptyPlanChecks},
+		},
+	})
+}
+
+// TestAccVirtualClusterConfigSurfacesAreDisjoint checks the assumption the disjoint design rests
+// on, straight against the API: the three settings the provider exposes only as typed attributes
+// have no Kafka-style config name at all, so `broker_configuration` cannot reach them and the two
+// surfaces cannot fight over one setting.
+//
+// If the API ever gains a name for one of these, this test fails — which is the signal to add it
+// to typedAttrConfigs before the map can be used to write it behind the typed attribute's back.
+func TestAccVirtualClusterConfigSurfacesAreDisjoint(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	region := "us-east-1"
+	vc, err := client.CreateVirtualCluster(vcNameSuffix, api.ClusterParameters{
+		Type:   api.VirtualClusterTypeBYOC,
+		Tier:   api.VirtualClusterTierPro,
+		Region: &region,
+		Cloud:  "aws",
+	})
+	require.NoError(t, err)
+	defer func() {
+		if err := client.DeleteVirtualCluster(vc.ID, vc.Name); err != nil {
+			panic(fmt.Errorf("failed to delete virtual cluster: %w", err))
+		}
+	}()
+
+	for _, key := range []string{
+		"warpstream.acls.enable",
+		"warpstream.acl.shadowing.enable",
+		"warpstream.deletion.protection.enable",
+	} {
+		err := client.UpdateConfiguration(api.ConfigurationUpdate{
+			BrokerConfigs: map[string]string{key: "true"},
+		}, *vc)
+		require.ErrorContains(t, err, "unsupported cluster config",
+			"the API now accepts %q as a broker config, so broker_configuration can write a "+
+				"setting that also has a typed attribute; add it to typedAttrConfigs", key)
+	}
+
+	// Sanity check that the loop above proves something: a name the API does accept must work.
+	require.NoError(t, client.UpdateConfiguration(api.ConfigurationUpdate{
+		BrokerConfigs: map[string]string{"message.max.bytes": "1048576"},
+	}, *vc))
 }
 
 func TestAccVirtualClusterImport(t *testing.T) {
