@@ -108,6 +108,13 @@ jobs:
                    name_contains_test: ([.virtual_clusters[] | select(.name | test("test"))] | length),
                    oldest: ([.virtual_clusters[].created_at] | sort | .[0]),
                    newest: ([.virtual_clusters[].created_at] | sort | .[-1])}'
+          # The leaked fixtures themselves, oldest first, so they can be reviewed and deleted.
+          # Anything here is garbage by definition: acceptance fixtures live for seconds.
+          echo "--- leaked acceptance fixtures ---"
+          curl -sS -X POST "$API_URL/list_virtual_clusters" \
+            -H "warpstream-api-key: $WARPSTREAM_API_KEY" \
+            | jq -r '[.virtual_clusters[] | select(.name | startswith("vcn_test_acc_"))]
+                     | sort_by(.created_at)[] | "\(.created_at)  \(.id)  \(.name)"'
       - name: Run acceptance tests that require an application key
         env:
           TF_ACC: "1"
