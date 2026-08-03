@@ -232,11 +232,6 @@ func testAccVirtualClusterResourceCheck(acls bool, aclShadowing bool, autoTopic 
 
 }
 
-// --- broker_configuration (generic cluster config map) ---------------------------------
-//
-// The tests below are deliberately few and broad. Each one owns a theme and walks a cluster
-// through several steps, rather than spreading one assertion per test across many clusters.
-
 // emptyPlanChecks asserts a step's plan is a no-op, which is how every "does this settle?"
 // requirement in this section is expressed.
 var emptyPlanChecks = resource.ConfigPlanChecks{
@@ -966,7 +961,7 @@ func TestAccVirtualClusterConfigSurfacesAreDisjoint(t *testing.T) {
 
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
-	vc, err := client.CreateVirtualCluster(vcNameSuffix, api.ClusterParameters{
+	vc, err := client.CreateVirtualCluster(testClusterName(vcNameSuffix), api.ClusterParameters{
 		Type:   api.VirtualClusterTypeBYOC,
 		Tier:   api.VirtualClusterTierPro,
 		Region: &region,
