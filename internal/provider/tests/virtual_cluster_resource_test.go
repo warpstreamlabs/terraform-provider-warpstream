@@ -961,7 +961,7 @@ func TestAccVirtualClusterConfigSurfacesAreDisjoint(t *testing.T) {
 
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
-	vc, err := client.CreateVirtualCluster(vcNameSuffix, api.ClusterParameters{
+	vc, err := client.CreateVirtualCluster(testClusterName(vcNameSuffix), api.ClusterParameters{
 		Type:   api.VirtualClusterTypeBYOC,
 		Tier:   api.VirtualClusterTierPro,
 		Region: &region,

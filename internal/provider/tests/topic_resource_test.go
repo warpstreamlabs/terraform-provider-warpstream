@@ -35,7 +35,7 @@ func TestAccTopicResourceMultipleConfigs(t *testing.T) {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
@@ -72,7 +72,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
@@ -105,7 +105,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
@@ -138,7 +138,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
@@ -181,7 +181,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
@@ -216,7 +216,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
@@ -260,7 +260,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
@@ -317,7 +317,7 @@ func TestAccTopicResourceTopicTypeConfig(t *testing.T) {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 			resource "warpstream_virtual_cluster" "default" {
-				name = "vcn_%s"
+				name = "vcn_test_acc_%s"
 			    tier = "dev"
 			}
 
@@ -354,7 +354,7 @@ func TestAccTopicResourceTopicTypeConfig(t *testing.T) {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
@@ -384,7 +384,7 @@ resource "warpstream_topic" "topic" {
 
 func TestAccTopicResourceDeletePlan(t *testing.T) {
 	virtualClusterRandString := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	virtualClusterName := fmt.Sprintf("vcn_%s", virtualClusterRandString)
+	virtualClusterName := fmt.Sprintf("vcn_test_acc_%s", virtualClusterRandString)
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -478,7 +478,7 @@ func TestAccTopicResource(t *testing.T) {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
     tier = "dev"
 }
 
@@ -510,7 +510,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
 	tier = "dev"
 }
 				`, cluster),
@@ -519,7 +519,7 @@ resource "warpstream_virtual_cluster" "default" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
 	tier = "dev"
 }
 
@@ -551,7 +551,7 @@ resource "warpstream_topic" "topic" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
 	tier = "dev"
 }
 				`, cluster),
@@ -563,7 +563,7 @@ resource "warpstream_virtual_cluster" "default" {
 func testAccTopicAndClusterResource(clusterName string) string {
 	return providerConfig + fmt.Sprintf(`
 	resource "warpstream_virtual_cluster" "default" {
-		name = "vcn_%s"
+		name = "vcn_test_acc_%s"
         tier = "dev"
 	}
 	resource "warpstream_topic" "topic" {
@@ -576,7 +576,7 @@ func testAccTopicAndClusterResource(clusterName string) string {
 func testAccTopicWithCleanupPolicy(clusterName, cleanupPolicy string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-	name = "vcn_%s"
+	name = "vcn_test_acc_%s"
 	tier = "dev"
 }
 

@@ -1,10 +1,16 @@
 package resources
 
 import (
+	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/models"
 )
@@ -97,4 +103,48 @@ func validateBrokerConfigKey(key string) error {
 		return fmt.Errorf("%s; set `configuration.%s` instead", problem, typedAttr)
 	}
 	return fmt.Errorf("%s; specify this setting as %q instead", problem, canonical)
+}
+
+// validateBrokerConfiguration reports every problem in a declared `broker_configuration` map.
+//
+// Shared by two callers on purpose. The schema validator runs it at `terraform validate` time, so a
+// bad key is caught before any plan or API call. ModifyPlan runs it again during planning — and
+// crucially during the apply-time re-plan, which is the only point at which the keys of a map that
+// was unknown as a whole (`jsondecode` of an unresolved value) become visible. One implementation
+// means the two can never disagree about what is legal or how it is phrased.
+func validateBrokerConfiguration(m types.Map, at path.Path, diags *diag.Diagnostics) {
+	if m.IsNull() || m.IsUnknown() {
+		return
+	}
+
+	// Report problems in a stable order so a configuration with several mistakes does not produce
+	// differently ordered output between runs.
+	elements := m.Elements()
+	for _, key := range slices.Sorted(maps.Keys(elements)) {
+		if err := validateBrokerConfigKey(key); err != nil {
+			diags.AddAttributeError(at.AtMapKey(key), "Invalid broker configuration", err.Error())
+			continue
+		}
+		if elements[key].IsNull() {
+			diags.AddAttributeError(at.AtMapKey(key), "Invalid broker configuration",
+				"null is not a valid value: the API ignores null entries, so Terraform would not be able to track this "+
+					"setting. Remove the key, or set it to the value you want.")
+		}
+	}
+}
+
+// brokerConfigKeysValidator surfaces the same rejections at `terraform validate` time, before a
+// plan is even attempted. ModifyPlan remains the backstop for maps whose keys are not yet known.
+type brokerConfigKeysValidator struct{}
+
+func (brokerConfigKeysValidator) Description(context.Context) string {
+	return "rejects config names owned by a `configuration` attribute, write-only unit aliases, and null values"
+}
+
+func (v brokerConfigKeysValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (brokerConfigKeysValidator) ValidateMap(ctx context.Context, req validator.MapRequest, resp *validator.MapResponse) {
+	validateBrokerConfiguration(req.ConfigValue, req.Path, &resp.Diagnostics)
 }

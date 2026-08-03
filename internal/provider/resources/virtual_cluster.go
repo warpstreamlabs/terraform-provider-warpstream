@@ -89,21 +89,7 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 		return
 	}
 
-	// Report problems in a stable order so a configuration with several mistakes does not
-	// produce differently ordered output between runs.
-	elements := declared.Elements()
-	brokerPath := path.Root("broker_configuration")
-	for _, key := range slices.Sorted(maps.Keys(elements)) {
-		if err := validateBrokerConfigKey(key); err != nil {
-			resp.Diagnostics.AddAttributeError(brokerPath.AtMapKey(key), "Invalid broker configuration", err.Error())
-			continue
-		}
-		if elements[key].IsNull() {
-			resp.Diagnostics.AddAttributeError(brokerPath.AtMapKey(key), "Invalid broker configuration",
-				"null is not a valid value: the API ignores null entries, so Terraform would not be able to track this "+
-					"setting. Remove the key, or set it to the value you want.")
-		}
-	}
+	validateBrokerConfiguration(declared, path.Root("broker_configuration"), &resp.Diagnostics)
 }
 
 // brokerConfigMap extracts the known entries of a `broker_configuration` map into a plain Go
@@ -350,6 +336,9 @@ The WarpStream provider must be authenticated with an application key to consume
 					"to change a setting back, set it explicitly to the value you want.",
 				Optional:    true,
 				ElementType: types.StringType,
+				Validators: []validator.Map{
+					brokerConfigKeysValidator{},
+				},
 			},
 			"events": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{

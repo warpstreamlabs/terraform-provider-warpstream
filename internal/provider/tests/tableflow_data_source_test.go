@@ -18,7 +18,7 @@ func TestAccTableFlowDataSource(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		testClusterName(vcNameSuffix),
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeTableFlow,
 			Tier:   api.VirtualClusterTierPro,
@@ -105,7 +105,7 @@ func TestAccTableFlowDatasource_BYOCNotWork(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		testClusterName(vcNameSuffix),
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeBYOC,
 			Tier:   api.VirtualClusterTierPro,

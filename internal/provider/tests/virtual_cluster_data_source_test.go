@@ -19,7 +19,7 @@ func TestAccVirtualClusterDataSource(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		testClusterName(vcNameSuffix),
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeBYOC,
 			Tier:   api.VirtualClusterTierPro,
@@ -66,7 +66,7 @@ func TestAccVirtualClusterDataSourceBrokerConfiguration(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		testClusterName(vcNameSuffix),
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeBYOC,
 			Tier:   api.VirtualClusterTierPro,
@@ -113,7 +113,7 @@ func TestAccVirtualClusterDataSourceTopicTypeNeverEmpty(t *testing.T) {
 
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
-	vc, err := client.CreateVirtualCluster(vcNameSuffix, api.ClusterParameters{
+	vc, err := client.CreateVirtualCluster(testClusterName(vcNameSuffix), api.ClusterParameters{
 		Type:   api.VirtualClusterTypeBYOC,
 		Tier:   api.VirtualClusterTierPro,
 		Region: &region,
@@ -246,7 +246,7 @@ func TestAccVirtualClusterDataSourceWithEvents(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		testClusterName(vcNameSuffix),
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeBYOC,
 			Tier:   api.VirtualClusterTierPro,
@@ -301,7 +301,7 @@ func TestAccVirtualClusterDataSourceWithEventsDisabled(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		testClusterName(vcNameSuffix),
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeBYOC,
 			Tier:   api.VirtualClusterTierPro,
@@ -443,7 +443,7 @@ func TestAccVirtualClusterDatasource_SchemaRegistryNotWork(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		testClusterName(vcNameSuffix),
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeSchemaRegistry,
 			Tier:   api.VirtualClusterTierPro,

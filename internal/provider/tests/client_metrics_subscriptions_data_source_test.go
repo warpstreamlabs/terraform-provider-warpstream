@@ -21,7 +21,7 @@ func TestAccClientMetricsSubscriptionsDataSource(t *testing.T) {
 
 	cfg := providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "default" {
-  name = "vcn_%s"
+  name = "vcn_test_acc_%s"
   tier = "dev"
 }
 

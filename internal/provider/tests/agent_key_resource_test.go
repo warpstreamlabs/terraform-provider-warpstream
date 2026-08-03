@@ -77,7 +77,7 @@ func TestAccAgentKeyResourceSchemaRegistryCluster(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		testClusterName(vcNameSuffix),
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeSchemaRegistry,
 			Tier:   api.VirtualClusterTierPro,
@@ -113,7 +113,7 @@ func TestAccAgentKeyResourceTableFlowCluster(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	region := "us-east-1"
 	vc, err := client.CreateVirtualCluster(
-		vcNameSuffix,
+		testClusterName(vcNameSuffix),
 		api.ClusterParameters{
 			Type:   api.VirtualClusterTypeTableFlow,
 			Tier:   api.VirtualClusterTierPro,
