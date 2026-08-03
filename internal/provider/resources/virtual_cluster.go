@@ -77,13 +77,6 @@ func (r *virtualClusterResource) Metadata(_ context.Context, req resource.Metada
 	resp.TypeName = req.ProviderTypeName + "_virtual_cluster"
 }
 
-// ModifyPlan validates the generic `broker_configuration` map: settings owned by a typed
-// `configuration` attribute and write-only aliases are rejected with a pointer to the right
-// place to set them, and null values are rejected because the API would silently ignore them.
-//
-// A map that is unknown as a whole (`jsondecode` of a value that is not known until apply, say)
-// cannot be validated here; its keys become visible during the apply-time re-plan and are
-// validated then, before anything is written.
 func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	// Nothing to validate on destroy.
 	if req.Plan.Raw.IsNull() {
@@ -114,8 +107,7 @@ func (r *virtualClusterResource) ModifyPlan(ctx context.Context, req resource.Mo
 }
 
 // brokerConfigMap extracts the known entries of a `broker_configuration` map into a plain Go
-// map. Null and not-yet-known entries are skipped, as are entries of any type other than
-// string, which the schema's ElementType already rules out.
+// map.
 func brokerConfigMap(m types.Map) map[string]string {
 	if m.IsNull() || m.IsUnknown() {
 		return nil
@@ -350,8 +342,6 @@ The WarpStream provider must be authenticated with an application key to consume
 				},
 			},
 			"broker_configuration": schema.MapAttribute{
-				// Kept to a single paragraph: tfplugindocs renders this inline in the attribute
-				// list, and a blank line would end the list and orphan every attribute after it.
 				Description: "Additional cluster-level broker configuration, as a map of Kafka-style " +
 					"config names to string values. Use it for settings that have no dedicated " +
 					"attribute under `configuration`, for example `message.max.bytes = \"1048576\"`, " +
@@ -527,10 +517,6 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 
 	r.applyConfiguration(ctx, state, &resp.State, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
-		// The cluster exists but could not be configured, most often because the API rejected a
-		// broker config. applyConfiguration has recorded the configuration the cluster actually
-		// holds; events must be filled in too, or Terraform rejects the state as a provider bug
-		// and buries the real error.
 		r.readEvents(ctx, *cluster, &resp.State, &resp.Diagnostics,
 			types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()}))
 		return
@@ -759,12 +745,7 @@ func (r *virtualClusterResource) ImportState(ctx context.Context, req resource.I
 // filterClusterConfigsToDeclared filters the API-returned generic configs down to only
 // the keys the user declared in `broker_configuration`, with the API-provided value. This
 // prevents Terraform from seeing perpetual drift when the API returns configs (including
-// typed-backed ones) that weren't declared.
-//
-// Only an absent attribute becomes null. A declaration that filters down to nothing becomes an
-// empty map, because the attribute is Optional and not Computed: Terraform requires state after
-// an apply to equal the configured value exactly, and reports any difference as the provider
-// producing an inconsistent result.
+// typed-backed ones) that weren't declared. An absent attribute becomes null.
 func filterClusterConfigsToDeclared(apiConfigs map[string]*string, declared types.Map) types.Map {
 	if declared.IsNull() || declared.IsUnknown() {
 		return types.MapNull(types.StringType)
@@ -784,9 +765,7 @@ func filterClusterConfigsToDeclared(apiConfigs map[string]*string, declared type
 //
 // Terraform requires state after an apply to match the configuration exactly, and state comes
 // from the API's response. It checks this itself and aborts with a vague "provider produced
-// inconsistent result"; doing it here lets us name the key and the value to use instead.
-//
-// Apply path only. On a refresh a difference is ordinary drift, not an error.
+// inconsistent result"; doing it here lets us output a clearer error i.e. we can name the key and the value to use instead.
 func checkDeclaredConfigsApplied(declared map[string]string, apiConfigs map[string]*string, respDiags *diag.Diagnostics) {
 	keys := slices.Sorted(maps.Keys(declared))
 
@@ -821,10 +800,7 @@ func checkDeclaredConfigsApplied(declared map[string]string, apiConfigs map[stri
 }
 
 // brokerConfigsPayload builds the generic broker_configs request body from the declared map
-// plus the typed `configuration` attributes, which the API also stores as broker configs. The
-// two can never overlap — plan validation rejects typed-attribute keys in the map — but map entries
-// keep precedence as defence in depth, so a validator bug could never send a value through both
-// representations (which the API rejects when they disagree).
+// plus the typed `configuration` attributes, which the API also stores as broker configs.
 func brokerConfigsPayload(cfgPlan models.VirtualClusterConfiguration, brokerCfg map[string]string) map[string]string {
 	out := make(map[string]string, len(brokerCfg)+len(typedAttrConfigs))
 	maps.Copy(out, brokerCfg)
@@ -897,16 +873,6 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics) {
 	cluster := plan.Cluster()
 
-	// `configuration` has a schema default, so the plan always carries an object even where the
-	// user wrote none. Its attributes are then the schema defaults, and those get applied — this
-	// is why every apply re-asserts the six settings with typed attributes whether or not the map
-	// mentions them.
-	//
-	// Say so explicitly rather than letting the conversion below fail on its own: if that
-	// invariant ever breaks, the readable failure mode is an error naming the invariant, not a
-	// value-conversion diagnostic. Filling in Go zero values instead would be worse than either,
-	// because a null object reads back as `enable_acls = false` and friends, and writing those
-	// would disable ACLs and deletion protection on a live cluster.
 	if plan.Configuration.IsNull() || plan.Configuration.IsUnknown() {
 		respDiags.AddAttributeError(
 			path.Root("configuration"),

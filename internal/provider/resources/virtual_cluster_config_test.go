@@ -111,6 +111,27 @@ func TestBrokerConfigTablesAgree(t *testing.T) {
 	}
 }
 
+// TestTypedAttrConfigsIsClosed asserts the exact contents of typedAttrConfigs, because growing that
+// table is a breaking change rather than an addition.
+func TestTypedAttrConfigsIsClosed(t *testing.T) {
+	t.Parallel()
+
+	want := []string{
+		"auto.create.topics.enable",
+		"log.retention.ms",
+		"num.partitions",
+		"warpstream.default.topic.type",
+		"warpstream.soft.delete.topic.enable",
+		"warpstream.soft.delete.topic.ttl.ms",
+	}
+
+	got := make([]string, 0, len(typedAttrConfigs))
+	for _, c := range typedAttrConfigs {
+		got = append(got, c.key)
+	}
+	require.ElementsMatch(t, want, got)
+}
+
 // TestEveryConfigurationAttributeIsWritten asserts that every attribute under `configuration` is written to the API
 // in some way.
 func TestEveryConfigurationAttributeIsWritten(t *testing.T) {

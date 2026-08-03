@@ -19,14 +19,6 @@ type typedAttrConfig struct {
 	planValue func(models.VirtualClusterConfiguration) attr.Value
 }
 
-// typedAttrConfigs is the one place these config names are spelled, so key validation and the
-// update payload cannot drift apart.
-//
-// The two surfaces are disjoint: a setting listed here can only be written through its typed
-// attribute, and `broker_configuration` rejects its key at plan time. This set is closed by
-// policy — new cluster configs are map-only and must not grow it — so the typed attributes can
-// be removed wholesale in the next major version, at which point these keys become legal in
-// the map.
 var typedAttrConfigs = []typedAttrConfig{
 	{"auto.create.topics.enable", "auto_create_topic",
 		func(c models.VirtualClusterConfiguration) attr.Value { return c.AutoCreateTopic }},
@@ -80,10 +72,8 @@ var writeOnlyAliasKeys = map[string]string{
 	"warpstream.soft.delete.topic.ttl.hours": "warpstream.soft.delete.topic.ttl.ms",
 }
 
-// validateBrokerConfigKey rejects the config names `broker_configuration` cannot hold: settings
-// controlled by a typed `configuration` attribute, and write-only aliases. Unknown names are
-// deliberately not rejected: the API is the authority on which configs exist, and adding one
-// there must not require a provider release.
+// validateBrokerConfigKey rejects the config names `broker_configuration` cannot hold. Unknown names are
+// deliberately not rejected: the API is the authority on which configs exist.
 func validateBrokerConfigKey(key string) error {
 	canonical, isAlias := writeOnlyAliasKeys[key]
 	if !isAlias {

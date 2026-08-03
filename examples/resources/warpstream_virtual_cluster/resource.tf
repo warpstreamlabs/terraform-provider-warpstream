@@ -44,8 +44,7 @@ resource "warpstream_virtual_cluster" "test_broker_config" {
   tier = "dev"
 
   # broker_configuration holds the broker settings that have no dedicated
-  # attribute under `configuration` — message sizes, topic deletion, offset
-  # retention, and so on — as Kafka-style config names to string values.
+  # attribute under `configuration` as Kafka-style config names to string values.
   #
   # Removing a key does not reset the setting on the cluster — set the value you
   # want explicitly instead.
