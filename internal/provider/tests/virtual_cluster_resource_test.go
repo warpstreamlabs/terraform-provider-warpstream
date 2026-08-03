@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
+	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/resources"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
 )
 
@@ -866,31 +867,48 @@ func TestAccVirtualClusterResourceBrokerConfigFailureRecovery(t *testing.T) {
 func TestAccVirtualClusterResourceBrokerConfigWithEvents(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	const addr = "warpstream_virtual_cluster.test"
-	config := providerConfig + fmt.Sprintf(`
+	withEvents := func(brokerValue string) string {
+		return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test_acc_%s"
   tier = "fundamentals"
 
   broker_configuration = {
-    "message.max.bytes" = "1048576"
+    "message.max.bytes" = %q
   }
 
   events = {
     enabled = true
   }
-}`, vcNameSuffix)
+}`, vcNameSuffix, brokerValue)
+	}
+	good := withEvents("1048576")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: config,
+				Config:      withEvents("not-a-number"),
+				ExpectError: regexp.MustCompile(`invalid\s+cluster\s+config`),
+			},
+			{
+				Config: good,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(addr, "broker_configuration.message.max.bytes", "1048576"),
 					resource.TestCheckResourceAttr(addr, "events.enabled", "true"),
 				),
 			},
-			{Config: config, ConfigPlanChecks: emptyPlanChecks},
+			{Config: good, ConfigPlanChecks: emptyPlanChecks},
+			// The same rejection on the update path, where the resource is healthy to begin with.
+			{
+				Config:      withEvents("also-not-a-number"),
+				ExpectError: regexp.MustCompile(`invalid\s+cluster\s+config`),
+			},
+			{
+				Config: good,
+				Check:  resource.TestCheckResourceAttr(addr, "events.enabled", "true"),
+			},
+			{Config: good, ConfigPlanChecks: emptyPlanChecks},
 		},
 	})
 }
@@ -978,6 +996,22 @@ func TestAccVirtualClusterConfigSurfacesAreDisjoint(t *testing.T) {
 	require.NoError(t, client.UpdateConfiguration(api.ConfigurationUpdate{
 		BrokerConfigs: map[string]string{"message.max.bytes": "1048576"},
 	}, *vc))
+
+	for alias, canonical := range resources.WriteOnlyAliasKeys {
+		require.NoError(t, client.UpdateConfiguration(api.ConfigurationUpdate{
+			BrokerConfigs: map[string]string{alias: "1"},
+		}, *vc), "the API no longer accepts %q on write, so it need not be rejected at all", alias)
+
+		cfg, err := client.GetConfiguration(*vc)
+		require.NoError(t, err)
+
+		require.NotContains(t, cfg.BrokerConfigs, alias,
+			"the API now reports %q on describe, so Terraform could track it and it no longer "+
+				"needs to be in writeOnlyAliasKeys", alias)
+		require.Contains(t, cfg.BrokerConfigs, canonical,
+			"writing %q did not surface under its canonical name %q, so the alias relationship "+
+				"writeOnlyAliasKeys assumes does not hold", alias, canonical)
+	}
 }
 
 func TestAccVirtualClusterImport(t *testing.T) {

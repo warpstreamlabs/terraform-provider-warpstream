@@ -94,10 +94,10 @@ func TestBrokerConfigTablesAgree(t *testing.T) {
 	// Every alias must resolve to advice that names something usable: either a canonical key
 	// the map accepts, or — when the canonical key is itself owned by a typed attribute — that
 	// attribute. An alias pointing at another rejected alias would send users in a circle.
-	for alias, canonical := range writeOnlyAliasKeys {
+	for alias, canonical := range WriteOnlyAliasKeys {
 		require.NotEqual(t, alias, canonical, "alias %s points at itself", alias)
 		require.False(t, seenKey[alias], "alias %s must not also have a typed attribute", alias)
-		require.NotContains(t, writeOnlyAliasKeys, canonical,
+		require.NotContains(t, WriteOnlyAliasKeys, canonical,
 			"alias %s points at %s, which is itself rejected as an alias", alias, canonical)
 		if typedAttr, hasTypedAttr := typedAttrFor(canonical); hasTypedAttr {
 			// The alias's error must redirect users to the typed attribute, not to the

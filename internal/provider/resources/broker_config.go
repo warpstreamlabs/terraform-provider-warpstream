@@ -62,11 +62,11 @@ func renderConfigValue(v attr.Value) (string, bool) {
 	}
 }
 
-// writeOnlyAliasKeys names configs the API accepts on write but never reports back on describe,
-// because they are alternate units for a canonical key. A value declared under one of these
-// could never be read back, so Terraform would fail comparing state against the configuration.
-// Therefore, we don't allow these aliases to be used in Terraform.
-var writeOnlyAliasKeys = map[string]string{
+// WriteOnlyAliasKeys names configs the API accepts on write but never reports back on describe,
+// mapped to the canonical name each is an alternate unit for. A value declared under one of these
+// could never be read back, so Terraform would fail comparing state against the configuration —
+// which is why they are rejected rather than translated.
+var WriteOnlyAliasKeys = map[string]string{
 	"log.retention.minutes":                  "log.retention.ms",
 	"log.retention.hours":                    "log.retention.ms",
 	"warpstream.soft.delete.topic.ttl.hours": "warpstream.soft.delete.topic.ttl.ms",
@@ -75,7 +75,7 @@ var writeOnlyAliasKeys = map[string]string{
 // validateBrokerConfigKey rejects the config names `broker_configuration` cannot hold. Unknown names are
 // deliberately not rejected: the API is the authority on which configs exist.
 func validateBrokerConfigKey(key string) error {
-	canonical, isAlias := writeOnlyAliasKeys[key]
+	canonical, isAlias := WriteOnlyAliasKeys[key]
 	if !isAlias {
 		canonical = key
 	}

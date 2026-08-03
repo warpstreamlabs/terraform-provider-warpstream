@@ -841,9 +841,15 @@ func (r *virtualClusterResource) readConfiguration(ctx context.Context, cluster 
 		AutoCreateTopic:          types.BoolValue(cfg.AutoCreateTopic),
 		DefaultNumPartitions:     types.Int64Value(cfg.DefaultNumPartitions),
 		DefaultRetention:         types.Int64Value(cfg.DefaultRetentionMillis),
-		DefaultTopicType:         types.StringValue(cfg.DefaultTopicType),
 		EnableDeletionProtection: types.BoolValue(cfg.EnableDeletionProtection),
 		EnableSoftTopicDeletion:  types.BoolValue(cfg.EnableSoftTopicDeletion),
+	}
+	// Describe is expected to always report a topic type, but keep an absent one as null rather
+	// than storing "".
+	if cfg.DefaultTopicType == "" {
+		cfgState.DefaultTopicType = types.StringNull()
+	} else {
+		cfgState.DefaultTopicType = types.StringValue(cfg.DefaultTopicType)
 	}
 	if cfg.SoftTopicDeletionTTL != nil {
 		cfgState.SoftTopicDeletionTTL = types.Int64Value(cfg.SoftTopicDeletionTTL.Milliseconds())
