@@ -801,23 +801,27 @@ func checkDeclaredConfigsApplied(declared map[string]string, apiConfigs map[stri
 
 // brokerConfigsPayload builds the generic broker_configs request body from the declared map
 // plus the typed `configuration` attributes, which the API also stores as broker configs.
-func brokerConfigsPayload(cfgPlan models.VirtualClusterConfiguration, brokerCfg map[string]string) map[string]string {
+func brokerConfigsPayload(cfgPlan models.VirtualClusterConfiguration, brokerCfg map[string]string) (map[string]string, error) {
 	out := make(map[string]string, len(brokerCfg)+len(typedAttrConfigs))
 	maps.Copy(out, brokerCfg)
 
 	for _, m := range typedAttrConfigs {
-		if _, declared := out[m.key]; declared {
-			continue
+		value, renderable := renderConfigValue(m.planValue(cfgPlan))
+		if declared, isDeclared := out[m.key]; isDeclared {
+			return nil, fmt.Errorf(
+				"cluster config %q is set both in `broker_configuration` (%q) and through "+
+					"`configuration.%s` (%q); the map is supposed to reject that key at plan time",
+				m.key, declared, m.typedAttr, value)
 		}
-		if value, ok := renderConfigValue(m.planValue(cfgPlan)); ok {
+		if renderable {
 			out[m.key] = value
 		}
 	}
 
 	if len(out) == 0 {
-		return nil
+		return nil, nil
 	}
-	return out
+	return out, nil
 }
 
 // readConfiguration writes the cluster's configuration from the API into state, and returns
@@ -899,12 +903,21 @@ func (r *virtualClusterResource) applyConfiguration(ctx context.Context, plan mo
 	}
 
 	brokerCfg := brokerConfigMap(plan.BrokerConfiguration)
+	brokerConfigs, err := brokerConfigsPayload(cfgPlan, brokerCfg)
+	if err != nil {
+		// Nothing has been written yet, so failing here leaves the cluster untouched.
+		respDiags.AddError(
+			"Conflicting WarpStream Virtual Cluster Configuration",
+			err.Error()+". Please report this as a provider bug.",
+		)
+		return
+	}
 	cfg := api.ConfigurationUpdate{
 		AclsEnabled:              cfgPlan.AclsEnabled.ValueBool(),
 		ACLShadowingEnabled:      cfgPlan.ACLShadowingEnabled.ValueBool(),
 		EnableDeletionProtection: cfgPlan.EnableDeletionProtection.ValueBool(),
 		Tier:                     plan.Tier.ValueString(),
-		BrokerConfigs:            brokerConfigsPayload(cfgPlan, brokerCfg),
+		BrokerConfigs:            brokerConfigs,
 	}
 	if err := r.client.UpdateConfiguration(cfg, cluster); err != nil {
 		respDiags.AddError(

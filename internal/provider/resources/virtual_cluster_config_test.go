@@ -454,12 +454,15 @@ func TestBrokerConfigsPayload(t *testing.T) {
 
 	t.Run("nothing set on either surface returns nil", func(t *testing.T) {
 		t.Parallel()
-		require.Nil(t, brokerConfigsPayload(unset, nil))
+		got, err := brokerConfigsPayload(unset, nil)
+		require.NoError(t, err)
+		require.Nil(t, got)
 	})
 
 	t.Run("generic entries pass through", func(t *testing.T) {
 		t.Parallel()
-		got := brokerConfigsPayload(unset, map[string]string{"message.max.bytes": "1048576"})
+		got, err := brokerConfigsPayload(unset, map[string]string{"message.max.bytes": "1048576"})
+		require.NoError(t, err)
 		require.Equal(t, map[string]string{"message.max.bytes": "1048576"}, got)
 	})
 
@@ -473,6 +476,8 @@ func TestBrokerConfigsPayload(t *testing.T) {
 			DefaultTopicType:        types.StringValue("lightning"),
 			SoftTopicDeletionTTL:    types.Int64Value(172800000),
 		}
+		got, err := brokerConfigsPayload(cfg, nil)
+		require.NoError(t, err)
 		require.Equal(t, map[string]string{
 			"auto.create.topics.enable":           "true",
 			"num.partitions":                      "4",
@@ -480,7 +485,7 @@ func TestBrokerConfigsPayload(t *testing.T) {
 			"warpstream.soft.delete.topic.enable": "false",
 			"warpstream.default.topic.type":       "lightning",
 			"warpstream.soft.delete.topic.ttl.ms": "172800000",
-		}, brokerConfigsPayload(cfg, nil))
+		}, got)
 	})
 
 	t.Run("null and unknown typed attributes are skipped", func(t *testing.T) {
@@ -493,13 +498,19 @@ func TestBrokerConfigsPayload(t *testing.T) {
 			DefaultTopicType:        types.StringNull(),
 			SoftTopicDeletionTTL:    types.Int64Null(),
 		}
-		require.Nil(t, brokerConfigsPayload(cfg, nil))
+		got, err := brokerConfigsPayload(cfg, nil)
+		require.NoError(t, err)
+		require.Nil(t, got)
 	})
 
-	t.Run("generic map entry wins over typed attribute", func(t *testing.T) {
+	t.Run("a setting on both surfaces is an error, not a precedence question", func(t *testing.T) {
 		t.Parallel()
 		cfg := models.VirtualClusterConfiguration{DefaultRetention: types.Int64Value(86400000)}
-		got := brokerConfigsPayload(cfg, map[string]string{"log.retention.ms": "3600000"})
-		require.Equal(t, map[string]string{"log.retention.ms": "3600000"}, got)
+		got, err := brokerConfigsPayload(cfg, map[string]string{"log.retention.ms": "3600000"})
+		require.Nil(t, got, "no payload may be built from a conflicting configuration")
+		require.ErrorContains(t, err, "log.retention.ms")
+		require.ErrorContains(t, err, "configuration.default_retention_millis")
+		require.ErrorContains(t, err, "3600000")
+		require.ErrorContains(t, err, "86400000")
 	})
 }
