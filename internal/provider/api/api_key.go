@@ -12,16 +12,36 @@ import (
 )
 
 const (
-	PrincipalKindAny                 = "*"
-	PrincipalKindAgent               = "agent"
-	PrincipalKindAgentReadOnly       = "agent_r"
-	PrincipalKindApplication         = "app"
-	PrincipalKindApplicationReadOnly = "app_r"
-	ResourceKindVirtualCluster       = "virtual_cluster"
-	ResourceKindAny                  = "*"
-	ResourceIDAny                    = "*"
-	WorkspaceIDAny                   = "*"
+	PrincipalKindAny                      = "*"
+	PrincipalKindAgent                    = "agent"
+	PrincipalKindAgentReadOnly            = "agent_r"
+	PrincipalKindApplication              = "app"
+	PrincipalKindApplicationReadOnly      = "app_r"
+	ResourceKindVirtualCluster            = "virtual_cluster"
+	ResourceKindVirtualClusterTopics      = "virtual_cluster_topics"
+	ResourceKindVirtualClusterCredentials = "virtual_cluster_credentials"
+	ResourceKindVirtualClusterACLs        = "virtual_cluster_acls"
+	ResourceKindAny                       = "*"
+	ResourceIDAny                         = "*"
+	WorkspaceIDAny                        = "*"
 )
+
+// VirtualClusterSubResourceKinds are the resource kinds used for cluster-scoped application keys.
+var VirtualClusterSubResourceKinds = []string{
+	ResourceKindVirtualClusterTopics,
+	ResourceKindVirtualClusterCredentials,
+	ResourceKindVirtualClusterACLs,
+}
+
+// IsVirtualClusterSubResourceKind reports whether kind is a cluster-scoped application key resource kind.
+func IsVirtualClusterSubResourceKind(kind string) bool {
+	for _, k := range VirtualClusterSubResourceKinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
 
 type AccessGrants []AccessGrant
 
@@ -63,6 +83,21 @@ func (a APIKey) IsReadOnly() bool {
 
 	principalKind := a.AccessGrants[0].PrincipalKind
 	return principalKind == PrincipalKindAgentReadOnly || principalKind == PrincipalKindApplicationReadOnly
+}
+
+// ApplicationKeyClusterScope returns the virtual cluster ID and resource kind when the
+// application key is scoped to a single virtual cluster sub-resource. Otherwise ok is false.
+func (a APIKey) ApplicationKeyClusterScope() (virtualClusterID, resourceKind string, ok bool) {
+	if len(a.AccessGrants) == 0 {
+		return "", "", false
+	}
+
+	grant := a.AccessGrants[0]
+	if !IsVirtualClusterSubResourceKind(grant.ResourceKind) {
+		return "", "", false
+	}
+
+	return grant.ResourceID, grant.ResourceKind, true
 }
 
 type APIKeyListResponse struct {
@@ -113,6 +148,23 @@ func (c *Client) CreateApplicationKey(name, workspaceID string, readOnly bool) (
 		"principal_kind": principalKind,
 		"resource_kind":  ResourceKindAny,
 		"resource_id":    ResourceIDAny,
+		"workspace_id":   workspaceID, // Can be empty.
+	}
+
+	return c.createAPIKey(name, accessGrant, "")
+}
+
+// CreateClusterScopedApplicationKey creates an application key scoped to one
+// virtual cluster sub-resource (topics, credentials, or ACLs).
+func (c *Client) CreateClusterScopedApplicationKey(name, workspaceID, virtualClusterID, resourceKind string) (*APIKey, error) {
+	if !IsVirtualClusterSubResourceKind(resourceKind) {
+		return nil, fmt.Errorf("unsupported resource_kind %q for cluster-scoped application key", resourceKind)
+	}
+
+	accessGrant := map[string]string{
+		"principal_kind": PrincipalKindApplication,
+		"resource_kind":  resourceKind,
+		"resource_id":    virtualClusterID,
 		"workspace_id":   workspaceID, // Can be empty.
 	}
 

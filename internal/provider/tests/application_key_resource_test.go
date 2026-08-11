@@ -208,6 +208,49 @@ func TestAccApplicationKeyResourceReadOnlyRequiresReplace(t *testing.T) {
 	})
 }
 
+func TestAccApplicationKeyResourceClusterScoped(t *testing.T) {
+	vcName := "vcn_app_key_" + nameSuffix
+	keyName := "akn_test_cluster_scoped_app_key" + nameSuffix
+	workspaces := getWorkspacesNotEmpty(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccApplicationKeyResourceClusterScoped(keyName, vcName, api.ResourceKindVirtualClusterTopics),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("warpstream_application_key.test", "id"),
+					resource.TestCheckResourceAttr("warpstream_application_key.test", "name", keyName),
+					resource.TestCheckResourceAttrSet("warpstream_application_key.test", "key"),
+					resource.TestCheckResourceAttr("warpstream_application_key.test", "workspace_id", workspaces[0].ID),
+					resource.TestCheckResourceAttrSet("warpstream_application_key.test", "virtual_cluster_id"),
+					resource.TestCheckResourceAttr("warpstream_application_key.test", "resource_kind", api.ResourceKindVirtualClusterTopics),
+					resource.TestCheckResourceAttr("warpstream_application_key.test", "read_only", "false"),
+					resource.TestCheckResourceAttrPair(
+						"warpstream_application_key.test", "virtual_cluster_id",
+						"warpstream_virtual_cluster.test", "id",
+					),
+				),
+			},
+		},
+	})
+}
+
+func TestAccApplicationKeyResourceClusterScopedReadOnlyInvalid(t *testing.T) {
+	vcName := "vcn_app_key_ro_" + nameSuffix
+	keyName := "akn_test_cluster_scoped_ro_app_key" + nameSuffix
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccApplicationKeyResourceClusterScopedReadOnly(keyName, vcName),
+				ExpectError: regexp.MustCompile("read_only is not currently supported for cluster-scoped application keys"),
+			},
+		},
+	})
+}
+
 func testAccApplicationKeyResource(resourceName, keyName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_application_key" "%s" {
@@ -260,6 +303,35 @@ resource "warpstream_application_key" "%s" {
   name      = "%s"
   read_only = %t
 }`, resourceName, keyName, readOnly)
+}
+
+func testAccApplicationKeyResourceClusterScoped(keyName, vcName, resourceKind string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "%s"
+  tier = "dev"
+}
+
+resource "warpstream_application_key" "test" {
+  name               = "%s"
+  virtual_cluster_id = warpstream_virtual_cluster.test.id
+  resource_kind      = "%s"
+}`, vcName, keyName, resourceKind)
+}
+
+func testAccApplicationKeyResourceClusterScopedReadOnly(keyName, vcName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "%s"
+  tier = "dev"
+}
+
+resource "warpstream_application_key" "test" {
+  name               = "%s"
+  virtual_cluster_id = warpstream_virtual_cluster.test.id
+  resource_kind      = "%s"
+  read_only          = true
+}`, vcName, keyName, api.ResourceKindVirtualClusterTopics)
 }
 
 func testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspaceID, readOnly string) resource.TestCheckFunc {
