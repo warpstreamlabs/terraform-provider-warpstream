@@ -24,16 +24,20 @@ func TestAccApplicationKeyDataSource(t *testing.T) {
 
 func TestAccApplicationKeyDataSourceClusterScoped(t *testing.T) {
 	vcName := "vcn_app_key_ds_" + nameSuffix
-	clusterScopedKeyName := "akn_test_ds_cluster_scoped_app_key" + nameSuffix
+	topicsKeyName := "akn_test_ds_cluster_scoped_topics_app_key" + nameSuffix
 	workspaceScopedKeyName := "akn_test_ds_workspace_scoped_app_key" + nameSuffix
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccApplicationKeyDataSourceClusterScoped(vcName, clusterScopedKeyName, workspaceScopedKeyName),
+				Config: testAccApplicationKeyDataSourceClusterScoped(
+					vcName,
+					topicsKeyName,
+					workspaceScopedKeyName,
+				),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccApplicationKeyDataSourceFindByName(clusterScopedKeyName, map[string]*string{
+					testAccApplicationKeyDataSourceFindByName(topicsKeyName, map[string]*string{
 						"resource_kind": stringPtr(api.ResourceKindVirtualClusterTopics),
 					}, true),
 					testAccApplicationKeyDataSourceFindByName(workspaceScopedKeyName, map[string]*string{
@@ -52,14 +56,18 @@ data "warpstream_application_keys" "test" {
 }`
 }
 
-func testAccApplicationKeyDataSourceClusterScoped(vcName, clusterScopedKeyName, workspaceScopedKeyName string) string {
+func testAccApplicationKeyDataSourceClusterScoped(
+	vcName,
+	topicsKeyName,
+	workspaceScopedKeyName string,
+) string {
 	return providerConfig + fmt.Sprintf(`
 resource "warpstream_virtual_cluster" "test" {
   name = "%s"
   tier = "dev"
 }
 
-resource "warpstream_application_key" "cluster_scoped" {
+resource "warpstream_application_key" "topics" {
   name               = "%s"
   virtual_cluster_id = warpstream_virtual_cluster.test.id
   resource_kind      = "%s"
@@ -71,11 +79,14 @@ resource "warpstream_application_key" "workspace_scoped" {
 
 data "warpstream_application_keys" "test" {
   depends_on = [
-    warpstream_application_key.cluster_scoped,
+    warpstream_application_key.topics,
     warpstream_application_key.workspace_scoped,
   ]
 }
-`, vcName, clusterScopedKeyName, api.ResourceKindVirtualClusterTopics, workspaceScopedKeyName)
+`, vcName,
+		topicsKeyName, api.ResourceKindVirtualClusterTopics,
+		workspaceScopedKeyName,
+	)
 }
 
 func testAccApplicationKeyDataSourceCheck() resource.TestCheckFunc {

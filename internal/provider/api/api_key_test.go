@@ -174,9 +174,24 @@ func TestAPIKey_ApplicationKeyClusterScope(t *testing.T) {
 			wantOK:               true,
 		},
 		{
-			name: "agent-style virtual_cluster grant",
+			name: "read-only cluster-scoped application key",
 			apiKey: APIKey{
 				ID: "key_6",
+				AccessGrants: AccessGrants{
+					{
+						PrincipalKind: PrincipalKindApplicationReadOnly,
+						ResourceKind:  ResourceKindVirtualClusterTopics,
+						ResourceID:    "vci_read_only",
+						WorkspaceID:   "wi_test",
+					},
+				},
+			},
+			wantOK: false,
+		},
+		{
+			name: "agent-style virtual_cluster grant",
+			apiKey: APIKey{
+				ID: "key_7",
 				AccessGrants: AccessGrants{
 					{
 						PrincipalKind: PrincipalKindAgent,
@@ -187,6 +202,82 @@ func TestAPIKey_ApplicationKeyClusterScope(t *testing.T) {
 				},
 			},
 			wantOK: false,
+		},
+		{
+			name: "agent principal with cluster sub-resource",
+			apiKey: APIKey{
+				ID: "key_8",
+				AccessGrants: AccessGrants{
+					{
+						PrincipalKind: PrincipalKindAgent,
+						ResourceKind:  ResourceKindVirtualClusterTopics,
+						ResourceID:    "vci_agent",
+						WorkspaceID:   "wi_test",
+					},
+				},
+			},
+			wantOK: false,
+		},
+		{
+			name: "any principal with cluster sub-resource",
+			apiKey: APIKey{
+				ID: "key_9",
+				AccessGrants: AccessGrants{
+					{
+						PrincipalKind: PrincipalKindAny,
+						ResourceKind:  ResourceKindVirtualClusterTopics,
+						ResourceID:    "vci_any",
+						WorkspaceID:   "wi_test",
+					},
+				},
+			},
+			wantOK: false,
+		},
+		{
+			name: "workspace grant followed by cluster grant",
+			apiKey: APIKey{
+				ID: "key_11",
+				AccessGrants: AccessGrants{
+					{
+						PrincipalKind: PrincipalKindApplication,
+						ResourceKind:  ResourceKindAny,
+						ResourceID:    ResourceIDAny,
+						WorkspaceID:   "wi_test",
+					},
+					{
+						PrincipalKind: PrincipalKindApplication,
+						ResourceKind:  ResourceKindVirtualClusterTopics,
+						ResourceID:    "vci_topics",
+						WorkspaceID:   "wi_test",
+					},
+				},
+			},
+			wantVirtualClusterID: "vci_topics",
+			wantResourceKind:     ResourceKindVirtualClusterTopics,
+			wantOK:               true,
+		},
+		{
+			name: "multiple cluster grants use first match",
+			apiKey: APIKey{
+				ID: "key_12",
+				AccessGrants: AccessGrants{
+					{
+						PrincipalKind: PrincipalKindApplication,
+						ResourceKind:  ResourceKindVirtualClusterTopics,
+						ResourceID:    "vci_topics",
+						WorkspaceID:   "wi_test",
+					},
+					{
+						PrincipalKind: PrincipalKindApplication,
+						ResourceKind:  ResourceKindVirtualClusterCredentials,
+						ResourceID:    "vci_credentials",
+						WorkspaceID:   "wi_test",
+					},
+				},
+			},
+			wantVirtualClusterID: "vci_topics",
+			wantResourceKind:     ResourceKindVirtualClusterTopics,
+			wantOK:               true,
 		},
 	}
 

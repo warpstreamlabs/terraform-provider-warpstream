@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -13,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/models"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/utils"
@@ -20,9 +22,14 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource              = &applicationKeyResource{}
-	_ resource.ResourceWithConfigure = &applicationKeyResource{}
+	_ resource.Resource                   = &applicationKeyResource{}
+	_ resource.ResourceWithConfigure      = &applicationKeyResource{}
+	_ resource.ResourceWithModifyPlan     = &applicationKeyResource{}
+	_ resource.ResourceWithValidateConfig = &applicationKeyResource{}
 )
+
+const clusterScopedReadOnlyError = "read_only is not currently supported for cluster-scoped application keys. " +
+	"Omit read_only or set it to false when virtual_cluster_id and resource_kind are set."
 
 // NewApplicationKeyResource is a helper function to simplify the provider implementation.
 func NewApplicationKeyResource() resource.Resource {
@@ -57,6 +64,84 @@ func (r *applicationKeyResource) Configure(_ context.Context, req resource.Confi
 // Metadata returns the resource type name.
 func (r *applicationKeyResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_application_key"
+}
+
+// ValidateConfig rejects statically invalid read-only cluster-scoped keys.
+func (r *applicationKeyResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config models.ApplicationKey
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if applicationKeyIsClusterScoped(config) &&
+		!config.ReadOnly.IsNull() &&
+		!config.ReadOnly.IsUnknown() &&
+		config.ReadOnly.ValueBool() {
+		addClusterScopedReadOnlyError(&resp.Diagnostics)
+	}
+}
+
+// ModifyPlan rejects invalid replacements before Terraform can destroy the existing key.
+func (r *applicationKeyResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// Nothing to validate on destroy.
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+
+	var plan models.ApplicationKey
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() || !applicationKeyIsClusterScoped(plan) {
+		return
+	}
+
+	var configuredReadOnly types.Bool
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("read_only"), &configuredReadOnly)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	priorReadOnly := types.BoolNull()
+	if !req.State.Raw.IsNull() {
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("read_only"), &priorReadOnly)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	if applicationKeyPlanIsReadOnly(plan.ReadOnly, configuredReadOnly, priorReadOnly) {
+		addClusterScopedReadOnlyError(&resp.Diagnostics)
+	}
+}
+
+func applicationKeyIsClusterScoped(key models.ApplicationKey) bool {
+	return applicationKeyStringIsSet(key.VirtualClusterID) ||
+		applicationKeyStringIsSet(key.ResourceKind)
+}
+
+func applicationKeyStringIsSet(value types.String) bool {
+	return value.IsUnknown() || (!value.IsNull() && value.ValueString() != "")
+}
+
+func applicationKeyPlanIsReadOnly(planned, configured, prior types.Bool) bool {
+	if !planned.IsNull() && !planned.IsUnknown() {
+		return planned.ValueBool()
+	}
+	if !configured.IsNull() && !configured.IsUnknown() {
+		return configured.ValueBool()
+	}
+	return configured.IsNull() &&
+		!prior.IsNull() &&
+		!prior.IsUnknown() &&
+		prior.ValueBool()
+}
+
+func addClusterScopedReadOnlyError(diags *diag.Diagnostics) {
+	diags.AddAttributeError(
+		path.Root("read_only"),
+		"Invalid Application Key Configuration",
+		clusterScopedReadOnlyError,
+	)
 }
 
 // Schema defines the schema for the resource.
@@ -180,12 +265,7 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 	}
 
 	if clusterScoped && readOnly {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("read_only"),
-			"Invalid Application Key Configuration",
-			"read_only is not currently supported for cluster-scoped application keys. "+
-				"Omit read_only or set it to false when virtual_cluster_id and resource_kind are set.",
-		)
+		addClusterScopedReadOnlyError(&resp.Diagnostics)
 		return
 	}
 
