@@ -263,16 +263,6 @@ func TestAccVirtualClusterDataSourceWithEvents(t *testing.T) {
 		}
 	}()
 
-	// Enable events for the cluster
-	enabled := true
-	err = client.UpdateEventsState(&enabled, nil, *vc)
-	require.NoError(t, err)
-
-	// Verify events are enabled
-	eventsState, err := client.GetEventsState(*vc)
-	require.NoError(t, err)
-	require.True(t, eventsState.Enabled, "expected events to be enabled")
-
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -318,10 +308,10 @@ func TestAccVirtualClusterDataSourceWithEventsDisabled(t *testing.T) {
 		}
 	}()
 
-	// Verify events are disabled by default
-	eventsState, err := client.GetEventsState(*vc)
+	// Disable events for the cluster
+	enabled := false
+	err = client.UpdateEventsState(&enabled, nil, *vc)
 	require.NoError(t, err)
-	require.False(t, eventsState.Enabled, "expected events to be disabled by default")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

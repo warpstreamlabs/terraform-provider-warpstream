@@ -19,6 +19,8 @@ The WarpStream provider must be authenticated with an application key to consume
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test"
   tier = "dev"
+  # Omitting `events` leaves Events unmanaged. Terraform stores the state received
+  # from the backend. New virtual clusters have Events enabled by default.
 }
 
 resource "warpstream_virtual_cluster" "test_with_acl_shadowing" {
@@ -114,7 +116,7 @@ resource "warpstream_virtual_cluster" "test_with_events" {
 - `broker_configuration` (Map of String) Additional cluster-level broker configuration, as a map of Kafka-style config names to string values. Use it for settings that have no dedicated attribute under `configuration`, for example `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`, or `offsets.retention.minutes = "10080"`. Note that removing a key from this map does **not** reset the config on the cluster: to change a setting back, set it explicitly to the value you want.
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
-- `events` (Attributes) Virtual Cluster Events Configuration. (see [below for nested schema](#nestedatt--events))
+- `events` (Attributes) Virtual Cluster Events Configuration. When omitted or null, Events are unmanaged and Terraform stores the state received from the backend. New virtual clusters have Events enabled by default. When present, Terraform manages Events using the configured values. (see [below for nested schema](#nestedatt--events))
 - `tags` (Map of String) Tags associated with the virtual cluster.
 - `type` (String) Virtual Cluster Type. Currently, the only valid virtual cluster types is `byoc` (default).
 
@@ -159,7 +161,7 @@ Optional:
 
 Optional:
 
-- `enabled` (Boolean) Enable events for this virtual cluster. Defaults to `false`.
+- `enabled` (Boolean) Enable events for this virtual cluster. Defaults to `false` when the `events` block is present but `enabled` is omitted.
 - `event_types` (Attributes Map) Per event type configuration. Map keys are event type names. Refer to the Events tab of the WarpStream web console for the list of valid event types. (see [below for nested schema](#nestedatt--events--event_types))
 
 <a id="nestedatt--events--event_types"></a>

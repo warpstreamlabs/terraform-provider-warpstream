@@ -343,7 +343,7 @@ The WarpStream provider must be authenticated with an application key to consume
 			"events": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"enabled": schema.BoolAttribute{
-						Description: "Enable events for this virtual cluster. Defaults to `false`.",
+						Description: "Enable events for this virtual cluster. Defaults to `false` when the `events` block is present but `enabled` is omitted.",
 						Optional:    true,
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
@@ -380,14 +380,11 @@ The WarpStream provider must be authenticated with an application key to consume
 						},
 					},
 				},
-				Description: "Virtual Cluster Events Configuration.",
-				Optional:    true,
-				Computed:    true,
-				Default: objectdefault.StaticValue(
-					types.ObjectValueMust(
-						models.VirtualClusterEvents{}.AttributeTypes(),
-						models.VirtualClusterEvents{}.DefaultObject(),
-					)),
+				Description: "Virtual Cluster Events Configuration. When omitted or null, Events are unmanaged and " +
+					"Terraform stores the state received from the backend. New virtual clusters have Events enabled by default. " +
+					"When present, Terraform manages Events using the configured values.",
+				Optional: true,
+				Computed: true,
 				PlanModifiers: []planmodifier.Object{
 					objectplanmodifier.UseStateForUnknown(),
 				},
@@ -405,6 +402,13 @@ The WarpStream provider must be authenticated with an application key to consume
 	}
 }
 
+// eventsConfigured reports whether the Terraform configuration manages Events.
+// Ownership must come from config, not plan or state: omitting events leaves the
+// plan unknown/computed (or copies prior state), which must not trigger a write.
+func eventsConfigured(configEvents types.Object) bool {
+	return !configEvents.IsNull() && !configEvents.IsUnknown()
+}
+
 // Create a new resource.
 func (r *virtualClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
@@ -414,6 +418,14 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	var configEvents types.Object
+	diags = req.Config.GetAttribute(ctx, path.Root("events"), &configEvents)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	eventsManaged := eventsConfigured(configEvents)
 
 	var cloudPlan models.VirtualClusterCloud
 	diags = plan.Cloud.As(ctx, &cloudPlan, basetypes.ObjectAsOptions{})
@@ -471,6 +483,13 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	// Unmanaged Events: do not seed state from the plan (which may be unknown).
+	// Managed Events: seed from the resolved plan so applyEvents can write it.
+	eventsForState := types.ObjectNull(models.VirtualClusterEvents{}.AttributeTypes())
+	if eventsManaged {
+		eventsForState = plan.Events
+	}
+
 	// Map response body to schema and populate Computed attribute values
 	state := models.VirtualClusterResource{
 		ID:                  types.StringValue(cluster.ID),
@@ -483,7 +502,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		WorkspaceID:         types.StringValue(cluster.WorkspaceID),
 		Configuration:       plan.Configuration,
 		BrokerConfiguration: plan.BrokerConfiguration,
-		Events:              plan.Events,
+		Events:              eventsForState,
 		Cloud:               cloudValue,
 		Tags:                plan.Tags,
 	}
@@ -511,7 +530,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	r.applyEvents(ctx, state, &resp.State, &resp.Diagnostics)
+	r.applyEvents(ctx, state, &resp.State, &resp.Diagnostics, eventsManaged)
 }
 
 func getCloudValue(cluster *api.VirtualCluster) (basetypes.ObjectValue, diag.Diagnostics) {
@@ -651,6 +670,14 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
+	var configEvents types.Object
+	diags = req.Config.GetAttribute(ctx, path.Root("events"), &configEvents)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	eventsManaged := eventsConfigured(configEvents)
+
 	// Get current state
 	var state models.VirtualClusterResource
 	diags = req.State.Get(ctx, &state)
@@ -684,7 +711,7 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 	}
 
 	// Update virtual cluster events
-	r.applyEvents(ctx, plan, &resp.State, &resp.Diagnostics)
+	r.applyEvents(ctx, plan, &resp.State, &resp.Diagnostics, eventsManaged)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -1058,18 +1085,18 @@ func (r *virtualClusterResource) readEvents(ctx context.Context, cluster api.Vir
 	respDiags.Append(diags...)
 }
 
-func (r *virtualClusterResource) applyEvents(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics) {
+func (r *virtualClusterResource) applyEvents(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics, eventsManaged bool) {
 	cluster := plan.Cluster()
+	nullEventTypes := types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()})
 
-	// If events plan is empty, just retrieve it from API
-	if plan.Events.IsNull() {
-		tflog.Info(ctx, "No virtual cluster events configuration provided")
-		// Pass null map to read all event types from API
-		r.readEvents(ctx, cluster, state, respDiags, types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()}))
+	// Omitted or null config: just read backend state.
+	if !eventsManaged {
+		tflog.Info(ctx, "No virtual cluster events configuration provided; reading backend state")
+		r.readEvents(ctx, cluster, state, respDiags, nullEventTypes)
 		return
 	}
 
-	// Retrieve events values from plan
+	// Retrieve events values from the resolved plan (includes nested defaults).
 	var eventsPlan models.VirtualClusterEvents
 	diags := plan.Events.As(ctx, &eventsPlan, basetypes.ObjectAsOptions{})
 	respDiags.Append(diags...)

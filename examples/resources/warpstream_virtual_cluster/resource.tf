@@ -1,6 +1,8 @@
 resource "warpstream_virtual_cluster" "test" {
   name = "vcn_test"
   tier = "dev"
+  # Omitting `events` leaves Events unmanaged. Terraform stores the state received
+  # from the backend. New virtual clusters have Events enabled by default.
 }
 
 resource "warpstream_virtual_cluster" "test_with_acl_shadowing" {
