@@ -213,7 +213,7 @@ func TestAccApplicationKeyResourceClusterScoped(t *testing.T) {
 	topicsKeyName := "akn_test_cluster_scoped_topics_app_key" + nameSuffix
 	credentialsKeyName := "akn_test_cluster_scoped_credentials_app_key" + nameSuffix
 	aclsKeyName := "akn_test_cluster_scoped_acls_app_key" + nameSuffix
-	workspaces := getWorkspacesNotEmpty(t)
+	workspace := getNonEmptyWorkspace(t)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -230,19 +230,19 @@ func TestAccApplicationKeyResourceClusterScoped(t *testing.T) {
 						"topics",
 						topicsKeyName,
 						api.ResourceKindVirtualClusterTopics,
-						workspaces[0].ID,
+						workspace.ID,
 					),
 					testAccApplicationKeyResourceClusterScopedCheck(
 						"credentials",
 						credentialsKeyName,
 						api.ResourceKindVirtualClusterCredentials,
-						workspaces[0].ID,
+						workspace.ID,
 					),
 					testAccApplicationKeyResourceClusterScopedCheck(
 						"acls",
 						aclsKeyName,
 						api.ResourceKindVirtualClusterACLs,
-						workspaces[0].ID,
+						workspace.ID,
 					),
 				),
 			},

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -35,12 +36,7 @@ var VirtualClusterSubResourceKinds = []string{
 
 // IsVirtualClusterSubResourceKind reports whether kind is a cluster-scoped application key resource kind.
 func IsVirtualClusterSubResourceKind(kind string) bool {
-	for _, k := range VirtualClusterSubResourceKinds {
-		if k == kind {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(VirtualClusterSubResourceKinds, kind)
 }
 
 type AccessGrants []AccessGrant
