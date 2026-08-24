@@ -92,14 +92,44 @@ func TestAccApplicationKeyResourceWithWorkspaceID(t *testing.T) {
 	})
 }
 
+func TestAccAccountKeyApplicationKeyResourceDefaultsToOldestWorkspace(t *testing.T) {
+	resourceName := "test"
+	keyName := "akn_test_application_key_oldest_default" + nameSuffix
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	workspaces, err := client.GetWorkspaces()
+	require.NoError(t, err)
+	require.NotEmpty(t, workspaces)
+	oldestID := workspaces[0].ID
+
+	newerID1, err := client.CreateWorkspace("test_acc_newer_ws_1_" + nameSuffix)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, client.DeleteWorkspace(newerID1))
+	})
+	newerID2, err := client.CreateWorkspace("test_acc_newer_ws_2_" + nameSuffix)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, client.DeleteWorkspace(newerID2))
+	})
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccApplicationKeyResource(resourceName, keyName),
+				// Omitting workspace_id defaults to the oldest workspace, not a newer one.
+				Check: testAccApplicationKeyResourceCheckWithWorkspaceID(resourceName, keyName, oldestID),
+			},
+		},
+	})
+}
+
 func TestAccAccountKeyApplicationKeyResourceWithWorkspaceID(t *testing.T) {
 	resourceName1, resourceName2 := "test1", "test2"
 	keyName1, keyName2 := "akn_test_application_key"+nameSuffix+"_1", "akn_test_application_key"+nameSuffix+"_2"
-	client, err := api.NewClientDefault()
-	require.NoError(t, err)
-	workspaces, err := client.GetWorkspaces()
-	require.NoError(t, err)
-	require.Greater(t, len(workspaces), 1, "Are you running this test with an account key?") // Get at least two workspaces.
+	workspaces := getWorkspacesAtLeastTwo(t)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -244,12 +274,22 @@ func testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, works
 	)
 }
 
+func getWorkspacesAtLeastTwo(t *testing.T) []api.Workspace {
+	t.Helper()
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+	workspaces, err := client.GetWorkspaces()
+	require.NoError(t, err)
+	require.Greater(t, len(workspaces), 1, "Are you running this test with an account key?")
+	return workspaces
+}
+
 // getNonEmptyWorkspace returns a workspace visible to the authenticated API key.
 func getNonEmptyWorkspace(t *testing.T) api.Workspace {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
 	// /list_workspaces requires an account key and most tests are run with an application key.
-	// Just lists API keys and grab a workspace ID from there so that this can be called from any test.
+	// Instead, list API keys and grab the first key's workspace ID so that this can be called from any test.
 	keys, err := client.GetAPIKeys()
 	require.NoError(t, err)
 	require.NotEmpty(t, keys)
