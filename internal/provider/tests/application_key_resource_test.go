@@ -58,15 +58,15 @@ func TestAccApplicationKeyResourceDeletePLan(t *testing.T) {
 func TestAccApplicationKeyResource(t *testing.T) {
 	resourceName := "test"
 	keyName := "akn_test_application_key" + nameSuffix
-	workspaces := getWorkspacesNotEmpty(t)
+	workspace := getNonEmptyWorkspace(t)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccApplicationKeyResource(resourceName, keyName),
-				// Defaults to the first i.e. the oldest workspace.
-				Check: testAccApplicationKeyResourceCheckWithWorkspaceID(resourceName, keyName, workspaces[0].ID),
+				// Defaults to the authenticated key's workspace.
+				Check: testAccApplicationKeyResourceCheckWithWorkspaceID(resourceName, keyName, workspace.ID),
 			},
 		},
 	})
@@ -74,15 +74,15 @@ func TestAccApplicationKeyResource(t *testing.T) {
 
 func TestAccApplicationKeyResourceWithWorkspaceID(t *testing.T) {
 	keyName := "akn_test_application_key" + nameSuffix
-	workspaces := getWorkspacesNotEmpty(t)
+	workspace := getNonEmptyWorkspace(t)
 	resourceName := "test"
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccApplicationKeyResourceWithWorkspaceID(resourceName, keyName, workspaces[0].ID),
-				Check:  testAccApplicationKeyResourceCheckWithWorkspaceID(resourceName, keyName, workspaces[0].ID),
+				Config: testAccApplicationKeyResourceWithWorkspaceID(resourceName, keyName, workspace.ID),
+				Check:  testAccApplicationKeyResourceCheckWithWorkspaceID(resourceName, keyName, workspace.ID),
 			},
 			{
 				Config:      testAccApplicationKeyResourceWithWorkspaceID(resourceName, keyName, "wi_not_exist"),
@@ -124,14 +124,14 @@ func TestAccAccountKeyApplicationKeyResourceWithWorkspaceID(t *testing.T) {
 func TestAccApplicationKeyResourceReadOnly(t *testing.T) {
 	resourceName := "test"
 	keyName := "akn_test_application_key_readonly" + nameSuffix
-	workspaces := getWorkspacesNotEmpty(t)
+	workspace := getNonEmptyWorkspace(t)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccApplicationKeyResourceWithReadOnly(resourceName, keyName, true),
-				Check:  testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspaces[0].ID, "true"),
+				Check:  testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspace.ID, "true"),
 			},
 		},
 	})
@@ -140,14 +140,14 @@ func TestAccApplicationKeyResourceReadOnly(t *testing.T) {
 func TestAccApplicationKeyResourceNotReadOnly(t *testing.T) {
 	resourceName := "test"
 	keyName := "akn_test_application_key_not_readonly" + nameSuffix
-	workspaces := getWorkspacesNotEmpty(t)
+	workspace := getNonEmptyWorkspace(t)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccApplicationKeyResourceWithReadOnly(resourceName, keyName, false),
-				Check:  testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspaces[0].ID, "false"),
+				Check:  testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspace.ID, "false"),
 			},
 		},
 	})
@@ -156,18 +156,18 @@ func TestAccApplicationKeyResourceNotReadOnly(t *testing.T) {
 func TestAccApplicationKeyResourceReadOnlyRequiresReplace(t *testing.T) {
 	resourceName := "test"
 	keyName := "akn_test_application_key_replace" + nameSuffix
-	workspaces := getWorkspacesNotEmpty(t)
+	workspace := getNonEmptyWorkspace(t)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccApplicationKeyResourceWithReadOnly(resourceName, keyName, false),
-				Check:  testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspaces[0].ID, "false"),
+				Check:  testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspace.ID, "false"),
 			},
 			{
 				Config: testAccApplicationKeyResourceWithReadOnly(resourceName, keyName, true),
-				Check:  testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspaces[0].ID, "true"),
+				Check:  testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, workspace.ID, "true"),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction("warpstream_application_key.test", plancheck.ResourceActionDestroyBeforeCreate),
@@ -244,13 +244,20 @@ func testAccApplicationKeyResourceCheckWithReadOnly(resourceName, keyName, works
 	)
 }
 
-func getWorkspacesNotEmpty(t *testing.T) []api.Workspace {
+// getNonEmptyWorkspace returns a workspace visible to the authenticated API key.
+func getNonEmptyWorkspace(t *testing.T) api.Workspace {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
-	workspaces, err := client.GetWorkspaces()
+	// /list_workspaces requires an account key and most tests are run with an application key.
+	// Just lists API keys and grab a workspace ID from there so that this can be called from any test.
+	keys, err := client.GetAPIKeys()
 	require.NoError(t, err)
-	require.NotEmpty(t, workspaces)
-	return workspaces
+	require.NotEmpty(t, keys)
+
+	wsID := keys[0].AccessGrants.ReadWorkspaceIDSafe()
+	require.NotEmpty(t, wsID)
+
+	return api.Workspace{ID: wsID}
 }
 
 func getApplicationKeyResourcePath(resourceName string) string {
