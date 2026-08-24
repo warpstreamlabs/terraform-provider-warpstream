@@ -1272,10 +1272,11 @@ resource "warpstream_virtual_cluster" "test" {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config:        config,
-				ResourceName:  addr,
-				ImportState:   true,
-				ImportStateId: vc.ID,
+				Config:             config,
+				ResourceName:       addr,
+				ImportState:        true,
+				ImportStateId:      vc.ID,
+				ImportStatePersist: true,
 			},
 			{
 				Config: config,
