@@ -278,7 +278,7 @@ The WarpStream provider must be authenticated with an application key to consume
 							stringvalidator.OneOf("classic", "lightning"),
 						},
 						PlanModifiers: []planmodifier.String{
-							stringplanmodifier.UseStateForUnknown(),
+							useStateForUnknownIncludingNull(),
 						},
 					},
 					"enable_acls": schema.BoolAttribute{
@@ -400,6 +400,46 @@ The WarpStream provider must be authenticated with an application key to consume
 			"workspace_id": shared.VirtualClusterWorkspaceIDSchema,
 		},
 	}
+}
+
+// useStateForUnknownIncludingNull preserves an existing attribute value when the framework marks
+// an unconfigured Computed attribute unknown.
+//
+// NB: When any sibling first makes the proposed state differ, the framework marks all null
+// unconfigured Computed attributes unknown before running plan modifiers. Its stock
+// UseStateForUnknown modifier then refuses to restore a null state value, producing perpetual
+// drift for attributes the provider deliberately stores as null. Any future null-stored Computed
+// attribute needs this pattern so an unknown sibling cannot destabilize it. Creates remain
+// unknown so the provider can populate a backend-computed value.
+func useStateForUnknownIncludingNull() planmodifier.String {
+	return useStateForUnknownIncludingNullModifier{}
+}
+
+type useStateForUnknownIncludingNullModifier struct{}
+
+func (useStateForUnknownIncludingNullModifier) Description(_ context.Context) string {
+	return "Preserves the prior state value, including null, when the planned value is unknown."
+}
+
+func (m useStateForUnknownIncludingNullModifier) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (useStateForUnknownIncludingNullModifier) PlanModifyString(
+	_ context.Context,
+	req planmodifier.StringRequest,
+	resp *planmodifier.StringResponse,
+) {
+	// Leave creates unknown so the provider can populate a backend-computed value.
+	if req.State.Raw.IsNull() {
+		return
+	}
+
+	if !req.PlanValue.IsUnknown() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	resp.PlanValue = req.StateValue
 }
 
 // eventsConfigured reports whether the Terraform configuration manages Events.

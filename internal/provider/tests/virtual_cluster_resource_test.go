@@ -1155,6 +1155,7 @@ func TestAccVirtualClusterResourceEventsOmitted(t *testing.T) {
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(addr, "events.enabled", "true"),
+					resource.TestCheckNoResourceAttr(addr, "configuration.default_topic_type"),
 					func(s *terraform.State) error {
 						client, err := api.NewClientDefault()
 						if err != nil {
@@ -1174,6 +1175,10 @@ func TestAccVirtualClusterResourceEventsOmitted(t *testing.T) {
 						return nil
 					},
 				),
+			},
+			{
+				Config:           config,
+				ConfigPlanChecks: emptyPlanChecks,
 			},
 		},
 	})
