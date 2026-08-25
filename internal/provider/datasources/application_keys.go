@@ -29,6 +29,12 @@ var (
 			"workspace_id": schema.StringAttribute{
 				Computed: true,
 			},
+			"virtual_cluster_id": schema.StringAttribute{
+				Computed: true,
+			},
+			"resource_kind": schema.StringAttribute{
+				Computed: true,
+			},
 			"created_at": schema.StringAttribute{
 				Computed: true,
 			},
