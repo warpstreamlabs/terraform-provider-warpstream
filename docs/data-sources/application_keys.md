@@ -44,4 +44,6 @@ Read-Only:
 - `key` (String, Sensitive)
 - `name` (String)
 - `read_only` (Boolean)
+- `resource_kind` (String)
+- `virtual_cluster_id` (String)
 - `workspace_id` (String)

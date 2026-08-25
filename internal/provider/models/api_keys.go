@@ -7,12 +7,14 @@ import (
 )
 
 type ApplicationKey struct {
-	ID          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Key         types.String `tfsdk:"key"`
-	WorkspaceID types.String `tfsdk:"workspace_id"`
-	CreatedAt   types.String `tfsdk:"created_at"`
-	ReadOnly    types.Bool   `tfsdk:"read_only"`
+	ID               types.String `tfsdk:"id"`
+	Name             types.String `tfsdk:"name"`
+	Key              types.String `tfsdk:"key"`
+	WorkspaceID      types.String `tfsdk:"workspace_id"`
+	VirtualClusterID types.String `tfsdk:"virtual_cluster_id"`
+	ResourceKind     types.String `tfsdk:"resource_kind"`
+	CreatedAt        types.String `tfsdk:"created_at"`
+	ReadOnly         types.Bool   `tfsdk:"read_only"`
 }
 
 // Ideally AgentKey and ApplicationKey would share fields by composing an APIKey struct.
@@ -32,19 +34,33 @@ func MapToApplicationKeys(apiKeysPtr *[]api.APIKey) *[]ApplicationKey {
 
 	keyModels := make([]ApplicationKey, 0, len(apiKeys))
 	for _, key := range apiKeys {
-		keyModel := ApplicationKey{
-			ID:          types.StringValue(key.ID),
-			Name:        types.StringValue(key.Name),
-			Key:         types.StringValue(key.Key),
-			WorkspaceID: types.StringValue((key.AccessGrants.ReadWorkspaceIDSafe())),
-			CreatedAt:   types.StringValue(key.CreatedAt),
-			ReadOnly:    types.BoolValue(key.IsReadOnly()),
-		}
-
+		keyModel := ApplicationKeyFromAPI(key)
 		keyModels = append(keyModels, keyModel)
 	}
 
 	return &keyModels
+}
+
+// ApplicationKeyFromAPI maps an API key response to the Terraform application key model.
+func ApplicationKeyFromAPI(key api.APIKey) ApplicationKey {
+	model := ApplicationKey{
+		ID:          types.StringValue(key.ID),
+		Name:        types.StringValue(key.Name),
+		Key:         types.StringValue(key.Key),
+		WorkspaceID: types.StringValue(key.AccessGrants.ReadWorkspaceIDSafe()),
+		CreatedAt:   types.StringValue(key.CreatedAt),
+		ReadOnly:    types.BoolValue(key.IsReadOnly()),
+	}
+
+	if vcID, resourceKind, ok := key.ApplicationKeyClusterScope(); ok {
+		model.VirtualClusterID = types.StringValue(vcID)
+		model.ResourceKind = types.StringValue(resourceKind)
+	} else {
+		model.VirtualClusterID = types.StringNull()
+		model.ResourceKind = types.StringNull()
+	}
+
+	return model
 }
 
 func MapToAgentKeys(apiKeysPtr *[]api.APIKey, diags *diag.Diagnostics) (*[]AgentKey, bool) {

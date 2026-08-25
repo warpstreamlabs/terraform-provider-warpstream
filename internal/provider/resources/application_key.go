@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -19,9 +22,14 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource              = &applicationKeyResource{}
-	_ resource.ResourceWithConfigure = &applicationKeyResource{}
+	_ resource.Resource                   = &applicationKeyResource{}
+	_ resource.ResourceWithConfigure      = &applicationKeyResource{}
+	_ resource.ResourceWithModifyPlan     = &applicationKeyResource{}
+	_ resource.ResourceWithValidateConfig = &applicationKeyResource{}
 )
+
+const clusterScopedReadOnlyError = "read_only is not currently supported for cluster-scoped application keys. " +
+	"Omit read_only or set it to false when virtual_cluster_id and resource_kind are set."
 
 // NewApplicationKeyResource is a helper function to simplify the provider implementation.
 func NewApplicationKeyResource() resource.Resource {
@@ -58,6 +66,84 @@ func (r *applicationKeyResource) Metadata(_ context.Context, req resource.Metada
 	resp.TypeName = req.ProviderTypeName + "_application_key"
 }
 
+// ValidateConfig rejects statically invalid read-only cluster-scoped keys.
+func (r *applicationKeyResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config models.ApplicationKey
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if applicationKeyIsClusterScoped(config) &&
+		!config.ReadOnly.IsNull() &&
+		!config.ReadOnly.IsUnknown() &&
+		config.ReadOnly.ValueBool() {
+		addClusterScopedReadOnlyError(&resp.Diagnostics)
+	}
+}
+
+// ModifyPlan rejects invalid replacements before Terraform can destroy the existing key.
+func (r *applicationKeyResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// Nothing to validate on destroy.
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+
+	var plan models.ApplicationKey
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() || !applicationKeyIsClusterScoped(plan) {
+		return
+	}
+
+	var configuredReadOnly types.Bool
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("read_only"), &configuredReadOnly)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	priorReadOnly := types.BoolNull()
+	if !req.State.Raw.IsNull() {
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("read_only"), &priorReadOnly)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	if applicationKeyPlanIsReadOnly(plan.ReadOnly, configuredReadOnly, priorReadOnly) {
+		addClusterScopedReadOnlyError(&resp.Diagnostics)
+	}
+}
+
+func applicationKeyIsClusterScoped(key models.ApplicationKey) bool {
+	return applicationKeyStringIsSet(key.VirtualClusterID) ||
+		applicationKeyStringIsSet(key.ResourceKind)
+}
+
+func applicationKeyStringIsSet(value types.String) bool {
+	return value.IsUnknown() || (!value.IsNull() && value.ValueString() != "")
+}
+
+func applicationKeyPlanIsReadOnly(planned, configured, prior types.Bool) bool {
+	if !planned.IsNull() && !planned.IsUnknown() {
+		return planned.ValueBool()
+	}
+	if !configured.IsNull() && !configured.IsUnknown() {
+		return configured.ValueBool()
+	}
+	return configured.IsNull() &&
+		!prior.IsNull() &&
+		!prior.IsUnknown() &&
+		prior.ValueBool()
+}
+
+func addClusterScopedReadOnlyError(diags *diag.Diagnostics) {
+	diags.AddAttributeError(
+		path.Root("read_only"),
+		"Invalid Application Key Configuration",
+		clusterScopedReadOnlyError,
+	)
+}
+
 // Schema defines the schema for the resource.
 func (r *applicationKeyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
@@ -66,6 +152,9 @@ This resource allows you to create, update and delete application keys.
 
 If the WarpStream provider is authenticated with an application key, this resource can access application keys in that key's workspace only.
 If the WarpStream provider is authenticated with an account key, it can access application keys in any workspace.
+
+Application keys are either workspace-wide (default) or scoped to a single virtual cluster sub-resource.
+Cluster-scoped keys require both virtual_cluster_id and resource_kind.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -106,6 +195,33 @@ If the WarpStream provider is authenticated with an account key, it can access a
 					utils.StartsWithAndAlphanumeric("wi_"),
 				},
 			},
+			"virtual_cluster_id": schema.StringAttribute{
+				Description: "Virtual Cluster ID to scope this application key to. " +
+					"When set, resource_kind must also be set and the key is limited to that cluster sub-resource. " +
+					"Must start with 'vci_'. Cannot be changed after creation.",
+				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					utils.StartsWithAndAlphanumeric("vci_"),
+					stringvalidator.AlsoRequires(path.MatchRoot("resource_kind")),
+				},
+			},
+			"resource_kind": schema.StringAttribute{
+				Description: "Virtual cluster sub-resource this application key can access. " +
+					"One of: virtual_cluster_topics, virtual_cluster_credentials, virtual_cluster_acls. " +
+					"Requires virtual_cluster_id. " +
+					"Cannot be changed after creation.",
+				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf(api.VirtualClusterSubResourceKinds...),
+					stringvalidator.AlsoRequires(path.MatchRoot("virtual_cluster_id")),
+				},
+			},
 			"created_at": schema.StringAttribute{
 				Description: "Application Key Creation Timestamp.",
 				Computed:    true,
@@ -116,6 +232,7 @@ If the WarpStream provider is authenticated with an account key, it can access a
 			"read_only": schema.BoolAttribute{
 				Description: "Whether the Application Key is read-only. " +
 					"Read-only keys have limited permissions and cannot perform write operations. " +
+					"Not currently supported with virtual_cluster_id / resource_kind. " +
 					"Cannot be changed after creation.",
 				Optional: true,
 				// This is important for backwards compatibility otherwise existing Application Keys that
@@ -139,16 +256,38 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	// Create new application key
+	clusterScoped := !plan.VirtualClusterID.IsNull() && !plan.VirtualClusterID.IsUnknown() &&
+		plan.VirtualClusterID.ValueString() != ""
+
 	readOnly := false
-	if !plan.ReadOnly.IsNull() {
+	if !plan.ReadOnly.IsNull() && !plan.ReadOnly.IsUnknown() {
 		readOnly = plan.ReadOnly.ValueBool()
 	}
-	apiKey, err := r.client.CreateApplicationKey(
-		plan.Name.ValueString(),
-		plan.WorkspaceID.ValueString(),
-		readOnly,
+
+	if clusterScoped && readOnly {
+		addClusterScopedReadOnlyError(&resp.Diagnostics)
+		return
+	}
+
+	var (
+		apiKey *api.APIKey
+		err    error
 	)
+
+	if clusterScoped {
+		apiKey, err = r.client.CreateClusterScopedApplicationKey(
+			plan.Name.ValueString(),
+			plan.WorkspaceID.ValueString(),
+			plan.VirtualClusterID.ValueString(),
+			plan.ResourceKind.ValueString(),
+		)
+	} else {
+		apiKey, err = r.client.CreateApplicationKey(
+			plan.Name.ValueString(),
+			plan.WorkspaceID.ValueString(),
+			readOnly,
+		)
+	}
 
 	// TODO: Make client return an structured HTTP error and branch on the specific case where it's the workspace that's not found.
 	if err != nil && errors.Is(err, api.ErrNotFound) {
@@ -180,14 +319,7 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// Map response body to schema and populate Computed attribute values
-	state := models.ApplicationKey{
-		ID:          types.StringValue(apiKey.ID),
-		Name:        types.StringValue(apiKey.Name),
-		Key:         types.StringValue(apiKey.Key),
-		WorkspaceID: types.StringValue(apiKey.AccessGrants.ReadWorkspaceIDSafe()),
-		CreatedAt:   types.StringValue(apiKey.CreatedAt),
-		ReadOnly:    types.BoolValue(apiKey.IsReadOnly()),
-	}
+	state := models.ApplicationKeyFromAPI(*apiKey)
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, state)
@@ -221,14 +353,7 @@ func (r *applicationKeyResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	// Overwrite Application Key with refreshed state
-	state = models.ApplicationKey{
-		ID:          types.StringValue(apiKey.ID),
-		Name:        types.StringValue(apiKey.Name),
-		Key:         types.StringValue(apiKey.Key),
-		WorkspaceID: types.StringValue(apiKey.AccessGrants.ReadWorkspaceIDSafe()),
-		CreatedAt:   types.StringValue(apiKey.CreatedAt),
-		ReadOnly:    types.BoolValue(apiKey.IsReadOnly()),
-	}
+	state = models.ApplicationKeyFromAPI(*apiKey)
 
 	// Set state
 	diags = resp.State.Set(ctx, &state)
