@@ -1140,17 +1140,235 @@ func TestAccVirtualClusterResourceWithEvents(t *testing.T) {
 	})
 }
 
-func TestAccVirtualClusterResourceWithEventsDefault(t *testing.T) {
+// TestAccVirtualClusterResourceEventsOmitted verifies that omitting the events block leaves
+// Events unmanaged: Terraform stores the state received from the backend and does not write.
+// New virtual clusters have Events enabled by default.
+func TestAccVirtualClusterResourceEventsOmitted(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+	config := testAccVirtualClusterResource(vcNameSuffix)
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create without events block - should default to disabled
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(addr, "events.enabled", "true"),
+					resource.TestCheckNoResourceAttr(addr, "configuration.default_topic_type"),
+					func(s *terraform.State) error {
+						client, err := api.NewClientDefault()
+						if err != nil {
+							return err
+						}
+						vc, err := client.FindVirtualCluster(fmt.Sprintf("vcn_test_acc_%s", vcNameSuffix))
+						if err != nil {
+							return err
+						}
+						eventsState, err := client.GetEventsState(*vc)
+						if err != nil {
+							return err
+						}
+						if !eventsState.Enabled {
+							return fmt.Errorf("expected API events to remain enabled when Terraform omits events, got disabled")
+						}
+						return nil
+					},
+				),
+			},
+			{
+				Config:           config,
+				ConfigPlanChecks: emptyPlanChecks,
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceEventsEmptyBlock keeps the nested enabled=false default for a
+// present but empty events object, which is a managed disable.
+func TestAccVirtualClusterResourceEventsEmptyBlock(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+	config := testAccVirtualClusterResource_withEmptyEvents(vcNameSuffix)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check:  resource.TestCheckResourceAttr(addr, "events.enabled", "false"),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceEventsWholeObjectUnknown covers an events object that is unknown as
+// a whole during the initial plan, then resolves before both Create and Update.
+func TestAccVirtualClusterResourceEventsWholeObjectUnknown(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+
+	config := func(dep string, enabled bool) string {
+		return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "%[1]s" {
+  name = "vcn_test_acc_%[2]s_%[1]s"
+  tier = "dev"
+}
+
+locals {
+  encoded_events_%[2]s = jsonencode({
+    enabled = length(warpstream_virtual_cluster.%[1]s.id) > 0 ? %[3]t : %[4]t
+  })
+}
+
+resource "warpstream_virtual_cluster" "test" {
+  name   = "vcn_test_acc_%[2]s"
+  tier   = "fundamentals"
+  events = jsondecode(local.encoded_events_%[2]s)
+}`, dep, vcNameSuffix, enabled, !enabled)
+	}
+
+	expectEventsUnknown := resource.ConfigPlanChecks{
+		PreApply: []plancheck.PlanCheck{
+			plancheck.ExpectUnknownValue(addr, tfjsonpath.New("events")),
+		},
+	}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:           config("dep", true),
+				ConfigPlanChecks: expectEventsUnknown,
+				Check:            resource.TestCheckResourceAttr(addr, "events.enabled", "true"),
+			},
+			{Config: config("dep", true), ConfigPlanChecks: emptyPlanChecks},
+			{
+				Config:           config("dep2", false),
+				ConfigPlanChecks: expectEventsUnknown,
+				Check:            resource.TestCheckResourceAttr(addr, "events.enabled", "false"),
+			},
+			{Config: config("dep2", false), ConfigPlanChecks: emptyPlanChecks},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceEventsOwnershipTransitions covers omit/null/explicit transitions,
+// an out-of-band Events change, and unrelated updates while Events are unmanaged.
+func TestAccVirtualClusterResourceEventsOwnershipTransitions(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Omit: new clusters have Events enabled by default
 			{
 				Config: testAccVirtualClusterResource(vcNameSuffix),
+				Check:  resource.TestCheckResourceAttr(addr, "events.enabled", "true"),
+			},
+			// Omit → explicit disable
+			{
+				Config: testAccVirtualClusterResource_withEvents(vcNameSuffix, false),
+				Check:  resource.TestCheckResourceAttr(addr, "events.enabled", "false"),
+			},
+			// Explicit → null with an unrelated update (stop managing; state remains the last written value)
+			{
+				Config: testAccVirtualClusterResource_withNullEventsAndTags(
+					vcNameSuffix, map[string]string{"ownership": "null"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("warpstream_virtual_cluster.test", "events.enabled", "false"),
+					resource.TestCheckResourceAttr(addr, "events.enabled", "false"),
+					resource.TestCheckResourceAttr(addr, "tags.ownership", "null"),
 				),
+			},
+			// Null → omit after an out-of-band enable. The unrelated tag update must not overwrite Events.
+			{
+				PreConfig: func() {
+					client, err := api.NewClientDefault()
+					require.NoError(t, err)
+
+					vc, err := client.FindVirtualCluster(fmt.Sprintf("vcn_test_acc_%s", vcNameSuffix))
+					require.NoError(t, err)
+
+					enabled := true
+					err = client.UpdateEventsState(&enabled, nil, *vc)
+					require.NoError(t, err)
+				},
+				Config: testAccVirtualClusterResource_withTags(
+					vcNameSuffix, map[string]string{"ownership": "omitted"}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(addr, "events.enabled", "true"),
+					resource.TestCheckResourceAttr(addr, "tags.ownership", "omitted"),
+				),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceEventsImportBackendEnabled imports a cluster created outside
+// Terraform (Events enabled by default), with Terraform config omitting the events block.
+func TestAccVirtualClusterResourceEventsImportBackendEnabled(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	region := "us-east-1"
+	vc, err := client.CreateVirtualCluster(testClusterName(vcNameSuffix), api.ClusterParameters{
+		Type:   api.VirtualClusterTypeBYOC,
+		Tier:   api.VirtualClusterTierFundamentals,
+		Region: &region,
+		Cloud:  "aws",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		// Best-effort: Terraform destroy usually removes it; ignore if already gone.
+		_ = client.DeleteVirtualCluster(vc.ID, vc.Name)
+	})
+
+	vc, err = client.GetVirtualCluster(vc.ID)
+	require.NoError(t, err)
+
+	const addr = "warpstream_virtual_cluster.test"
+	config := providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = %q
+  tier = "fundamentals"
+}`, vc.Name)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:             config,
+				ResourceName:       addr,
+				ImportState:        true,
+				ImportStateId:      vc.ID,
+				ImportStatePersist: true,
+			},
+			{
+				Config: config,
+				Check:  resource.TestCheckResourceAttr(addr, "events.enabled", "true"),
+			},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceEventsUpgrade ensures a config without events written against
+// the released provider plans clean after upgrading to this provider.
+func TestAccVirtualClusterResourceEventsUpgrade(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	config := testAccVirtualClusterResource(vcNameSuffix)
+
+	resource.Test(t, resource.TestCase{
+		Steps: []resource.TestStep{
+			{
+				ExternalProviders: releasedProvider,
+				Config:            config,
+			},
+			{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Config:                   config,
+				ConfigPlanChecks:         emptyPlanChecks,
 			},
 		},
 	})
@@ -1165,6 +1383,44 @@ resource "warpstream_virtual_cluster" "test" {
     enabled = %t
   }
 }`, vcNameSuffix, eventsEnabled)
+}
+
+func testAccVirtualClusterResource_withEmptyEvents(vcNameSuffix string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = {}
+}`, vcNameSuffix)
+}
+
+func testAccVirtualClusterResource_withNullEventsAndTags(vcNameSuffix string, tags map[string]string) string {
+	tagsBody := ""
+	for k, v := range tags {
+		tagsBody += fmt.Sprintf("    %q = %q\n", k, v)
+	}
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = null
+  tags = {
+%s  }
+}`, vcNameSuffix, tagsBody)
+}
+
+func testAccVirtualClusterResource_withTags(vcNameSuffix string, tags map[string]string) string {
+	tagsBody := ""
+	for k, v := range tags {
+		tagsBody += fmt.Sprintf("    %q = %q\n", k, v)
+	}
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  tags = {
+%s  }
+}`, vcNameSuffix, tagsBody)
 }
 
 func TestAccVirtualClusterResourceWithEventTypes(t *testing.T) {

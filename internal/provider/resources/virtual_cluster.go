@@ -278,7 +278,7 @@ The WarpStream provider must be authenticated with an application key to consume
 							stringvalidator.OneOf("classic", "lightning"),
 						},
 						PlanModifiers: []planmodifier.String{
-							stringplanmodifier.UseStateForUnknown(),
+							useStateForUnknownIncludingNull(),
 						},
 					},
 					"enable_acls": schema.BoolAttribute{
@@ -343,7 +343,7 @@ The WarpStream provider must be authenticated with an application key to consume
 			"events": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"enabled": schema.BoolAttribute{
-						Description: "Enable events for this virtual cluster. Defaults to `false`.",
+						Description: "Enable events for this virtual cluster. Defaults to `false` when the `events` block is present but `enabled` is omitted.",
 						Optional:    true,
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
@@ -380,14 +380,13 @@ The WarpStream provider must be authenticated with an application key to consume
 						},
 					},
 				},
-				Description: "Virtual Cluster Events Configuration.",
-				Optional:    true,
-				Computed:    true,
-				Default: objectdefault.StaticValue(
-					types.ObjectValueMust(
-						models.VirtualClusterEvents{}.AttributeTypes(),
-						models.VirtualClusterEvents{}.DefaultObject(),
-					)),
+				Description: "Virtual Cluster Events Configuration. When omitted or null, Terraform does not update Events " +
+					"and reads `enabled` from the backend into state. Backend-only event-type keys are not automatically " +
+					"added to resource state. Within a present `events` block, later omitting the entire `event_types` map " +
+					"retains any previously tracked keys. New virtual clusters have Events enabled by default. When present, " +
+					"Terraform manages Events using the configured values.",
+				Optional: true,
+				Computed: true,
 				PlanModifiers: []planmodifier.Object{
 					objectplanmodifier.UseStateForUnknown(),
 				},
@@ -405,12 +404,90 @@ The WarpStream provider must be authenticated with an application key to consume
 	}
 }
 
+// useStateForUnknownIncludingNull preserves an existing attribute value, including null, when the
+// framework marks an unconfigured Computed attribute unknown during an update.
+//
+// NB: When any sibling first makes the proposed state differ, the framework marks all null
+// unconfigured Computed attributes unknown before running plan modifiers. Its stock
+// UseStateForUnknown modifier then refuses to restore a null state value, producing perpetual
+// drift for attributes the provider deliberately keeps null across updates. Any future stable
+// Computed attribute with that behavior needs this pattern so an unknown sibling cannot
+// destabilize it. Creates remain unknown so the provider can populate a backend-computed value.
+func useStateForUnknownIncludingNull() planmodifier.String {
+	return useStateForUnknownIncludingNullModifier{}
+}
+
+type useStateForUnknownIncludingNullModifier struct{}
+
+func (useStateForUnknownIncludingNullModifier) Description(_ context.Context) string {
+	return "Preserves a prior unconfigured Computed value, including null, when it becomes unknown during an update."
+}
+
+func (m useStateForUnknownIncludingNullModifier) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (useStateForUnknownIncludingNullModifier) PlanModifyString(
+	_ context.Context,
+	req planmodifier.StringRequest,
+	resp *planmodifier.StringResponse,
+) {
+	// Leave creates unknown so the provider can populate a backend-computed value.
+	if req.State.Raw.IsNull() {
+		return
+	}
+
+	if !req.PlanValue.IsUnknown() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	resp.PlanValue = req.StateValue
+}
+
+// eventsConfigured reports whether the Terraform configuration manages Events. Ownership normally
+// comes from config, not plan or state: omitting events leaves the plan unknown/computed (or copies
+// prior state), which must not trigger a write. When an explicitly configured expression is still
+// unknown in config during apply, the resolved plan determines whether it produced null or an
+// Events object.
+func eventsConfigured(configEvents, planEvents types.Object, respDiags *diag.Diagnostics) bool {
+	if configEvents.IsNull() {
+		return false
+	}
+
+	if planEvents.IsUnknown() {
+		respDiags.AddAttributeError(
+			path.Root("events"),
+			"Unresolved Virtual Cluster Events Configuration",
+			"The planned `events` configuration is still unknown during apply, so the provider cannot safely "+
+				"update Events. Ensure any expression used for `events` can be resolved before apply.",
+		)
+		return false
+	}
+
+	if configEvents.IsUnknown() {
+		return !planEvents.IsNull()
+	}
+
+	return true
+}
+
 // Create a new resource.
 func (r *virtualClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
 	var plan models.VirtualClusterResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var configEvents types.Object
+	diags = req.Config.GetAttribute(ctx, path.Root("events"), &configEvents)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	eventsManaged := eventsConfigured(configEvents, plan.Events, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -471,6 +548,13 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	// Unmanaged Events: do not seed state from the plan (which may be unknown).
+	// Managed Events: seed from the resolved plan so applyEvents can write it.
+	eventsForState := types.ObjectNull(models.VirtualClusterEvents{}.AttributeTypes())
+	if eventsManaged {
+		eventsForState = plan.Events
+	}
+
 	// Map response body to schema and populate Computed attribute values
 	state := models.VirtualClusterResource{
 		ID:                  types.StringValue(cluster.ID),
@@ -483,7 +567,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		WorkspaceID:         types.StringValue(cluster.WorkspaceID),
 		Configuration:       plan.Configuration,
 		BrokerConfiguration: plan.BrokerConfiguration,
-		Events:              plan.Events,
+		Events:              eventsForState,
 		Cloud:               cloudValue,
 		Tags:                plan.Tags,
 	}
@@ -511,7 +595,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	r.applyEvents(ctx, state, &resp.State, &resp.Diagnostics)
+	r.applyEvents(ctx, state, &resp.State, &resp.Diagnostics, eventsManaged)
 }
 
 func getCloudValue(cluster *api.VirtualCluster) (basetypes.ObjectValue, diag.Diagnostics) {
@@ -651,6 +735,17 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
+	var configEvents types.Object
+	diags = req.Config.GetAttribute(ctx, path.Root("events"), &configEvents)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	eventsManaged := eventsConfigured(configEvents, plan.Events, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// Get current state
 	var state models.VirtualClusterResource
 	diags = req.State.Get(ctx, &state)
@@ -684,7 +779,7 @@ func (r *virtualClusterResource) Update(ctx context.Context, req resource.Update
 	}
 
 	// Update virtual cluster events
-	r.applyEvents(ctx, plan, &resp.State, &resp.Diagnostics)
+	r.applyEvents(ctx, plan, &resp.State, &resp.Diagnostics, eventsManaged)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -984,7 +1079,7 @@ func (r *virtualClusterResource) applyTags(ctx context.Context, state models.Vir
 	r.readTags(ctx, cluster, respState, respDiags)
 }
 
-func (r *virtualClusterResource) readEvents(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics, planEventTypes types.Map) {
+func (r *virtualClusterResource) readEvents(ctx context.Context, cluster api.VirtualCluster, state *tfsdk.State, respDiags *diag.Diagnostics, eventTypesFilter types.Map) {
 	// Get virtual cluster events state
 	eventsState, err := r.client.GetEventsState(cluster)
 	if err != nil {
@@ -996,15 +1091,16 @@ func (r *virtualClusterResource) readEvents(ctx context.Context, cluster api.Vir
 	}
 	tflog.Debug(ctx, fmt.Sprintf("Events State: %+v", *eventsState))
 
-	// Convert event types from API to Terraform model
+	// Convert only tracked event types from the API to the Terraform model. A null or unknown
+	// filter intentionally leaves event_types null so backend-defined event types do not become
+	// managed state unless the user configured their keys.
 	var eventTypesMap map[string]attr.Value
-	if len(eventsState.EventTypes) > 0 && !planEventTypes.IsNull() && !planEventTypes.IsUnknown() {
+	if len(eventsState.EventTypes) > 0 && !eventTypesFilter.IsNull() && !eventTypesFilter.IsUnknown() {
 		eventTypesMap = make(map[string]attr.Value)
-		planElements := planEventTypes.Elements()
+		filterElements := eventTypesFilter.Elements()
 
 		for eventType, config := range eventsState.EventTypes {
-			// Only include this event type if it was in the plan
-			if _, inPlan := planElements[eventType]; !inPlan {
+			if _, tracked := filterElements[eventType]; !tracked {
 				continue
 			}
 			eventTypeAttrs := map[string]attr.Value{}
@@ -1058,18 +1154,27 @@ func (r *virtualClusterResource) readEvents(ctx context.Context, cluster api.Vir
 	respDiags.Append(diags...)
 }
 
-func (r *virtualClusterResource) applyEvents(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics) {
+func (r *virtualClusterResource) applyEvents(ctx context.Context, plan models.VirtualClusterResource, state *tfsdk.State, respDiags *diag.Diagnostics, eventsManaged bool) {
 	cluster := plan.Cluster()
+	nullEventTypes := types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()})
 
-	// If events plan is empty, just retrieve it from API
-	if plan.Events.IsNull() {
-		tflog.Info(ctx, "No virtual cluster events configuration provided")
-		// Pass null map to read all event types from API
-		r.readEvents(ctx, cluster, state, respDiags, types.MapNull(types.ObjectType{AttrTypes: models.EventTypeConfig{}.AttributeTypes()}))
+	// Omitted or null config: just read backend state.
+	if !eventsManaged {
+		tflog.Info(ctx, "No virtual cluster events configuration provided; reading backend state")
+		r.readEvents(ctx, cluster, state, respDiags, nullEventTypes)
 		return
 	}
 
-	// Retrieve events values from plan
+	if plan.Events.IsNull() || plan.Events.IsUnknown() {
+		respDiags.AddAttributeError(
+			path.Root("events"),
+			"Unresolved Virtual Cluster Events Configuration",
+			"The planned `events` configuration must resolve to an Events object before it can be applied.",
+		)
+		return
+	}
+
+	// Retrieve events values from the resolved plan (includes nested defaults).
 	var eventsPlan models.VirtualClusterEvents
 	diags := plan.Events.As(ctx, &eventsPlan, basetypes.ObjectAsOptions{})
 	respDiags.Append(diags...)
