@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -23,13 +24,67 @@ func TestEventsConfigured(t *testing.T) {
 	t.Parallel()
 
 	attrTypes := models.VirtualClusterEvents{}.AttributeTypes()
+	present, presentDiags := types.ObjectValue(attrTypes, models.VirtualClusterEvents{}.DefaultObject())
+	require.False(t, presentDiags.HasError())
 
-	require.False(t, eventsConfigured(types.ObjectNull(attrTypes)))
-	require.False(t, eventsConfigured(types.ObjectUnknown(attrTypes)))
+	tests := []struct {
+		name        string
+		config      types.Object
+		plan        types.Object
+		wantManaged bool
+		wantError   bool
+	}{
+		{
+			name:        "null is unmanaged",
+			config:      types.ObjectNull(attrTypes),
+			plan:        types.ObjectUnknown(attrTypes),
+			wantManaged: false,
+		},
+		{
+			name:        "present is managed",
+			config:      present,
+			plan:        present,
+			wantManaged: true,
+		},
+		{
+			name:        "unknown config resolving to an object is managed",
+			config:      types.ObjectUnknown(attrTypes),
+			plan:        present,
+			wantManaged: true,
+		},
+		{
+			name:   "unknown config resolving to null is unmanaged",
+			config: types.ObjectUnknown(attrTypes),
+			plan:   types.ObjectNull(attrTypes),
+		},
+		{
+			name:      "unknown config and plan are rejected",
+			config:    types.ObjectUnknown(attrTypes),
+			plan:      types.ObjectUnknown(attrTypes),
+			wantError: true,
+		},
+		{
+			name:      "present config with an unknown plan is rejected",
+			config:    present,
+			plan:      types.ObjectUnknown(attrTypes),
+			wantError: true,
+		},
+	}
 
-	present, diags := types.ObjectValue(attrTypes, models.VirtualClusterEvents{}.DefaultObject())
-	require.False(t, diags.HasError())
-	require.True(t, eventsConfigured(present))
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var diags diag.Diagnostics
+			managed := eventsConfigured(test.config, test.plan, &diags)
+
+			require.Equal(t, test.wantManaged, managed)
+			require.Equal(t, test.wantError, diags.HasError(), diags.Errors())
+			if test.wantError {
+				require.Equal(t, "Unresolved Virtual Cluster Events Configuration", diags.Errors()[0].Summary())
+			}
+		})
+	}
 }
 
 func TestApplyEventsSkipsUpdateWhenUnmanaged(t *testing.T) {
@@ -50,9 +105,20 @@ func TestApplyEventsSkipsUpdateWhenUnmanaged(t *testing.T) {
 	require.False(t, diags.HasError(), diags.Errors())
 
 	state.mu.Lock()
-	defer state.mu.Unlock()
-	require.Equal(t, 0, state.updateEventsCalls)
-	require.Equal(t, 1, state.getEventsCalls)
+	updateEventsCalls := state.updateEventsCalls
+	getEventsCalls := state.getEventsCalls
+	state.mu.Unlock()
+	require.Equal(t, 0, updateEventsCalls)
+	require.Equal(t, 1, getEventsCalls)
+
+	var eventTypes types.Map
+	readDiags := tfState.GetAttribute(
+		context.Background(),
+		path.Root("events").AtName("event_types"),
+		&eventTypes,
+	)
+	require.False(t, readDiags.HasError(), readDiags.Errors())
+	require.True(t, eventTypes.IsNull(), "unconfigured backend event types should not be tracked")
 }
 
 func TestApplyEventsWritesWhenManaged(t *testing.T) {
@@ -80,16 +146,52 @@ func TestApplyEventsWritesWhenManaged(t *testing.T) {
 	require.True(t, *state.lastUpdateEnabled)
 }
 
+func TestApplyEventsRejectsUnresolvedManagedPlan(t *testing.T) {
+	t.Parallel()
+
+	state := newEventsTestServerState()
+	server := newEventsTestServer(state)
+	t.Cleanup(server.Close)
+
+	client := newEventsTestClient(t, server.URL)
+	r := &virtualClusterResource{client: client}
+
+	plan := eventsTestPlan(t, true)
+	plan.Events = types.ObjectUnknown(models.VirtualClusterEvents{}.AttributeTypes())
+	tfState := newVirtualClusterTFState(t)
+
+	var diags diag.Diagnostics
+	r.applyEvents(context.Background(), plan, &tfState, &diags, true)
+	require.True(t, diags.HasError())
+	require.Equal(t, "Unresolved Virtual Cluster Events Configuration", diags.Errors()[0].Summary())
+
+	state.mu.Lock()
+	updateEventsCalls := state.updateEventsCalls
+	getEventsCalls := state.getEventsCalls
+	state.mu.Unlock()
+	require.Equal(t, 0, updateEventsCalls)
+	require.Equal(t, 0, getEventsCalls)
+}
+
 type eventsTestServerState struct {
 	mu                sync.Mutex
 	getEventsCalls    int
 	updateEventsCalls int
 	lastUpdateEnabled *bool
 	enabled           bool
+	eventTypes        map[string]api.EventTypeConfig
 }
 
 func newEventsTestServerState() *eventsTestServerState {
-	return &eventsTestServerState{enabled: true}
+	eventTypeEnabled := true
+	return &eventsTestServerState{
+		enabled: true,
+		eventTypes: map[string]api.EventTypeConfig{
+			"backend_only": {
+				Enabled: &eventTypeEnabled,
+			},
+		},
+	}
 }
 
 func newEventsTestServer(state *eventsTestServerState) *httptest.Server {
@@ -99,10 +201,11 @@ func newEventsTestServer(state *eventsTestServerState) *httptest.Server {
 			state.mu.Lock()
 			state.getEventsCalls++
 			enabled := state.enabled
+			eventTypes := state.eventTypes
 			state.mu.Unlock()
 			_ = json.NewEncoder(w).Encode(api.EventsStateDescribeResponse{
 				Enabled:    enabled,
-				EventTypes: map[string]api.EventTypeConfig{},
+				EventTypes: eventTypes,
 			})
 		case "/update_events_state":
 			var req api.EventsStateUpdateRequest

@@ -1202,8 +1202,59 @@ func TestAccVirtualClusterResourceEventsEmptyBlock(t *testing.T) {
 	})
 }
 
-// TestAccVirtualClusterResourceEventsOwnershipTransitions covers omit↔explicit transitions and
-// an unrelated update while Events are omitted.
+// TestAccVirtualClusterResourceEventsWholeObjectUnknown covers an events object that is unknown as
+// a whole during the initial plan, then resolves before both Create and Update.
+func TestAccVirtualClusterResourceEventsWholeObjectUnknown(t *testing.T) {
+	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	const addr = "warpstream_virtual_cluster.test"
+
+	config := func(dep string, enabled bool) string {
+		return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "%[1]s" {
+  name = "vcn_test_acc_%[2]s_%[1]s"
+  tier = "dev"
+}
+
+locals {
+  encoded_events_%[2]s = jsonencode({
+    enabled = length(warpstream_virtual_cluster.%[1]s.id) > 0 ? %[3]t : %[4]t
+  })
+}
+
+resource "warpstream_virtual_cluster" "test" {
+  name   = "vcn_test_acc_%[2]s"
+  tier   = "fundamentals"
+  events = jsondecode(local.encoded_events_%[2]s)
+}`, dep, vcNameSuffix, enabled, !enabled)
+	}
+
+	expectEventsUnknown := resource.ConfigPlanChecks{
+		PreApply: []plancheck.PlanCheck{
+			plancheck.ExpectUnknownValue(addr, tfjsonpath.New("events")),
+		},
+	}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:           config("dep", true),
+				ConfigPlanChecks: expectEventsUnknown,
+				Check:            resource.TestCheckResourceAttr(addr, "events.enabled", "true"),
+			},
+			{Config: config("dep", true), ConfigPlanChecks: emptyPlanChecks},
+			{
+				Config:           config("dep2", false),
+				ConfigPlanChecks: expectEventsUnknown,
+				Check:            resource.TestCheckResourceAttr(addr, "events.enabled", "false"),
+			},
+			{Config: config("dep2", false), ConfigPlanChecks: emptyPlanChecks},
+		},
+	})
+}
+
+// TestAccVirtualClusterResourceEventsOwnershipTransitions covers omit/null/explicit transitions,
+// an out-of-band Events change, and unrelated updates while Events are unmanaged.
 func TestAccVirtualClusterResourceEventsOwnershipTransitions(t *testing.T) {
 	vcNameSuffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	const addr = "warpstream_virtual_cluster.test"
@@ -1221,17 +1272,33 @@ func TestAccVirtualClusterResourceEventsOwnershipTransitions(t *testing.T) {
 				Config: testAccVirtualClusterResource_withEvents(vcNameSuffix, false),
 				Check:  resource.TestCheckResourceAttr(addr, "events.enabled", "false"),
 			},
-			// Explicit → omit (stop managing; state remains the last written value)
+			// Explicit → null with an unrelated update (stop managing; state remains the last written value)
 			{
-				Config: testAccVirtualClusterResource(vcNameSuffix),
-				Check:  resource.TestCheckResourceAttr(addr, "events.enabled", "false"),
-			},
-			// Unrelated update while omitted
-			{
-				Config: testAccVirtualClusterResource_withTags(vcNameSuffix, map[string]string{"env": "test"}),
+				Config: testAccVirtualClusterResource_withNullEventsAndTags(
+					vcNameSuffix, map[string]string{"ownership": "null"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(addr, "events.enabled", "false"),
-					resource.TestCheckResourceAttr(addr, "tags.env", "test"),
+					resource.TestCheckResourceAttr(addr, "tags.ownership", "null"),
+				),
+			},
+			// Null → omit after an out-of-band enable. The unrelated tag update must not overwrite Events.
+			{
+				PreConfig: func() {
+					client, err := api.NewClientDefault()
+					require.NoError(t, err)
+
+					vc, err := client.FindVirtualCluster(fmt.Sprintf("vcn_test_acc_%s", vcNameSuffix))
+					require.NoError(t, err)
+
+					enabled := true
+					err = client.UpdateEventsState(&enabled, nil, *vc)
+					require.NoError(t, err)
+				},
+				Config: testAccVirtualClusterResource_withTags(
+					vcNameSuffix, map[string]string{"ownership": "omitted"}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(addr, "events.enabled", "true"),
+					resource.TestCheckResourceAttr(addr, "tags.ownership", "omitted"),
 				),
 			},
 		},
@@ -1325,6 +1392,21 @@ resource "warpstream_virtual_cluster" "test" {
   tier = "fundamentals"
   events = {}
 }`, vcNameSuffix)
+}
+
+func testAccVirtualClusterResource_withNullEventsAndTags(vcNameSuffix string, tags map[string]string) string {
+	tagsBody := ""
+	for k, v := range tags {
+		tagsBody += fmt.Sprintf("    %q = %q\n", k, v)
+	}
+	return providerConfig + fmt.Sprintf(`
+resource "warpstream_virtual_cluster" "test" {
+  name = "vcn_test_acc_%s"
+  tier = "fundamentals"
+  events = null
+  tags = {
+%s  }
+}`, vcNameSuffix, tagsBody)
 }
 
 func testAccVirtualClusterResource_withTags(vcNameSuffix string, tags map[string]string) string {
