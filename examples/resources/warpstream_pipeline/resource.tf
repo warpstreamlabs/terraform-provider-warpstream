@@ -65,8 +65,12 @@ resource "warpstream_pipeline" "example_orbit_pipeline" {
   EOT
 }
 
+resource "warpstream_schema_registry" "example_schema_registry" {
+  name = "vcn_sr_example_schema_registry"
+}
+
 resource "warpstream_pipeline" "example_schema_linking_pipeline" {
-  virtual_cluster_id = warpstream_virtual_cluster.tf_example_pipelines.id
+  virtual_cluster_id = warpstream_schema_registry.example_schema_registry.id
   name               = "example_schema_linking_pipeline"
   state              = "running"
   type               = "schema_linking"
