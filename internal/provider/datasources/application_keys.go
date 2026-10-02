@@ -23,8 +23,9 @@ var (
 				Computed: true,
 			},
 			"key": schema.StringAttribute{
-				Computed:  true,
-				Sensitive: true,
+				Description: "Secret value. Empty for a hashed key, whose secret is only returned at creation.",
+				Computed:    true,
+				Sensitive:   true,
 			},
 			"workspace_id": schema.StringAttribute{
 				Computed: true,

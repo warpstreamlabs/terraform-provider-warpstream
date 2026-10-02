@@ -176,7 +176,7 @@ Cluster-scoped keys require both virtual_cluster_id and resource_kind.
 				Validators: []validator.String{utils.StartsWithAndAlphanumeric("akn_")},
 			},
 			"key": schema.StringAttribute{
-				Description: "Application Key Secret Value.",
+				Description: "Application Key Secret Value. For a hashed key (see the provider's `hashed_api_keys`), this is only returned at creation and is kept from state afterwards.",
 				Computed:    true,
 				Sensitive:   true,
 			},
@@ -309,17 +309,23 @@ func (r *applicationKeyResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// Describe created application key
-	apiKey, err = r.client.GetAPIKey(apiKey.ID)
+	created := apiKey
+	apiKey, err = r.client.GetAPIKey(created.ID)
 	if err != nil {
+		// Save the key so Terraform taints and replaces it rather than orphaning a hashed key.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), created.ID)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("key"), created.Key)...)
 		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Application Key",
-			"Could not read WarpStream Application Key ID "+apiKey.ID+": "+err.Error(),
+			"Could not read WarpStream Application Key ID "+created.ID+": "+err.Error(),
 		)
 		return
 	}
 
 	// Map response body to schema and populate Computed attribute values
 	state := models.ApplicationKeyFromAPI(*apiKey)
+	// A hashed key's secret is only in the create response.
+	state.Key = types.StringValue(created.Key)
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, state)
@@ -353,7 +359,9 @@ func (r *applicationKeyResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	// Overwrite Application Key with refreshed state
+	priorKey := state.Key
 	state = models.ApplicationKeyFromAPI(*apiKey)
+	state.Key = models.SecretOrPrior(apiKey.Key, priorKey)
 
 	// Set state
 	diags = resp.State.Set(ctx, &state)

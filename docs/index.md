@@ -40,4 +40,5 @@ provider "warpstream" {
 ### Optional
 
 - `base_url` (String) Base URL for WarpStream API. May also be provided via WARPSTREAM_API_URL environment variable.
+- `hashed_api_keys` (Boolean) Create new agent and application keys as hashed keys, whose secret is returned only when the key is created and is then kept only in Terraform state. The WarpStream console and API can't show it again. Existing keys are not affected. Defaults to false.
 - `token` (String, Sensitive) Token for WarpStream API. May also be provided via WARPSTREAM_API_KEY environment variable.

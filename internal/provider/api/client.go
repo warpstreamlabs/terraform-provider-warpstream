@@ -30,6 +30,8 @@ type Client struct {
 	Token      string
 	UserAgent  string
 	aclsCache  aclsCache
+	// HashedAPIKeys makes new agent and application keys hashed: their secret is only returned at creation.
+	HashedAPIKeys bool
 }
 
 // NewClient.
@@ -95,10 +97,14 @@ func checkRetryPolicy(ctx context.Context, resp *http.Response, err error) (bool
 	return false, checkErr
 }
 
-func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error) {
+// ErrAmbiguous marks a failed request that may still have been applied by the server: a transport
+// error, a 499, or a 5xx.
+var ErrAmbiguous = errors.New("the request may have been applied by the server")
+
+func (c *Client) prepareRequest(req *http.Request, authToken *string) error {
 	d, err := httputil.DumpRequest(req, true)
 	if err != nil {
-		return nil, fmt.Errorf("internal client error: %s", err)
+		return fmt.Errorf("internal client error: %s", err)
 	}
 	log.Printf("%q\n", d)
 
@@ -111,6 +117,13 @@ func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error)
 	req.Header.Set("warpstream-api-key", token)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", c.UserAgent)
+	return nil
+}
+
+func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error) {
+	if err := c.prepareRequest(req, authToken); err != nil {
+		return nil, err
+	}
 
 	retryReq, err := retryablehttp.FromRequest(req)
 	if err != nil {
@@ -130,6 +143,31 @@ func (c *Client) doRequest(req *http.Request, authToken *string) ([]byte, error)
 	}
 	defer res.Body.Close()
 
+	return handleResponse(res)
+}
+
+// doRequestOnce sends req without retries, for requests that must not be repeated blindly. A failure
+// where the server may have acted wraps ErrAmbiguous.
+func (c *Client) doRequestOnce(req *http.Request) ([]byte, error) {
+	if err := c.prepareRequest(req, nil); err != nil {
+		return nil, err
+	}
+
+	res, err := c.HTTPClient.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrAmbiguous, err)
+	}
+	defer res.Body.Close()
+
+	body, err := handleResponse(res)
+	if err != nil && (res.StatusCode >= http.StatusInternalServerError || res.StatusCode == 499 || res.StatusCode == http.StatusOK) {
+		// A 200 error here is the "internal server error" body or an unreadable body.
+		return nil, fmt.Errorf("%w: %w", ErrAmbiguous, err)
+	}
+	return body, err
+}
+
+func handleResponse(res *http.Response) ([]byte, error) {
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err

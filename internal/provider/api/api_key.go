@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 )
@@ -183,6 +185,10 @@ func (c *Client) createAPIKey(
 		return nil, err
 	}
 
+	if c.HashedAPIKeys {
+		return c.createHashedAPIKey(payload, "akn_"+strings.TrimPrefix(name, "akn_"), accessGrant)
+	}
+
 	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/create_api_key", c.HostURL), bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
@@ -200,6 +206,97 @@ func (c *Client) createAPIKey(
 	}
 
 	return &res, nil
+}
+
+// orphanCreatedAtSkew allows for clock skew between this machine and the server when deciding whether a
+// listed key was created by our own failed attempt.
+const orphanCreatedAtSkew = 5 * time.Minute
+
+// createHashedAPIKey calls create_api_key_v2, whose secret is only in the create response, so a blind
+// retry could lose it. After an ambiguous failure, a key with this name and grant created since the
+// attempt started is ours: delete it, then try once more.
+func (c *Client) createHashedAPIKey(payload []byte, name string, accessGrant map[string]string) (*APIKey, error) {
+	startedAt := time.Now()
+	key, err := c.createHashedAPIKeyOnce(payload)
+	if !errors.Is(err, ErrAmbiguous) {
+		return key, err
+	}
+
+	log.Printf("creating hashed API key %s failed ambiguously, checking for a partially created key: %v", name, err)
+	if err := c.deleteOrphanedAPIKey(name, accessGrant, startedAt); err != nil {
+		return nil, fmt.Errorf(
+			"error creating API key %s: %w; could not clean up a key the failed request may have created (%w), "+
+				"delete any key named %s with list_api_keys and delete_api_key before retrying", name, ErrAmbiguous, err, name)
+	}
+
+	key, err = c.createHashedAPIKeyOnce(payload)
+	if errors.Is(err, ErrAmbiguous) {
+		return nil, fmt.Errorf(
+			"error creating API key %s: %w; delete any key named %s with list_api_keys and delete_api_key before retrying",
+			name, err, name)
+	}
+	return key, err
+}
+
+func (c *Client) createHashedAPIKeyOnce(payload []byte) (*APIKey, error) {
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/create_api_key_v2", c.HostURL), bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := c.doRequestOnce(req)
+	if err != nil {
+		return nil, err
+	}
+
+	res := APIKey{}
+	if err := json.Unmarshal(body, &res); err != nil {
+		return nil, fmt.Errorf("%w: invalid create response: %w", ErrAmbiguous, err)
+	}
+	return &res, nil
+}
+
+// deleteOrphanedAPIKey deletes the key a failed create attempt left behind, if any. Matching the
+// unique name, the grant and the creation time keeps it from deleting a key that existed before.
+func (c *Client) deleteOrphanedAPIKey(name string, accessGrant map[string]string, startedAt time.Time) error {
+	keys, err := c.GetAPIKeys()
+	if err != nil {
+		return err
+	}
+
+	for _, key := range keys {
+		if key.Name != name {
+			continue
+		}
+		if !hasAccessGrant(key, accessGrant) {
+			return fmt.Errorf("key %s (%s) exists with different access grants", name, key.ID)
+		}
+		createdAt, err := time.Parse(time.RFC3339Nano, key.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("key %s (%s) has unparseable created_at %q: %w", name, key.ID, key.CreatedAt, err)
+		}
+		if createdAt.Before(startedAt.Add(-orphanCreatedAtSkew)) {
+			return fmt.Errorf("key %s (%s) was created at %s, before this request", name, key.ID, key.CreatedAt)
+		}
+
+		log.Printf("deleting API key %s (%s) left behind by the failed create", name, key.ID)
+		if err := c.DeleteAPIKey(key.ID); err != nil && !errors.Is(err, ErrNotFound) {
+			return err
+		}
+		return nil
+	}
+	return nil
+}
+
+func hasAccessGrant(key APIKey, accessGrant map[string]string) bool {
+	if len(key.AccessGrants) != 1 {
+		return false
+	}
+	grant := key.AccessGrants[0]
+	return grant.PrincipalKind == accessGrant["principal_kind"] &&
+		grant.ResourceKind == accessGrant["resource_kind"] &&
+		grant.ResourceID == accessGrant["resource_id"] &&
+		(accessGrant["workspace_id"] == "" || grant.WorkspaceID == accessGrant["workspace_id"])
 }
 
 // DeleteAPIKey - Delete an API Key.

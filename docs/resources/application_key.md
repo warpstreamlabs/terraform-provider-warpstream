@@ -74,4 +74,4 @@ resource "warpstream_application_key" "example_cluster_scoped_application_key" {
 
 - `created_at` (String) Application Key Creation Timestamp.
 - `id` (String) Application Key ID.
-- `key` (String, Sensitive) Application Key Secret Value.
+- `key` (String, Sensitive) Application Key Secret Value. For a hashed key (see the provider's `hashed_api_keys`), this is only returned at creation and is kept from state afterwards.
