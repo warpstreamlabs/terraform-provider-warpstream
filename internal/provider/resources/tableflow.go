@@ -125,14 +125,16 @@ func (r *tableFlowResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	// Create new virtual cluster
+	// Create new virtual cluster. A v2 resource creates it with a hashed agent key.
+	capture := ownedKeyCaptureFrom(ctx)
 	cluster, err := r.client.CreateVirtualCluster(
 		plan.Name.ValueString(),
 		api.ClusterParameters{
-			Type:   api.VirtualClusterTypeTableFlow,
-			Tier:   plan.Tier.ValueString(),
-			Region: cloudPlan.Region.ValueStringPointer(),
-			Cloud:  cloudPlan.Provider.ValueString(),
+			Type:           api.VirtualClusterTypeTableFlow,
+			Tier:           plan.Tier.ValueString(),
+			Region:         cloudPlan.Region.ValueStringPointer(),
+			Cloud:          cloudPlan.Provider.ValueString(),
+			HashedAgentKey: capture != nil,
 		})
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -141,6 +143,7 @@ func (r *tableFlowResource) Create(ctx context.Context, req resource.CreateReque
 		)
 		return
 	}
+	capture.recordCluster(cluster)
 
 	cluster, err = r.client.GetVirtualCluster(cluster.ID)
 	if err != nil {

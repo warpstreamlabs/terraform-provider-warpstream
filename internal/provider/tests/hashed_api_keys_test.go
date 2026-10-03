@@ -49,7 +49,7 @@ func testAccHashedKey(t *testing.T, config, resourcePath string) {
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestMatchResourceAttr(resourcePath, "key", hashedSecret),
-					testAccCheckListedSecretEmpty(resourcePath),
+					testAccCheckListedSecretEmpty(resourcePath, "id"),
 				),
 			},
 			{
@@ -60,7 +60,9 @@ func testAccHashedKey(t *testing.T, config, resourcePath string) {
 	})
 }
 
-func testAccCheckListedSecretEmpty(resourcePath string) resource.TestCheckFunc {
+// testAccCheckListedSecretEmpty checks that list_api_keys doesn't return the secret of the key whose
+// ID is in the resource's idAttr attribute.
+func testAccCheckListedSecretEmpty(resourcePath, idAttr string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[resourcePath]
 		if !ok {
@@ -71,12 +73,13 @@ func testAccCheckListedSecretEmpty(resourcePath string) resource.TestCheckFunc {
 		if err != nil {
 			return err
 		}
-		key, err := client.GetAPIKey(rs.Primary.ID)
+		keyID := rs.Primary.Attributes[idAttr]
+		key, err := client.GetAPIKey(keyID)
 		if err != nil {
 			return err
 		}
 		if key.Key != "" {
-			return fmt.Errorf("hashed key %s is still retrievable from list_api_keys", rs.Primary.ID)
+			return fmt.Errorf("hashed key %s is still retrievable from list_api_keys", keyID)
 		}
 		return nil
 	}

@@ -189,6 +189,10 @@ func (p *warpstreamProvider) Resources(_ context.Context) []func() resource.Reso
 		resources.NewACLResource,
 		resources.NewSSOConfigurationResource,
 		resources.NewClientMetricsSubscriptionResource,
+		resources.NewVirtualClusterV2Resource,
+		resources.NewSchemaRegistryV2Resource,
+		resources.NewTableFlowV2Resource,
+		resources.NewWorkspaceV2Resource,
 		resources.NewWorkloadIdentityFederationResource,
 	}
 }

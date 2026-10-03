@@ -117,12 +117,7 @@ type APIKeyDeleteRequest struct {
 
 // CreateAgentKey - Create new Agent Key. Supports creating keys with just one access grant for now.
 func (c *Client) CreateAgentKey(name, virtualClusterID string, readOnly bool) (*APIKey, error) {
-	virtualClusterTypeOverride := ""
-	if strings.HasPrefix(virtualClusterID, "vci_sr_") {
-		virtualClusterTypeOverride = VirtualClusterTypeSchemaRegistry
-	} else if strings.HasPrefix(virtualClusterID, "vci_dl_") {
-		virtualClusterTypeOverride = VirtualClusterTypeTableFlow
-	}
+	virtualClusterTypeOverride := virtualClusterTypeForID(virtualClusterID)
 
 	principalKind := PrincipalKindAgent
 	if readOnly {
@@ -135,7 +130,17 @@ func (c *Client) CreateAgentKey(name, virtualClusterID string, readOnly bool) (*
 		"resource_id":    virtualClusterID,
 	}
 
-	return c.createAPIKey(name, accessGrant, virtualClusterTypeOverride)
+	return c.createAPIKey(name, accessGrant, virtualClusterTypeOverride, c.HashedAPIKeys)
+}
+
+// virtualClusterTypeForID returns the type override an agent key needs for the cluster, empty for BYOC.
+func virtualClusterTypeForID(virtualClusterID string) string {
+	if strings.HasPrefix(virtualClusterID, "vci_sr_") {
+		return VirtualClusterTypeSchemaRegistry
+	} else if strings.HasPrefix(virtualClusterID, "vci_dl_") {
+		return VirtualClusterTypeTableFlow
+	}
+	return ""
 }
 
 func (c *Client) CreateApplicationKey(name, workspaceID string, readOnly bool) (*APIKey, error) {
@@ -151,7 +156,28 @@ func (c *Client) CreateApplicationKey(name, workspaceID string, readOnly bool) (
 		"workspace_id":   workspaceID, // Can be empty.
 	}
 
-	return c.createAPIKey(name, accessGrant, "")
+	return c.createAPIKey(name, accessGrant, "", c.HashedAPIKeys)
+}
+
+// CreateHashedAgentKey creates a hashed agent key for the cluster regardless of HashedAPIKeys.
+func (c *Client) CreateHashedAgentKey(name, virtualClusterID string) (*APIKey, error) {
+	accessGrant := map[string]string{
+		"principal_kind": PrincipalKindAgent,
+		"resource_kind":  ResourceKindVirtualCluster,
+		"resource_id":    virtualClusterID,
+	}
+	return c.createAPIKey(name, accessGrant, virtualClusterTypeForID(virtualClusterID), true)
+}
+
+// CreateHashedApplicationKey creates a hashed application key for the workspace regardless of HashedAPIKeys.
+func (c *Client) CreateHashedApplicationKey(name, workspaceID string) (*APIKey, error) {
+	accessGrant := map[string]string{
+		"principal_kind": PrincipalKindApplication,
+		"resource_kind":  ResourceKindAny,
+		"resource_id":    ResourceIDAny,
+		"workspace_id":   workspaceID,
+	}
+	return c.createAPIKey(name, accessGrant, "", true)
 }
 
 // CreateClusterScopedApplicationKey creates an application key scoped to one
@@ -168,13 +194,14 @@ func (c *Client) CreateClusterScopedApplicationKey(name, workspaceID, virtualClu
 		"workspace_id":   workspaceID, // Can be empty.
 	}
 
-	return c.createAPIKey(name, accessGrant, "")
+	return c.createAPIKey(name, accessGrant, "", c.HashedAPIKeys)
 }
 
 func (c *Client) createAPIKey(
 	name string,
 	accessGrant map[string]string,
 	virtualClusterTypeOverride string,
+	hashed bool,
 ) (*APIKey, error) {
 	payload, err := json.Marshal(APIKeyCreateRequest{
 		Name:                       strings.TrimPrefix(name, "akn_"),
@@ -185,7 +212,7 @@ func (c *Client) createAPIKey(
 		return nil, err
 	}
 
-	if c.HashedAPIKeys {
+	if hashed {
 		return c.createHashedAPIKey(payload, "akn_"+strings.TrimPrefix(name, "akn_"), accessGrant)
 	}
 
@@ -208,34 +235,15 @@ func (c *Client) createAPIKey(
 	return &res, nil
 }
 
-// orphanCreatedAtSkew allows for clock skew between this machine and the server when deciding whether a
-// listed key was created by our own failed attempt.
-const orphanCreatedAtSkew = 5 * time.Minute
-
-// createHashedAPIKey calls create_api_key_v2, whose secret is only in the create response, so a blind
-// retry could lose it. After an ambiguous failure, a key with this name and grant created since the
-// attempt started is ours: delete it, then try once more.
+// createHashedAPIKey calls create_api_key_v2, whose secret is only in the create response. After an
+// ambiguous failure, a key with this name and grant created since the attempt started is ours.
 func (c *Client) createHashedAPIKey(payload []byte, name string, accessGrant map[string]string) (*APIKey, error) {
-	startedAt := time.Now()
-	key, err := c.createHashedAPIKeyOnce(payload)
-	if !errors.Is(err, ErrAmbiguous) {
-		return key, err
-	}
-
-	log.Printf("creating hashed API key %s failed ambiguously, checking for a partially created key: %v", name, err)
-	if err := c.deleteOrphanedAPIKey(name, accessGrant, startedAt); err != nil {
-		return nil, fmt.Errorf(
-			"error creating API key %s: %w; could not clean up a key the failed request may have created (%w), "+
-				"delete any key named %s with list_api_keys and delete_api_key before retrying", name, ErrAmbiguous, err, name)
-	}
-
-	key, err = c.createHashedAPIKeyOnce(payload)
-	if errors.Is(err, ErrAmbiguous) {
-		return nil, fmt.Errorf(
-			"error creating API key %s: %w; delete any key named %s with list_api_keys and delete_api_key before retrying",
-			name, err, name)
-	}
-	return key, err
+	return createWithRecovery(
+		"API key "+name,
+		func() (*APIKey, error) { return c.createHashedAPIKeyOnce(payload) },
+		func(startedAt time.Time) error { return c.deleteOrphanedAPIKey(name, accessGrant, startedAt) },
+		fmt.Sprintf("delete any key named %s with list_api_keys and delete_api_key", name),
+	)
 }
 
 func (c *Client) createHashedAPIKeyOnce(payload []byte) (*APIKey, error) {
@@ -271,12 +279,8 @@ func (c *Client) deleteOrphanedAPIKey(name string, accessGrant map[string]string
 		if !hasAccessGrant(key, accessGrant) {
 			return fmt.Errorf("key %s (%s) exists with different access grants", name, key.ID)
 		}
-		createdAt, err := time.Parse(time.RFC3339Nano, key.CreatedAt)
-		if err != nil {
-			return fmt.Errorf("key %s (%s) has unparseable created_at %q: %w", name, key.ID, key.CreatedAt, err)
-		}
-		if createdAt.Before(startedAt.Add(-orphanCreatedAtSkew)) {
-			return fmt.Errorf("key %s (%s) was created at %s, before this request", name, key.ID, key.CreatedAt)
+		if err := requireCreatedSince("key", name, key.ID, key.CreatedAt, startedAt); err != nil {
+			return err
 		}
 
 		log.Printf("deleting API key %s (%s) left behind by the failed create", name, key.ID)

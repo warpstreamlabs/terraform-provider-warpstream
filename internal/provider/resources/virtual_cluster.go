@@ -510,16 +510,18 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		}
 	}
 
-	// Create new virtual cluster
+	// Create new virtual cluster. A v2 resource creates it with a hashed agent key.
+	capture := ownedKeyCaptureFrom(ctx)
 	cluster, err := r.client.CreateVirtualCluster(
 		plan.Name.ValueString(),
 		api.ClusterParameters{
-			Type:        plan.Type.ValueString(),
-			Tier:        plan.Tier.ValueString(),
-			RegionGroup: cloudPlan.RegionGroup.ValueStringPointer(),
-			Region:      cloudPlan.Region.ValueStringPointer(),
-			Cloud:       cloudPlan.Provider.ValueString(),
-			Tags:        tagsMap,
+			Type:           plan.Type.ValueString(),
+			Tier:           plan.Tier.ValueString(),
+			RegionGroup:    cloudPlan.RegionGroup.ValueStringPointer(),
+			Region:         cloudPlan.Region.ValueStringPointer(),
+			Cloud:          cloudPlan.Provider.ValueString(),
+			Tags:           tagsMap,
+			HashedAgentKey: capture != nil,
 		},
 	)
 
@@ -530,6 +532,7 @@ func (r *virtualClusterResource) Create(ctx context.Context, req resource.Create
 		)
 		return
 	}
+	capture.recordCluster(cluster)
 
 	// Describe created virtual cluster
 	clusterID := cluster.ID

@@ -109,8 +109,18 @@ func (r *workspaceResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	// Create new workspace
-	newWorkspaceID, err := r.client.CreateWorkspace(plan.Name.ValueString())
+	// Create new workspace. A v2 resource creates it with a hashed application key.
+	var newWorkspaceID string
+	var err error
+	if capture := ownedKeyCaptureFrom(ctx); capture != nil {
+		var key *api.APIKey
+		newWorkspaceID, key, err = r.client.CreateWorkspaceV2(plan.Name.ValueString())
+		if err == nil {
+			capture.record(newWorkspaceID, key)
+		}
+	} else {
+		newWorkspaceID, err = r.client.CreateWorkspace(plan.Name.ValueString())
+	}
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Workspace",
