@@ -49,9 +49,8 @@ var agentKeyDataSourceSchema = schema.NestedAttributeObject{
 			Computed: true,
 		},
 		"key": schema.StringAttribute{
-			Description: "Secret value. Empty for a hashed key, whose secret is only returned at creation.",
-			Computed:    true,
-			Sensitive:   true,
+			Computed:  true,
+			Sensitive: true,
 		},
 		"virtual_cluster_id": schema.StringAttribute{
 			Computed: true,

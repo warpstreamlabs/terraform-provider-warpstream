@@ -65,4 +65,4 @@ resource "warpstream_agent_key" "example_agent_key_read_only" {
 
 - `created_at` (String) Agent Key Creation Timestamp.
 - `id` (String) Agent Key ID.
-- `key` (String, Sensitive) Agent Key Secret Value. For a hashed key (see the provider's `hashed_api_keys`), this is only returned at creation and is kept from state afterwards.
+- `key` (String, Sensitive) Agent Key Secret Value.

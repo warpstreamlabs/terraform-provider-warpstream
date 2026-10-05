@@ -78,12 +78,12 @@ func newFakeV2CreateServer(t *testing.T) (*fakeV2CreateServer, *Client) {
 func TestCreateVirtualClusterV2DeletesOrphanAndRetries(t *testing.T) {
 	s, c := newFakeV2CreateServer(t)
 
-	vc, err := c.CreateVirtualCluster("vcn_test", ClusterParameters{Type: VirtualClusterTypeBYOC, HashedAgentKey: true})
+	vc, key, err := c.CreateVirtualClusterV2("vcn_test", ClusterParameters{Type: VirtualClusterTypeBYOC})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if vc.ID != "vci_11" || (*vc.AgentKeys)[0].Key != "aks_v2_secret" {
-		t.Fatalf("unexpected cluster %+v", vc)
+	if vc.ID != "vci_11" || key.Key != "aks_v2_secret" {
+		t.Fatalf("unexpected cluster %+v, key %+v", vc, key)
 	}
 	if len(s.deleted) != 1 || s.deleted[0] != "vci_1" || s.hits["create_virtual_cluster_v2"] != 2 {
 		t.Fatalf("unexpected hits %v, deleted %v", s.hits, s.deleted)
@@ -95,7 +95,7 @@ func TestCreateVirtualClusterV2KeepsPreexistingCluster(t *testing.T) {
 	s.clusters = []VirtualCluster{{ID: "vci_old", Name: "vcn_test", Type: VirtualClusterTypeBYOC,
 		CreatedAt: time.Now().Add(-time.Hour).UTC().Format(time.RFC3339Nano)}}
 
-	_, err := c.CreateVirtualCluster("vcn_test", ClusterParameters{Type: VirtualClusterTypeBYOC, HashedAgentKey: true})
+	_, _, err := c.CreateVirtualClusterV2("vcn_test", ClusterParameters{Type: VirtualClusterTypeBYOC})
 	if !errors.Is(err, ErrAmbiguous) || !strings.Contains(err.Error(), "delete any virtual cluster named vcn_test") {
 		t.Fatalf("expected a manual cleanup error, got %v", err)
 	}

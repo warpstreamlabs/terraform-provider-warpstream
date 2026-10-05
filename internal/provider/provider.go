@@ -40,9 +40,8 @@ type warpstreamProvider struct {
 
 // warpstreamProviderModel describes the provider data model.
 type warpstreamProviderModel struct {
-	Token         types.String `tfsdk:"token"`
-	BaseUrl       types.String `tfsdk:"base_url"`
-	HashedAPIKeys types.Bool   `tfsdk:"hashed_api_keys"`
+	Token   types.String `tfsdk:"token"`
+	BaseUrl types.String `tfsdk:"base_url"`
 }
 
 // Metadata returns the provider type name.
@@ -63,12 +62,6 @@ func (p *warpstreamProvider) Schema(_ context.Context, _ provider.SchemaRequest,
 				Description: "Token for WarpStream API. May also be provided via WARPSTREAM_API_KEY environment variable.",
 				Optional:    true,
 				Sensitive:   true,
-			},
-			"hashed_api_keys": schema.BoolAttribute{
-				Description: "Create new agent and application keys as hashed keys, whose secret is returned only when the key " +
-					"is created and is then kept only in Terraform state. The WarpStream console and API can't show it again. " +
-					"Existing keys are not affected. Defaults to false.",
-				Optional: true,
 			},
 		},
 	}
@@ -92,15 +85,6 @@ func (p *warpstreamProvider) Configure(ctx context.Context, req provider.Configu
 			"Unknown Warpstream Base URL for the API endpoint",
 			"The provider cannot create the WarpStream API client as there is an unknown configuration value for the Warpstream Base URL. "+
 				"Either target apply the source of the value first, set the value statically in the configuration, or use the WARPSTREAM_API_URL environment variable.",
-		)
-	}
-
-	if config.HashedAPIKeys.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("hashed_api_keys"),
-			"Unknown WarpStream hashed_api_keys setting",
-			"The provider cannot create the WarpStream API client as there is an unknown configuration value for hashed_api_keys. "+
-				"Set the value statically in the configuration.",
 		)
 	}
 
@@ -147,8 +131,6 @@ func (p *warpstreamProvider) Configure(ctx context.Context, req provider.Configu
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	client.HashedAPIKeys = config.HashedAPIKeys.ValueBool()
 
 	// Make the Warpstream client available during DataSource and Resource
 	// type Configure methods.

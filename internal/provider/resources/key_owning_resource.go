@@ -54,34 +54,39 @@ var applicationKeyKind = ownedKeyKind{
 	},
 }
 
-// keyOwningResource is a v2 resource: it wraps a v1 resource, whose object it creates through the v2
-// endpoint together with a hashed key, and stores that key, whose secret is only returned once, in state.
-// The v1 resource does all the object work on a copy of the plan and state without the key attribute.
+// createV2Func creates the object together with a hashed key, working on the plan and state without the
+// key attribute, and returns the new object's ID and the key. The ID is empty if nothing was created.
+type createV2Func func(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) (string, *api.APIKey)
+
+// keyOwningResource is a v2 resource: it creates its object together with a hashed key and stores that
+// key, whose secret is only returned once, in state. It wraps a v1 resource, which does all other object
+// work on a copy of the plan and state without the key attribute.
 type keyOwningResource struct {
 	base     resource.Resource
+	create   createV2Func
 	typeName string
 	kind     ownedKeyKind
 	client   *api.Client
 }
 
-func newKeyOwningResource(base resource.Resource, typeName string, kind ownedKeyKind) resource.Resource {
-	return &keyOwningResource{base: base, typeName: typeName, kind: kind}
-}
-
 func NewVirtualClusterV2Resource() resource.Resource {
-	return newKeyOwningResource(NewVirtualClusterResource(), "_virtual_cluster_v2", agentKeyKind)
+	base := &virtualClusterResource{}
+	return &keyOwningResource{base: base, create: base.createV2, typeName: "_virtual_cluster_v2", kind: agentKeyKind}
 }
 
 func NewSchemaRegistryV2Resource() resource.Resource {
-	return newKeyOwningResource(NewSchemaRegistryResource(), "_schema_registry_v2", agentKeyKind)
+	base := &schemaRegistryResource{}
+	return &keyOwningResource{base: base, create: base.createV2, typeName: "_schema_registry_v2", kind: agentKeyKind}
 }
 
 func NewTableFlowV2Resource() resource.Resource {
-	return newKeyOwningResource(NewTableFlowResource(), "_tableflow_cluster_v2", agentKeyKind)
+	base := &tableFlowResource{}
+	return &keyOwningResource{base: base, create: base.createV2, typeName: "_tableflow_cluster_v2", kind: agentKeyKind}
 }
 
 func NewWorkspaceV2Resource() resource.Resource {
-	return newKeyOwningResource(NewWorkspaceResource(), "_workspace_v2", applicationKeyKind)
+	base := &workspaceResource{}
+	return &keyOwningResource{base: base, create: base.createV2, typeName: "_workspace_v2", kind: applicationKeyKind}
 }
 
 func (r *keyOwningResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -140,12 +145,11 @@ func (r *keyOwningResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	ctx, capture := withOwnedKeyCapture(ctx)
 	baseResp := resource.CreateResponse{
 		State:   tfsdk.State{Schema: bs, Raw: tftypes.NewValue(bs.Type().TerraformType(ctx), nil)},
 		Private: resp.Private,
 	}
-	r.base.Create(ctx, resource.CreateRequest{
+	objectID, createdKey := r.create(ctx, resource.CreateRequest{
 		Config:       tfsdk.Config{Schema: bs, Raw: config},
 		Plan:         tfsdk.Plan{Schema: bs, Raw: plan},
 		ProviderMeta: req.ProviderMeta,
@@ -153,17 +157,17 @@ func (r *keyOwningResource) Create(ctx context.Context, req resource.CreateReque
 	resp.Diagnostics.Append(baseResp.Diagnostics...)
 	resp.Private = baseResp.Private
 
-	key := ownedKeyValue(capture.key)
+	key := ownedKeyValue(createdKey)
 	if !baseResp.State.Raw.IsNull() {
 		r.setWithKey(ctx, &resp.State, baseResp.State.Raw, key, &resp.Diagnostics)
 		return
 	}
-	if capture.objectID == "" {
+	if objectID == "" {
 		return
 	}
 
-	// The object exists but the v1 resource saved no state: save what we know so Terraform taints and
-	// replaces it rather than orphaning the object and its key.
+	// The object exists but Create saved no state: save what we know so Terraform taints and replaces
+	// it rather than orphaning the object and its key.
 	partial, err := tftypes.Transform(req.Plan.Raw, func(_ *tftypes.AttributePath, v tftypes.Value) (tftypes.Value, error) {
 		if !v.IsKnown() {
 			return tftypes.NewValue(v.Type(), nil), nil
@@ -175,7 +179,7 @@ func (r *keyOwningResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 	resp.State.Raw = partial
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), capture.objectID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), objectID)...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(r.kind.attr), key)...)
 }
 

@@ -41,7 +41,7 @@ Read-Only:
 
 - `created_at` (String)
 - `id` (String)
-- `key` (String, Sensitive) Secret value. Empty for a hashed key, whose secret is only returned at creation.
+- `key` (String, Sensitive)
 - `name` (String)
 - `read_only` (Boolean)
 - `resource_kind` (String)

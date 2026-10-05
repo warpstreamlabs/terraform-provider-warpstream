@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -87,7 +86,7 @@ The WarpStream provider must be authenticated with an application key to consume
 				Validators: []validator.String{utils.StartsWithAndAlphanumeric("akn_")},
 			},
 			"key": schema.StringAttribute{
-				Description: "Agent Key Secret Value. For a hashed key (see the provider's `hashed_api_keys`), this is only returned at creation and is kept from state afterwards.",
+				Description: "Agent Key Secret Value.",
 				Computed:    true,
 				Sensitive:   true,
 			},
@@ -138,7 +137,7 @@ func (r *agentKeyResource) Create(ctx context.Context, req resource.CreateReques
 	if !plan.ReadOnly.IsNull() {
 		readOnly = plan.ReadOnly.ValueBool()
 	}
-	created, err := r.client.CreateAgentKey(
+	apiKey, err := r.client.CreateAgentKey(
 		plan.Name.ValueString(),
 		plan.VirtualClusterID.ValueString(),
 		readOnly,
@@ -152,14 +151,11 @@ func (r *agentKeyResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	// Describe created agent key
-	apiKey, err := r.client.GetAPIKey(created.ID)
+	apiKey, err = r.client.GetAPIKey(apiKey.ID)
 	if err != nil {
-		// Save the key so Terraform taints and replaces it rather than orphaning a hashed key.
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), created.ID)...)
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("key"), created.Key)...)
 		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Agent Key",
-			"Could not read WarpStream Agent Key ID "+created.ID+": "+err.Error(),
+			"Could not read WarpStream Agent Key ID "+apiKey.ID+": "+err.Error(),
 		)
 		return
 	}
@@ -169,13 +165,12 @@ func (r *agentKeyResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	// Map response body to schema and populate Computed attribute values. A hashed key's secret is only
-	// in the create response.
+	// Map response body to schema and populate Computed attribute values
 	state := models.AgentKey{
 		ID:               types.StringValue(apiKey.ID),
 		Name:             types.StringValue(apiKey.Name),
 		VirtualClusterID: types.StringValue(virtualClusterID),
-		Key:              types.StringValue(created.Key),
+		Key:              types.StringValue(apiKey.Key),
 		CreatedAt:        types.StringValue(apiKey.CreatedAt),
 		ReadOnly:         types.BoolValue(apiKey.IsReadOnly()),
 	}
@@ -220,7 +215,7 @@ func (r *agentKeyResource) Read(ctx context.Context, req resource.ReadRequest, r
 	state = models.AgentKey{
 		ID:               types.StringValue(apiKey.ID),
 		Name:             types.StringValue(apiKey.Name),
-		Key:              models.SecretOrPrior(apiKey.Key, state.Key),
+		Key:              types.StringValue(apiKey.Key),
 		VirtualClusterID: types.StringValue(virtualClusterID),
 		CreatedAt:        types.StringValue(apiKey.CreatedAt),
 		ReadOnly:         types.BoolValue(apiKey.IsReadOnly()),

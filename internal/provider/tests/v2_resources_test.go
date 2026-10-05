@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -11,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
+
+var hashedSecret = regexp.MustCompile(`^aks_v2_`)
 
 func TestAccVirtualClusterV2Resource(t *testing.T) {
 	name := "vcn_test_acc_v2_" + acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
@@ -116,4 +119,29 @@ func deleteOwnedKey(t *testing.T, objectID string) {
 		}
 	}
 	t.Fatalf("no key found for %s", objectID)
+}
+
+// testAccCheckListedSecretEmpty checks that list_api_keys doesn't return the secret of the key whose
+// ID is in the resource's idAttr attribute.
+func testAccCheckListedSecretEmpty(resourcePath, idAttr string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[resourcePath]
+		if !ok {
+			return fmt.Errorf("resource %s not found in state", resourcePath)
+		}
+
+		client, err := api.NewClientDefault()
+		if err != nil {
+			return err
+		}
+		keyID := rs.Primary.Attributes[idAttr]
+		key, err := client.GetAPIKey(keyID)
+		if err != nil {
+			return err
+		}
+		if key.Key != "" {
+			return fmt.Errorf("hashed key %s is still retrievable from list_api_keys", keyID)
+		}
+		return nil
+	}
 }

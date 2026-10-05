@@ -17,15 +17,6 @@ type ApplicationKey struct {
 	ReadOnly         types.Bool   `tfsdk:"read_only"`
 }
 
-// SecretOrPrior returns the secret the API listed, or the prior state value when the API returned none:
-// a hashed key's secret is only returned at creation.
-func SecretOrPrior(listed string, prior types.String) types.String {
-	if listed == "" {
-		return prior
-	}
-	return types.StringValue(listed)
-}
-
 // Ideally AgentKey and ApplicationKey would share fields by composing an APIKey struct.
 // But I'm not sure how to make struct composition work with setting state on the TF response object.
 type AgentKey struct {

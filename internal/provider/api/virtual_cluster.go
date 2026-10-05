@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
-	"time"
 )
 
 const (
@@ -131,9 +129,6 @@ type ClusterParameters struct {
 	RegionGroup *string
 	Cloud       string
 	Tags        map[string]string
-	// HashedAgentKey creates the cluster with a hashed agent key through create_virtual_cluster_v2, returned
-	// in AgentKeys. Otherwise no agent key is created.
-	HashedAgentKey bool
 }
 
 // CreateVirtualCluster - Create new virtual cluster.
@@ -155,18 +150,24 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 		RegionGroup:          opts.RegionGroup,
 		CloudProvider:        opts.Cloud,
 		Tags:                 opts.Tags,
-		SkipAgentKeyCreation: !opts.HashedAgentKey,
+		SkipAgentKeyCreation: true,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	var res *VirtualClusterCreateResponse
-	if opts.HashedAgentKey {
-		res, err = c.createVirtualClusterV2(payload, name, opts.Type)
-	} else {
-		res, err = c.createVirtualClusterV1(payload)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/create_virtual_cluster", c.HostURL), bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
 	}
+
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res := VirtualClusterCreateResponse{}
+	err = json.Unmarshal(body, &res)
 	if err != nil {
 		return nil, err
 	}
@@ -181,76 +182,6 @@ func (c *Client) CreateVirtualCluster(name string, opts ClusterParameters) (*Vir
 		WorkspaceID:   res.WorkspaceID,
 	}
 	return &vc, nil
-}
-
-func (c *Client) createVirtualClusterV1(payload []byte) (*VirtualClusterCreateResponse, error) {
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/create_virtual_cluster", c.HostURL), bytes.NewReader(payload))
-	if err != nil {
-		return nil, err
-	}
-
-	body, err := c.doRequest(req, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	res := VirtualClusterCreateResponse{}
-	if err := json.Unmarshal(body, &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
-}
-
-// createVirtualClusterV2 calls create_virtual_cluster_v2, whose agent key secret is only in the create
-// response. After an ambiguous failure, a cluster with this name and type created since the attempt
-// started is ours; deleting it also revokes its agent key.
-func (c *Client) createVirtualClusterV2(payload []byte, name, clusterType string) (*VirtualClusterCreateResponse, error) {
-	return createWithRecovery(
-		"virtual cluster "+name,
-		func() (*VirtualClusterCreateResponse, error) {
-			req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/create_virtual_cluster_v2", c.HostURL), bytes.NewReader(payload))
-			if err != nil {
-				return nil, err
-			}
-			body, err := c.doRequestOnce(req)
-			if err != nil {
-				return nil, err
-			}
-			res := VirtualClusterCreateResponse{}
-			if err := json.Unmarshal(body, &res); err != nil {
-				return nil, fmt.Errorf("%w: invalid create response: %w", ErrAmbiguous, err)
-			}
-			return &res, nil
-		},
-		func(startedAt time.Time) error { return c.deleteOrphanedVirtualCluster(name, clusterType, startedAt) },
-		fmt.Sprintf("delete any virtual cluster named %s with list_virtual_clusters and delete_virtual_cluster", name),
-	)
-}
-
-func (c *Client) deleteOrphanedVirtualCluster(name, clusterType string, startedAt time.Time) error {
-	clusters, err := c.GetVirtualClusters()
-	if err != nil {
-		return err
-	}
-
-	for _, cluster := range clusters {
-		if cluster.Name != name {
-			continue
-		}
-		if clusterType != "" && cluster.Type != clusterType {
-			return fmt.Errorf("virtual cluster %s (%s) exists with type %s", name, cluster.ID, cluster.Type)
-		}
-		if err := requireCreatedSince("virtual cluster", name, cluster.ID, cluster.CreatedAt, startedAt); err != nil {
-			return err
-		}
-
-		log.Printf("deleting virtual cluster %s (%s) left behind by the failed create", name, cluster.ID)
-		if err := c.DeleteVirtualCluster(cluster.ID, cluster.Name); err != nil && !errors.Is(err, ErrNotFound) {
-			return err
-		}
-		return nil
-	}
-	return nil
 }
 
 func (c *Client) RenameVirtualCluster(id string, newName string) error {
