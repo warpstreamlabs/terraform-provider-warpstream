@@ -61,11 +61,6 @@ type keyOwningResource struct {
 	client   *api.Client
 }
 
-func NewVirtualClusterV2Resource() resource.Resource {
-	base := &virtualClusterResource{}
-	return &keyOwningResource{base: base, create: base.createV2, typeName: "_virtual_cluster_v2", kind: agentKeyKind}
-}
-
 func (r *keyOwningResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + r.typeName
 }

@@ -1,9 +1,5 @@
 package resources
 
-// The v2 resources' Create: each is a copy of the v1 resource's Create that calls the V2 API entry point,
-// which also creates a hashed key, and returns the new object's ID and that key. Keep them in sync with
-// the v1 Create they copy.
-
 import (
 	"context"
 
@@ -15,7 +11,13 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/models"
 )
 
-// createV2 is Create, but it creates the cluster together with a hashed agent key through CreateVirtualClusterV2.
+func NewVirtualClusterV2Resource() resource.Resource {
+	base := &virtualClusterResource{}
+	return &keyOwningResource{base: base, create: base.createV2, typeName: "_virtual_cluster_v2", kind: agentKeyKind}
+}
+
+// createV2 is a copy of Create that calls CreateVirtualClusterV2, which also creates a hashed agent key.
+// Keep it in sync with Create.
 func (r *virtualClusterResource) createV2(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) (objectID string, key *api.APIKey) {
 	// Retrieve values from plan
 	var plan models.VirtualClusterResource
