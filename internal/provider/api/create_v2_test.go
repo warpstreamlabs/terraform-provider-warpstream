@@ -11,14 +11,13 @@ import (
 	"time"
 )
 
-// fakeV2CreateServer fails the first create_virtual_cluster_v2 / create_workspace_v2 call with a 502 after
+// fakeV2CreateServer fails the first create_virtual_cluster_v2 call with a 502 after
 // committing the object, like a proxy timing out after forwarding, then succeeds.
 type fakeV2CreateServer struct {
-	mu         sync.Mutex
-	hits       map[string]int
-	clusters   []VirtualCluster
-	workspaces []Workspace
-	deleted    []string
+	mu       sync.Mutex
+	hits     map[string]int
+	clusters []VirtualCluster
+	deleted  []string
 }
 
 func newFakeV2CreateServer(t *testing.T) (*fakeV2CreateServer, *Client) {
@@ -43,21 +42,6 @@ func newFakeV2CreateServer(t *testing.T) (*fakeV2CreateServer, *Client) {
 			writeJSON(w, VirtualClusterListResponse{VirtualClusters: s.clusters})
 		case "delete_virtual_cluster":
 			var req VirtualClusterDeleteRequest
-			_ = json.NewDecoder(r.Body).Decode(&req)
-			s.deleted = append(s.deleted, req.ID)
-			_, _ = w.Write([]byte("{}"))
-		case "create_workspace_v2":
-			id := "wi_" + strings.Repeat("1", s.hits[path])
-			s.workspaces = append(s.workspaces, Workspace{ID: id, Name: "ws", CreatedAt: now})
-			if s.hits[path] == 1 {
-				w.WriteHeader(http.StatusBadGateway)
-				return
-			}
-			writeJSON(w, workspaceCreateV2Response{ID: id, ApplicationKey: &APIKey{ID: "aki_1", Key: "aks_v2_secret"}})
-		case "list_workspaces":
-			writeJSON(w, WorkspaceListResponse{Workspaces: s.workspaces})
-		case "delete_workspace":
-			var req WorkspaceDeleteRequest
 			_ = json.NewDecoder(r.Body).Decode(&req)
 			s.deleted = append(s.deleted, req.ID)
 			_, _ = w.Write([]byte("{}"))
@@ -100,21 +84,6 @@ func TestCreateVirtualClusterV2KeepsPreexistingCluster(t *testing.T) {
 		t.Fatalf("expected a manual cleanup error, got %v", err)
 	}
 	if len(s.deleted) != 0 || s.hits["create_virtual_cluster_v2"] != 1 {
-		t.Fatalf("unexpected hits %v, deleted %v", s.hits, s.deleted)
-	}
-}
-
-func TestCreateWorkspaceV2DeletesOrphanAndRetries(t *testing.T) {
-	s, c := newFakeV2CreateServer(t)
-
-	id, key, err := c.CreateWorkspaceV2("ws")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if id != "wi_11" || key.Key != "aks_v2_secret" {
-		t.Fatalf("unexpected workspace %s, key %+v", id, key)
-	}
-	if len(s.deleted) != 1 || s.deleted[0] != "wi_1" || s.hits["create_workspace_v2"] != 2 {
 		t.Fatalf("unexpected hits %v, deleted %v", s.hits, s.deleted)
 	}
 }

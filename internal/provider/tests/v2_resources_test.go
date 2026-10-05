@@ -24,32 +24,6 @@ resource "warpstream_virtual_cluster_v2" "test" {
 }`, name), "warpstream_virtual_cluster_v2.test", "agent_key", name)
 }
 
-func TestAccSchemaRegistryV2Resource(t *testing.T) {
-	name := "vcn_sr_test_v2_" + acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	testAccV2ResourceKey(t, providerConfig+fmt.Sprintf(`
-resource "warpstream_schema_registry_v2" "test" {
-  name = %q
-  tier = "dev"
-}`, name), "warpstream_schema_registry_v2.test", "agent_key", name)
-}
-
-func TestAccTableFlowV2Resource(t *testing.T) {
-	name := "vcn_dl_test_v2_" + acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	testAccV2ResourceKey(t, providerConfig+fmt.Sprintf(`
-resource "warpstream_tableflow_cluster_v2" "test" {
-  name = %q
-  tier = "dev"
-}`, name), "warpstream_tableflow_cluster_v2.test", "agent_key", name)
-}
-
-func TestAccAccountKeyWorkspaceV2Resource(t *testing.T) {
-	name := "test_acc_v2_" + acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
-	testAccV2ResourceKey(t, providerConfig+fmt.Sprintf(`
-resource "warpstream_workspace_v2" "test" {
-  name = %q
-}`, name), "warpstream_workspace_v2.test", "application_key", name)
-}
-
 // testAccV2ResourceKey checks that a v2 resource stores its hashed key, keeps it across a refresh, and
 // replaces it in place when the key is deleted outside Terraform.
 func testAccV2ResourceKey(t *testing.T, config, resourcePath, keyAttr, objectName string) {
@@ -104,7 +78,7 @@ func equals(want *string) resource.CheckResourceAttrWithFunc {
 	}
 }
 
-// deleteOwnedKey deletes the key granted on the cluster or workspace objectID.
+// deleteOwnedKey deletes the key granted on the object objectID.
 func deleteOwnedKey(t *testing.T, objectID string) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
@@ -112,7 +86,7 @@ func deleteOwnedKey(t *testing.T, objectID string) {
 	require.NoError(t, err)
 	for _, key := range keys {
 		for _, grant := range key.AccessGrants {
-			if grant.ResourceID == objectID || (grant.WorkspaceID == objectID && grant.ResourceKind == api.ResourceKindAny) {
+			if grant.ResourceID == objectID {
 				require.NoError(t, client.DeleteAPIKey(key.ID))
 				return
 			}

@@ -48,8 +48,8 @@ func TestKeyOwningResourceStripDoesNotChangeItsInput(t *testing.T) {
 }
 
 func TestOwnedKeyName(t *testing.T) {
-	name := ownedKeyName("My Workspace-1", "application_key")
-	if !regexp.MustCompile(`^akn_my_workspace_1_application_key_[0-9a-f]{6}$`).MatchString(name) {
+	name := ownedKeyName("My Cluster-1", "agent_key")
+	if !regexp.MustCompile(`^akn_my_cluster_1_agent_key_[0-9a-f]{6}$`).MatchString(name) {
 		t.Fatalf("unexpected name %q", name)
 	}
 }

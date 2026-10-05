@@ -46,14 +46,6 @@ var agentKeyKind = ownedKeyKind{
 	},
 }
 
-var applicationKeyKind = ownedKeyKind{
-	attr:  "application_key",
-	label: "application key",
-	recreate: func(client *api.Client, workspaceID, workspaceName string) (*api.APIKey, error) {
-		return client.CreateHashedApplicationKey(ownedKeyName(workspaceName, "application_key"), workspaceID)
-	},
-}
-
 // createV2Func creates the object together with a hashed key, working on the plan and state without the
 // key attribute, and returns the new object's ID and the key. The ID is empty if nothing was created.
 type createV2Func func(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) (string, *api.APIKey)
@@ -72,21 +64,6 @@ type keyOwningResource struct {
 func NewVirtualClusterV2Resource() resource.Resource {
 	base := &virtualClusterResource{}
 	return &keyOwningResource{base: base, create: base.createV2, typeName: "_virtual_cluster_v2", kind: agentKeyKind}
-}
-
-func NewSchemaRegistryV2Resource() resource.Resource {
-	base := &schemaRegistryResource{}
-	return &keyOwningResource{base: base, create: base.createV2, typeName: "_schema_registry_v2", kind: agentKeyKind}
-}
-
-func NewTableFlowV2Resource() resource.Resource {
-	base := &tableFlowResource{}
-	return &keyOwningResource{base: base, create: base.createV2, typeName: "_tableflow_cluster_v2", kind: agentKeyKind}
-}
-
-func NewWorkspaceV2Resource() resource.Resource {
-	base := &workspaceResource{}
-	return &keyOwningResource{base: base, create: base.createV2, typeName: "_workspace_v2", kind: applicationKeyKind}
 }
 
 func (r *keyOwningResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
