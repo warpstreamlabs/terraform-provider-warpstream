@@ -21,6 +21,17 @@ func (c *Client) CreateAgentKeyV2(name, virtualClusterID string) (*APIKey, error
 	}, "")
 }
 
+// CreateApplicationKeyV2 creates a v2 application key for the workspace through
+// create_api_key_v2. Its secret is only in the response.
+func (c *Client) CreateApplicationKeyV2(name, workspaceID string) (*APIKey, error) {
+	return c.createAPIKeyV2(name, map[string]string{
+		"principal_kind": PrincipalKindApplication,
+		"resource_kind":  ResourceKindAny,
+		"resource_id":    ResourceIDAny,
+		"workspace_id":   workspaceID,
+	}, "")
+}
+
 // createAPIKeyV2 calls create_api_key_v2. After an ambiguous failure, a key with this name and grant
 // created since the attempt started is ours.
 func (c *Client) createAPIKeyV2(name string, accessGrant map[string]string, typeOverride string) (*APIKey, error) {
@@ -91,5 +102,6 @@ func hasAccessGrant(key APIKey, accessGrant map[string]string) bool {
 	grant := key.AccessGrants[0]
 	return grant.PrincipalKind == accessGrant["principal_kind"] &&
 		grant.ResourceKind == accessGrant["resource_kind"] &&
-		grant.ResourceID == accessGrant["resource_id"]
+		grant.ResourceID == accessGrant["resource_id"] &&
+		(accessGrant["workspace_id"] == "" || grant.WorkspaceID == accessGrant["workspace_id"])
 }
