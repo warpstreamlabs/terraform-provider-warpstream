@@ -62,7 +62,7 @@ output "agent_key" {
 
 ### Read-Only
 
-- `agent_key` (Attributes) Hashed agent key created and managed by this resource. Its secret is only returned when the key is created and is kept in Terraform state. If the key is deleted outside Terraform, the next apply creates a new one. (see [below for nested schema](#nestedatt--agent_key))
+- `agent_key` (Attributes) The agent key (v2 key format) created and managed by this resource. Its raw secret is only returned when the key is created and is kept in Terraform state. If the key is deleted outside Terraform, the next apply creates a new one. (see [below for nested schema](#nestedatt--agent_key))
 - `agent_pool_id` (String) Agent Pool ID.
 - `agent_pool_name` (String) Agent Pool Name.
 - `bootstrap_url` (String) Bootstrap URL to connect to the Virtual Cluster.

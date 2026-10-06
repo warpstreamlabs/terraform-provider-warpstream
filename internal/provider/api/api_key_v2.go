@@ -11,19 +11,19 @@ import (
 	"time"
 )
 
-// CreateHashedAgentKey creates a hashed agent key for the cluster through create_api_key_v2. Its secret
+// CreateAgentKeyV2 creates a v2 agent key for the cluster through create_api_key_v2. Its secret
 // is only in the response.
-func (c *Client) CreateHashedAgentKey(name, virtualClusterID string) (*APIKey, error) {
-	return c.createHashedAPIKey(name, map[string]string{
+func (c *Client) CreateAgentKeyV2(name, virtualClusterID string) (*APIKey, error) {
+	return c.createAPIKeyV2(name, map[string]string{
 		"principal_kind": PrincipalKindAgent,
 		"resource_kind":  ResourceKindVirtualCluster,
 		"resource_id":    virtualClusterID,
 	}, "")
 }
 
-// createHashedAPIKey calls create_api_key_v2. After an ambiguous failure, a key with this name and grant
+// createAPIKeyV2 calls create_api_key_v2. After an ambiguous failure, a key with this name and grant
 // created since the attempt started is ours.
-func (c *Client) createHashedAPIKey(name string, accessGrant map[string]string, typeOverride string) (*APIKey, error) {
+func (c *Client) createAPIKeyV2(name string, accessGrant map[string]string, typeOverride string) (*APIKey, error) {
 	name = "akn_" + strings.TrimPrefix(name, "akn_")
 	payload, err := json.Marshal(APIKeyCreateRequest{
 		Name:                       strings.TrimPrefix(name, "akn_"),

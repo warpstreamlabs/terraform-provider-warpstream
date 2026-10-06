@@ -113,10 +113,10 @@ func dropConnection(w http.ResponseWriter, _ *fakeAPIKeyServer) {
 	}
 }
 
-func TestCreateHashedAPIKeyReturnsCreateResponseSecret(t *testing.T) {
+func TestCreateAPIKeyV2ReturnsCreateResponseSecret(t *testing.T) {
 	s, c := newFakeAPIKeyServer(t, created("aki_1"))
 
-	key, err := c.CreateHashedAgentKey("akn_test", testVCID)
+	key, err := c.CreateAgentKeyV2("akn_test", testVCID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,10 +128,10 @@ func TestCreateHashedAPIKeyReturnsCreateResponseSecret(t *testing.T) {
 	}
 }
 
-func TestCreateHashedAPIKeyDoesNotRetryRejection(t *testing.T) {
+func TestCreateAPIKeyV2DoesNotRetryRejection(t *testing.T) {
 	s, c := newFakeAPIKeyServer(t, status(http.StatusBadRequest))
 
-	_, err := c.CreateHashedAgentKey("akn_test", testVCID)
+	_, err := c.CreateAgentKeyV2("akn_test", testVCID)
 	if err == nil || errors.Is(err, ErrAmbiguous) {
 		t.Fatalf("expected a plain error, got %v", err)
 	}
@@ -140,10 +140,10 @@ func TestCreateHashedAPIKeyDoesNotRetryRejection(t *testing.T) {
 	}
 }
 
-func TestCreateHashedAPIKeyDeletesOrphanAndRetries(t *testing.T) {
+func TestCreateAPIKeyV2DeletesOrphanAndRetries(t *testing.T) {
 	s, c := newFakeAPIKeyServer(t, createdThen500("aki_orphan"), created("aki_2"))
 
-	key, err := c.CreateHashedAgentKey("akn_test", testVCID)
+	key, err := c.CreateAgentKeyV2("akn_test", testVCID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,10 +158,10 @@ func TestCreateHashedAPIKeyDeletesOrphanAndRetries(t *testing.T) {
 	}
 }
 
-func TestCreateHashedAPIKeyRetriesWhenNothingWasCreated(t *testing.T) {
+func TestCreateAPIKeyV2RetriesWhenNothingWasCreated(t *testing.T) {
 	s, c := newFakeAPIKeyServer(t, dropConnection, created("aki_1"))
 
-	if _, err := c.CreateHashedAgentKey("akn_test", testVCID); err != nil {
+	if _, err := c.CreateAgentKeyV2("akn_test", testVCID); err != nil {
 		t.Fatal(err)
 	}
 	if len(s.deleted) != 0 || s.hits["create_api_key_v2"] != 2 || s.hits["list_api_keys"] != 1 {
@@ -169,7 +169,7 @@ func TestCreateHashedAPIKeyRetriesWhenNothingWasCreated(t *testing.T) {
 	}
 }
 
-func TestCreateHashedAPIKeyKeepsKeysItDidNotCreate(t *testing.T) {
+func TestCreateAPIKeyV2KeepsKeysItDidNotCreate(t *testing.T) {
 	otherGrant := agentKey("aki_other_grant", time.Now())
 	otherGrant.AccessGrants[0].ResourceID = "vci_22222222_2222_2222_2222_222222222222"
 
@@ -181,7 +181,7 @@ func TestCreateHashedAPIKeyKeepsKeysItDidNotCreate(t *testing.T) {
 			s, c := newFakeAPIKeyServer(t, status(http.StatusInternalServerError))
 			s.listed = []APIKey{existing}
 
-			_, err := c.CreateHashedAgentKey("akn_test", testVCID)
+			_, err := c.CreateAgentKeyV2("akn_test", testVCID)
 			if !errors.Is(err, ErrAmbiguous) || !strings.Contains(err.Error(), "delete any key named akn_test") {
 				t.Fatalf("expected a manual cleanup error, got %v", err)
 			}
@@ -192,10 +192,10 @@ func TestCreateHashedAPIKeyKeepsKeysItDidNotCreate(t *testing.T) {
 	}
 }
 
-func TestCreateHashedAPIKeyGivesUpAfterSecondAmbiguousFailure(t *testing.T) {
+func TestCreateAPIKeyV2GivesUpAfterSecondAmbiguousFailure(t *testing.T) {
 	s, c := newFakeAPIKeyServer(t, status(http.StatusInternalServerError), status(499))
 
-	_, err := c.CreateHashedAgentKey("akn_test", testVCID)
+	_, err := c.CreateAgentKeyV2("akn_test", testVCID)
 	if !errors.Is(err, ErrAmbiguous) || !strings.Contains(err.Error(), "delete any key named akn_test") {
 		t.Fatalf("expected a manual cleanup error, got %v", err)
 	}

@@ -13,7 +13,7 @@ import (
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
 )
 
-var hashedSecret = regexp.MustCompile(`^aks_v2_`)
+var v2KeySecret = regexp.MustCompile(`^aks_v2_`)
 
 func TestAccVirtualClusterV2Resource(t *testing.T) {
 	name := "vcn_test_acc_v2_" + acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
@@ -24,7 +24,7 @@ resource "warpstream_virtual_cluster_v2" "test" {
 }`, name), "warpstream_virtual_cluster_v2.test", "agent_key", name)
 }
 
-// testAccV2ResourceKey checks that a v2 resource stores its hashed key, keeps it across a refresh, and
+// testAccV2ResourceKey checks that a v2 resource stores its v2 key, keeps it across a refresh, and
 // replaces it in place when the key is deleted outside Terraform.
 func testAccV2ResourceKey(t *testing.T, config, resourcePath, keyAttr, objectName string) {
 	var secret string
@@ -35,7 +35,7 @@ func testAccV2ResourceKey(t *testing.T, config, resourcePath, keyAttr, objectNam
 			{
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestMatchResourceAttr(resourcePath, keyAttr+".key", hashedSecret),
+					resource.TestMatchResourceAttr(resourcePath, keyAttr+".key", v2KeySecret),
 					testAccCheckListedSecretEmpty(resourcePath, keyAttr+".id"),
 					func(s *terraform.State) error {
 						rs := s.RootModule().Resources[resourcePath]
@@ -56,7 +56,7 @@ func testAccV2ResourceKey(t *testing.T, config, resourcePath, keyAttr, objectNam
 					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(resourcePath, plancheck.ResourceActionUpdate)},
 				},
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestMatchResourceAttr(resourcePath, keyAttr+".key", hashedSecret),
+					resource.TestMatchResourceAttr(resourcePath, keyAttr+".key", v2KeySecret),
 					resource.TestCheckResourceAttrWith(resourcePath, keyAttr+".key", func(v string) error {
 						if v == secret {
 							return fmt.Errorf("%s key for %s was not replaced", keyAttr, objectName)
@@ -114,7 +114,7 @@ func testAccCheckListedSecretEmpty(resourcePath, idAttr string) resource.TestChe
 			return err
 		}
 		if key.Key != "" {
-			return fmt.Errorf("hashed key %s is still retrievable from list_api_keys", keyID)
+			return fmt.Errorf("v2 key %s is still retrievable from list_api_keys", keyID)
 		}
 		return nil
 	}

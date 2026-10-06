@@ -34,7 +34,7 @@ var (
 type ownedKeyKind struct {
 	attr  string // Schema attribute holding the key, e.g. "agent_key".
 	label string // e.g. "agent key".
-	// recreate creates a replacement hashed key for the object with this ID and name.
+	// recreate creates a replacement v2 key for the object with this ID and name.
 	recreate func(client *api.Client, objectID, objectName string) (*api.APIKey, error)
 }
 
@@ -42,15 +42,15 @@ var agentKeyKind = ownedKeyKind{
 	attr:  "agent_key",
 	label: "agent key",
 	recreate: func(client *api.Client, clusterID, clusterName string) (*api.APIKey, error) {
-		return client.CreateHashedAgentKey(ownedKeyName(strings.TrimPrefix(clusterName, "vcn_"), "agent_key"), clusterID)
+		return client.CreateAgentKeyV2(ownedKeyName(strings.TrimPrefix(clusterName, "vcn_"), "agent_key"), clusterID)
 	},
 }
 
-// createV2Func creates the object together with a hashed key, working on the plan and state without the
+// createV2Func creates the object together with a v2 key, working on the plan and state without the
 // key attribute, and returns the new object's ID and the key. The ID is empty if nothing was created.
 type createV2Func func(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) (string, *api.APIKey)
 
-// keyOwningResource is a v2 resource: it creates its object together with a hashed key and stores that
+// keyOwningResource is a v2 resource: it creates its object together with a v2 key and stores that
 // key, whose secret is only returned once, in state. It wraps a v1 resource, which does all other object
 // work on a copy of the plan and state without the key attribute.
 type keyOwningResource struct {
@@ -89,8 +89,8 @@ func (r *keyOwningResource) Schema(ctx context.Context, _ resource.SchemaRequest
 
 	s.Attributes = maps.Clone(s.Attributes)
 	s.Attributes[r.kind.attr] = schema.SingleNestedAttribute{
-		Description: fmt.Sprintf("Hashed %s created and managed by this resource. Its secret is only returned "+
-			"when the key is created and is kept in Terraform state. If the key is deleted outside Terraform, "+
+		Description: fmt.Sprintf("The %s (v2 key format) created and managed by this resource. Its raw secret is only "+
+			"returned when the key is created and is kept in Terraform state. If the key is deleted outside Terraform, "+
 			"the next apply creates a new one.", r.kind.label),
 		Computed: true,
 		Attributes: map[string]schema.Attribute{

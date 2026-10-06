@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// CreateVirtualClusterV2 creates a virtual cluster together with a hashed agent key through
+// CreateVirtualClusterV2 creates a virtual cluster together with a v2 agent key through
 // create_virtual_cluster_v2. The key's secret is only in this response. After an ambiguous failure, a
 // cluster with this name and type created since the attempt started is ours; deleting it also revokes
 // its agent key.

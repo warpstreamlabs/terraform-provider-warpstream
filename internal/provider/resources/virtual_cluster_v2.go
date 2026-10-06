@@ -16,7 +16,7 @@ func NewVirtualClusterV2Resource() resource.Resource {
 	return &keyOwningResource{base: base, create: base.createV2, typeName: "_virtual_cluster_v2", kind: agentKeyKind}
 }
 
-// createV2 is a copy of Create that calls CreateVirtualClusterV2, which also creates a hashed agent key.
+// createV2 is a copy of Create that calls CreateVirtualClusterV2, which also creates a v2 agent key.
 // Keep it in sync with Create.
 func (r *virtualClusterResource) createV2(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) (objectID string, key *api.APIKey) {
 	// Retrieve values from plan
