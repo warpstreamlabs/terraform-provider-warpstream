@@ -17,6 +17,8 @@ func (c *Client) CreateAgentKeyV2(name, virtualClusterID string) (*APIKey, error
 	typeOverride := ""
 	if strings.HasPrefix(virtualClusterID, "vci_sr_") {
 		typeOverride = VirtualClusterTypeSchemaRegistry
+	} else if strings.HasPrefix(virtualClusterID, "vci_dl_") {
+		typeOverride = VirtualClusterTypeTableFlow
 	}
 	return c.createAPIKeyV2(name, map[string]string{
 		"principal_kind": PrincipalKindAgent,
