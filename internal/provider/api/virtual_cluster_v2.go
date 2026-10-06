@@ -16,8 +16,17 @@ import (
 // cluster with this name and type created since the attempt started is ours; deleting it also revokes
 // its agent key.
 func (c *Client) CreateVirtualClusterV2(name string, opts ClusterParameters) (*VirtualCluster, *APIKey, error) {
+	var trimmed string
+	switch opts.Type {
+	case VirtualClusterTypeSchemaRegistry:
+		trimmed = strings.TrimPrefix(name, "vcn_sr_")
+	case VirtualClusterTypeTableFlow:
+		trimmed = strings.TrimPrefix(name, "vcn_dl_")
+	default:
+		trimmed = strings.TrimPrefix(name, "vcn_")
+	}
 	payload, err := json.Marshal(VirtualClusterCreateRequest{
-		Name:          strings.TrimPrefix(name, "vcn_"),
+		Name:          trimmed,
 		Type:          opts.Type,
 		Tier:          opts.Tier,
 		Region:        opts.Region,

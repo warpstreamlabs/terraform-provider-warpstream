@@ -14,6 +14,13 @@ import (
 // CreateAgentKeyV2 creates a v2 agent key for the cluster through create_api_key_v2. Its secret
 // is only in the response.
 func (c *Client) CreateAgentKeyV2(name, virtualClusterID string, readOnly bool) (*APIKey, error) {
+	typeOverride := ""
+	if strings.HasPrefix(virtualClusterID, "vci_sr_") {
+		typeOverride = VirtualClusterTypeSchemaRegistry
+	} else if strings.HasPrefix(virtualClusterID, "vci_dl_") {
+		typeOverride = VirtualClusterTypeTableFlow
+	}
+
 	principalKind := PrincipalKindAgent
 	if readOnly {
 		principalKind = PrincipalKindAgentReadOnly
@@ -22,6 +29,17 @@ func (c *Client) CreateAgentKeyV2(name, virtualClusterID string, readOnly bool) 
 		"principal_kind": principalKind,
 		"resource_kind":  ResourceKindVirtualCluster,
 		"resource_id":    virtualClusterID,
+	}, typeOverride)
+}
+
+// CreateApplicationKeyV2 creates a v2 application key for the workspace through
+// create_api_key_v2. Its secret is only in the response.
+func (c *Client) CreateApplicationKeyV2(name, workspaceID string) (*APIKey, error) {
+	return c.createAPIKeyV2(name, map[string]string{
+		"principal_kind": PrincipalKindApplication,
+		"resource_kind":  ResourceKindAny,
+		"resource_id":    ResourceIDAny,
+		"workspace_id":   workspaceID,
 	}, "")
 }
 
@@ -95,5 +113,6 @@ func hasAccessGrant(key APIKey, accessGrant map[string]string) bool {
 	grant := key.AccessGrants[0]
 	return grant.PrincipalKind == accessGrant["principal_kind"] &&
 		grant.ResourceKind == accessGrant["resource_kind"] &&
-		grant.ResourceID == accessGrant["resource_id"]
+		grant.ResourceID == accessGrant["resource_id"] &&
+		(accessGrant["workspace_id"] == "" || grant.WorkspaceID == accessGrant["workspace_id"])
 }
