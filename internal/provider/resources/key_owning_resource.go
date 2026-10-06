@@ -42,7 +42,7 @@ var agentKeyKind = ownedKeyKind{
 	attr:  "agent_key",
 	label: "agent key",
 	recreate: func(client *api.Client, clusterID, clusterName string) (*api.APIKey, error) {
-		return client.CreateAgentKeyV2(ownedKeyName(strings.TrimPrefix(clusterName, "vcn_"), "agent_key"), clusterID)
+		return client.CreateAgentKeyV2(ownedKeyName(strings.TrimPrefix(clusterName, "vcn_"), "agent_key"), clusterID, false)
 	},
 }
 
