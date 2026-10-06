@@ -13,15 +13,20 @@ import (
 
 // CreateAgentKeyV2 creates a v2 agent key for the cluster through create_api_key_v2. Its secret
 // is only in the response.
-func (c *Client) CreateAgentKeyV2(name, virtualClusterID string) (*APIKey, error) {
+func (c *Client) CreateAgentKeyV2(name, virtualClusterID string, readOnly bool) (*APIKey, error) {
 	typeOverride := ""
 	if strings.HasPrefix(virtualClusterID, "vci_sr_") {
 		typeOverride = VirtualClusterTypeSchemaRegistry
 	} else if strings.HasPrefix(virtualClusterID, "vci_dl_") {
 		typeOverride = VirtualClusterTypeTableFlow
 	}
+
+	principalKind := PrincipalKindAgent
+	if readOnly {
+		principalKind = PrincipalKindAgentReadOnly
+	}
 	return c.createAPIKeyV2(name, map[string]string{
-		"principal_kind": PrincipalKindAgent,
+		"principal_kind": principalKind,
 		"resource_kind":  ResourceKindVirtualCluster,
 		"resource_id":    virtualClusterID,
 	}, typeOverride)

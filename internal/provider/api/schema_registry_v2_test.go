@@ -38,7 +38,7 @@ func TestSchemaRegistryV2CreatesSendTheSchemaRegistryType(t *testing.T) {
 		t.Fatalf("unexpected create_virtual_cluster_v2 request %+v", clusterReq)
 	}
 
-	if _, err := c.CreateAgentKeyV2("akn_test", "vci_sr_1"); err != nil {
+	if _, err := c.CreateAgentKeyV2("akn_test", "vci_sr_1", false); err != nil {
 		t.Fatal(err)
 	}
 	if keyReq.VirtualClusterTypeOverride != VirtualClusterTypeSchemaRegistry {

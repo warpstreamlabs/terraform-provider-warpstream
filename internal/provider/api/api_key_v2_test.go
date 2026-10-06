@@ -116,7 +116,7 @@ func dropConnection(w http.ResponseWriter, _ *fakeAPIKeyServer) {
 func TestCreateAPIKeyV2ReturnsCreateResponseSecret(t *testing.T) {
 	s, c := newFakeAPIKeyServer(t, created("aki_1"))
 
-	key, err := c.CreateAgentKeyV2("akn_test", testVCID)
+	key, err := c.CreateAgentKeyV2("akn_test", testVCID, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestCreateAPIKeyV2ReturnsCreateResponseSecret(t *testing.T) {
 func TestCreateAPIKeyV2DoesNotRetryRejection(t *testing.T) {
 	s, c := newFakeAPIKeyServer(t, status(http.StatusBadRequest))
 
-	_, err := c.CreateAgentKeyV2("akn_test", testVCID)
+	_, err := c.CreateAgentKeyV2("akn_test", testVCID, false)
 	if err == nil || errors.Is(err, ErrAmbiguous) {
 		t.Fatalf("expected a plain error, got %v", err)
 	}
@@ -143,7 +143,7 @@ func TestCreateAPIKeyV2DoesNotRetryRejection(t *testing.T) {
 func TestCreateAPIKeyV2DeletesOrphanAndRetries(t *testing.T) {
 	s, c := newFakeAPIKeyServer(t, createdThen500("aki_orphan"), created("aki_2"))
 
-	key, err := c.CreateAgentKeyV2("akn_test", testVCID)
+	key, err := c.CreateAgentKeyV2("akn_test", testVCID, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestCreateAPIKeyV2DeletesOrphanAndRetries(t *testing.T) {
 func TestCreateAPIKeyV2RetriesWhenNothingWasCreated(t *testing.T) {
 	s, c := newFakeAPIKeyServer(t, dropConnection, created("aki_1"))
 
-	if _, err := c.CreateAgentKeyV2("akn_test", testVCID); err != nil {
+	if _, err := c.CreateAgentKeyV2("akn_test", testVCID, false); err != nil {
 		t.Fatal(err)
 	}
 	if len(s.deleted) != 0 || s.hits["create_api_key_v2"] != 2 || s.hits["list_api_keys"] != 1 {
@@ -181,7 +181,7 @@ func TestCreateAPIKeyV2KeepsKeysItDidNotCreate(t *testing.T) {
 			s, c := newFakeAPIKeyServer(t, status(http.StatusInternalServerError))
 			s.listed = []APIKey{existing}
 
-			_, err := c.CreateAgentKeyV2("akn_test", testVCID)
+			_, err := c.CreateAgentKeyV2("akn_test", testVCID, false)
 			if !errors.Is(err, ErrAmbiguous) || !strings.Contains(err.Error(), "delete any key named akn_test") {
 				t.Fatalf("expected a manual cleanup error, got %v", err)
 			}
@@ -195,7 +195,7 @@ func TestCreateAPIKeyV2KeepsKeysItDidNotCreate(t *testing.T) {
 func TestCreateAPIKeyV2GivesUpAfterSecondAmbiguousFailure(t *testing.T) {
 	s, c := newFakeAPIKeyServer(t, status(http.StatusInternalServerError), status(499))
 
-	_, err := c.CreateAgentKeyV2("akn_test", testVCID)
+	_, err := c.CreateAgentKeyV2("akn_test", testVCID, false)
 	if !errors.Is(err, ErrAmbiguous) || !strings.Contains(err.Error(), "delete any key named akn_test") {
 		t.Fatalf("expected a manual cleanup error, got %v", err)
 	}
