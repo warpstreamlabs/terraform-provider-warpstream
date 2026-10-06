@@ -78,7 +78,7 @@ func equals(want *string) resource.CheckResourceAttrWithFunc {
 	}
 }
 
-// deleteOwnedKey deletes the key granted on the object objectID.
+// deleteOwnedKey deletes the key granted on the cluster or workspace objectID.
 func deleteOwnedKey(t *testing.T, objectID string) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func deleteOwnedKey(t *testing.T, objectID string) {
 	require.NoError(t, err)
 	for _, key := range keys {
 		for _, grant := range key.AccessGrants {
-			if grant.ResourceID == objectID {
+			if grant.ResourceID == objectID || (grant.WorkspaceID == objectID && grant.ResourceKind == api.ResourceKindAny) {
 				require.NoError(t, client.DeleteAPIKey(key.ID))
 				return
 			}
