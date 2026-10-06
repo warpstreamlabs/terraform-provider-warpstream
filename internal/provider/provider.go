@@ -174,6 +174,7 @@ func (p *warpstreamProvider) Resources(_ context.Context) []func() resource.Reso
 		resources.NewVirtualClusterV2Resource,
 		resources.NewWorkspaceV2Resource,
 		resources.NewAgentKeyV2Resource,
+		resources.NewApplicationKeyV2Resource,
 		resources.NewWorkloadIdentityFederationResource,
 	}
 }

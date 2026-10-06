@@ -27,11 +27,29 @@ func (c *Client) CreateAgentKeyV2(name, virtualClusterID string, readOnly bool) 
 
 // CreateApplicationKeyV2 creates a v2 application key for the workspace through
 // create_api_key_v2. Its secret is only in the response.
-func (c *Client) CreateApplicationKeyV2(name, workspaceID string) (*APIKey, error) {
+func (c *Client) CreateApplicationKeyV2(name, workspaceID string, readOnly bool) (*APIKey, error) {
+	principalKind := PrincipalKindApplication
+	if readOnly {
+		principalKind = PrincipalKindApplicationReadOnly
+	}
 	return c.createAPIKeyV2(name, map[string]string{
-		"principal_kind": PrincipalKindApplication,
+		"principal_kind": principalKind,
 		"resource_kind":  ResourceKindAny,
 		"resource_id":    ResourceIDAny,
+		"workspace_id":   workspaceID,
+	}, "")
+}
+
+// CreateClusterScopedApplicationKeyV2 creates a v2 application key scoped to one virtual cluster
+// sub-resource (topics, credentials, or ACLs) through create_api_key_v2. Its secret is only in the response.
+func (c *Client) CreateClusterScopedApplicationKeyV2(name, workspaceID, virtualClusterID, resourceKind string) (*APIKey, error) {
+	if !IsVirtualClusterSubResourceKind(resourceKind) {
+		return nil, fmt.Errorf("unsupported resource_kind %q for cluster-scoped application key", resourceKind)
+	}
+	return c.createAPIKeyV2(name, map[string]string{
+		"principal_kind": PrincipalKindApplication,
+		"resource_kind":  resourceKind,
+		"resource_id":    virtualClusterID,
 		"workspace_id":   workspaceID,
 	}, "")
 }

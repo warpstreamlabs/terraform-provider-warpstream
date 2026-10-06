@@ -79,7 +79,7 @@ func TestCreateApplicationKeyV2KeepsKeyOfOtherWorkspace(t *testing.T) {
 		}},
 	}}
 
-	_, err := c.CreateApplicationKeyV2("akn_test", "wi_1")
+	_, err := c.CreateApplicationKeyV2("akn_test", "wi_1", false)
 	if !errors.Is(err, ErrAmbiguous) || !strings.Contains(err.Error(), "delete any key named akn_test") {
 		t.Fatalf("expected a manual cleanup error, got %v", err)
 	}
