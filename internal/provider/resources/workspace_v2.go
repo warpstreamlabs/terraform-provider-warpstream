@@ -13,7 +13,7 @@ var applicationKeyKind = ownedKeyKind{
 	attr:  "application_key",
 	label: "application key",
 	recreate: func(client *api.Client, workspaceID, workspaceName string) (*api.APIKey, error) {
-		return client.CreateApplicationKeyV2(ownedKeyName(workspaceName, "application_key"), workspaceID)
+		return client.CreateApplicationKeyV2(ownedKeyName(workspaceName, "application_key"), workspaceID, false)
 	},
 }
 
