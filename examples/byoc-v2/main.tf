@@ -11,7 +11,6 @@ provider "warpstream" {
   token = "YOUR_API_KEY"
 }
 
-# BYOC cluster created together with its agent key.
 resource "warpstream_virtual_cluster_v2" "example" {
   name = "vcn_example"
   type = "byoc"
@@ -38,10 +37,15 @@ resource "warpstream_virtual_cluster_credentials" "creds" {
   virtual_cluster_id = warpstream_virtual_cluster_v2.example.id
 }
 
+resource "warpstream_agent_key_v2" "example" {
+  name               = "akn_example"
+  virtual_cluster_id = warpstream_virtual_cluster_v2.example.id
+}
+
 # The agent key authenticates the WarpStream Agents with the WarpStream control
 # plane. This is what you'll use in your Agent helm chart. Read it with
 # `terraform output -raw agent_key`.
 output "agent_key" {
-  value     = warpstream_virtual_cluster_v2.example.agent_key.key
+  value     = warpstream_agent_key_v2.example.key
   sensitive = true
 }

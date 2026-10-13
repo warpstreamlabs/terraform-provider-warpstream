@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -33,6 +34,7 @@ var (
 // ownedKeyKind describes the key a v2 resource owns.
 type ownedKeyKind struct {
 	attr  string // Schema attribute holding the key, e.g. "agent_key".
+	flag  string // Schema attribute that asks for the key, e.g. "create_agent_key".
 	label string // e.g. "agent key".
 	// recreate creates a replacement v2 key for the object with this ID and name.
 	recreate func(client *api.Client, objectID, objectName string) (*api.APIKey, error)
@@ -40,19 +42,21 @@ type ownedKeyKind struct {
 
 var agentKeyKind = ownedKeyKind{
 	attr:  "agent_key",
+	flag:  "create_agent_key",
 	label: "agent key",
 	recreate: func(client *api.Client, clusterID, clusterName string) (*api.APIKey, error) {
 		return client.CreateAgentKeyV2(ownedKeyName(strings.TrimPrefix(clusterName, "vcn_"), "agent_key"), clusterID, false)
 	},
 }
 
-// createV2Func creates the object together with a v2 key, working on the plan and state without the
-// key attribute, and returns the new object's ID and the key. The ID is empty if nothing was created.
-type createV2Func func(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) (string, *api.APIKey)
+// createV2Func creates the object, and a v2 key with it if createKey is set, working on the plan and
+// state without the key attributes, and returns the new object's ID and the key. The ID is empty if
+// nothing was created.
+type createV2Func func(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse, createKey bool) (string, *api.APIKey)
 
-// keyOwningResource is a v2 resource: it creates its object together with a v2 key and stores that
-// key, whose secret is only returned once, in state. It wraps a v1 resource, which does all other object
-// work on a copy of the plan and state without the key attribute.
+// keyOwningResource is a v2 resource: it creates its object, and a v2 key with it when asked, and stores
+// that key, whose secret is only returned once, in state. It wraps a v1 resource, which does all other
+// object work on a copy of the plan and state without the key attributes.
 type keyOwningResource struct {
 	base     resource.Resource
 	create   createV2Func
@@ -88,10 +92,17 @@ func (r *keyOwningResource) Schema(ctx context.Context, _ resource.SchemaRequest
 	}
 
 	s.Attributes = maps.Clone(s.Attributes)
+	s.Attributes[r.kind.flag] = schema.BoolAttribute{
+		Description: fmt.Sprintf("Whether to create an %s (v2 key format) with the object and manage it, see `%s`. "+
+			"Defaults to false. Cannot be changed after creation.", r.kind.label, r.kind.attr),
+		Optional: true,
+		Computed: true,
+		Default:  booldefault.StaticBool(false),
+	}
 	s.Attributes[r.kind.attr] = schema.SingleNestedAttribute{
-		Description: fmt.Sprintf("The %s (v2 key format) created and managed by this resource. Its raw secret is only "+
-			"returned when the key is created and is kept in Terraform state. If the key is deleted outside Terraform, "+
-			"the next apply creates a new one.", r.kind.label),
+		Description: fmt.Sprintf("The %s (v2 key format) created and managed by this resource when `%s` is true. Its raw "+
+			"secret is only returned when the key is created and is kept in Terraform state. If the key is deleted "+
+			"outside Terraform, the next apply creates a new one.", r.kind.label, r.kind.flag),
 		Computed: true,
 		Attributes: map[string]schema.Attribute{
 			"id":         schema.StringAttribute{Description: "Key ID.", Computed: true},
@@ -101,8 +112,8 @@ func (r *keyOwningResource) Schema(ctx context.Context, _ resource.SchemaRequest
 		},
 		PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 	}
-	s.Description = fmt.Sprintf("%s\n\nUnlike the v1 resource, this resource creates its %s together with the "+
-		"object and manages it, see `%s`.", s.Description, r.kind.label, r.kind.attr)
+	s.Description = fmt.Sprintf("%s\n\nUnlike the v1 resource, this resource can also create an %s (v2 key format) "+
+		"with the object and manage it, see `%s`.", s.Description, r.kind.label, r.kind.flag)
 	resp.Schema = s
 }
 
@@ -113,6 +124,8 @@ func (r *keyOwningResource) Create(ctx context.Context, req resource.CreateReque
 	resp.Diagnostics.Append(d...)
 	plan, d := r.strip(ctx, bs, req.Plan.Raw)
 	resp.Diagnostics.Append(d...)
+	var createKey types.Bool
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root(r.kind.flag), &createKey)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -125,13 +138,13 @@ func (r *keyOwningResource) Create(ctx context.Context, req resource.CreateReque
 		Config:       tfsdk.Config{Schema: bs, Raw: config},
 		Plan:         tfsdk.Plan{Schema: bs, Raw: plan},
 		ProviderMeta: req.ProviderMeta,
-	}, &baseResp)
+	}, &baseResp, createKey.ValueBool())
 	resp.Diagnostics.Append(baseResp.Diagnostics...)
 	resp.Private = baseResp.Private
 
 	key := ownedKeyValue(createdKey)
 	if !baseResp.State.Raw.IsNull() {
-		r.setWithKey(ctx, &resp.State, baseResp.State.Raw, key, &resp.Diagnostics)
+		r.setWithKey(ctx, &resp.State, baseResp.State.Raw, key, createKey, &resp.Diagnostics)
 		return
 	}
 	if objectID == "" {
@@ -162,6 +175,8 @@ func (r *keyOwningResource) Read(ctx context.Context, req resource.ReadRequest, 
 	resp.Diagnostics.Append(d...)
 	var key types.Object
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root(r.kind.attr), &key)...)
+	var createKey types.Bool
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root(r.kind.flag), &createKey)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -193,7 +208,7 @@ func (r *keyOwningResource) Read(ctx context.Context, req resource.ReadRequest, 
 			)
 		}
 	}
-	r.setWithKey(ctx, &resp.State, baseResp.State.Raw, key, &resp.Diagnostics)
+	r.setWithKey(ctx, &resp.State, baseResp.State.Raw, key, createKey, &resp.Diagnostics)
 }
 
 func (r *keyOwningResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -207,6 +222,8 @@ func (r *keyOwningResource) Update(ctx context.Context, req resource.UpdateReque
 	resp.Diagnostics.Append(d...)
 	var key types.Object
 	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root(r.kind.attr), &key)...)
+	var createKey types.Bool
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root(r.kind.flag), &createKey)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -229,7 +246,7 @@ func (r *keyOwningResource) Update(ctx context.Context, req resource.UpdateReque
 			key = r.recreateKey(ctx, baseResp.State, &resp.Diagnostics)
 		}
 	}
-	r.setWithKey(ctx, &resp.State, baseResp.State.Raw, key, &resp.Diagnostics)
+	r.setWithKey(ctx, &resp.State, baseResp.State.Raw, key, createKey, &resp.Diagnostics)
 }
 
 func (r *keyOwningResource) recreateKey(ctx context.Context, state tfsdk.State, respDiags *diag.Diagnostics) types.Object {
@@ -290,11 +307,27 @@ func (r *keyOwningResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 		}
 	}
 
-	// A key missing from state (imported, or deleted outside Terraform) is planned as unknown so the
-	// apply creates one; the framework would otherwise keep the null when nothing else changes.
 	if req.State.Raw.IsNull() {
 		return
 	}
+	var planned, prior types.Bool
+	resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, path.Root(r.kind.flag), &planned)...)
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root(r.kind.flag), &prior)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// An imported object has no flag in state yet, so it can be set to either value.
+	if !prior.IsNull() && !planned.IsUnknown() && !planned.Equal(prior) {
+		resp.Diagnostics.AddAttributeError(path.Root(r.kind.flag), "Cannot change "+r.kind.flag,
+			fmt.Sprintf("%s cannot be changed after creation. To add a key to an existing object, use a separate key resource.", r.kind.flag))
+		return
+	}
+	if !planned.ValueBool() {
+		return
+	}
+
+	// A key missing from state (imported, or deleted outside Terraform) is planned as unknown so the
+	// apply creates one; the framework would otherwise keep the null when nothing else changes.
 	var key types.Object
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root(r.kind.attr), &key)...)
 	if !resp.Diagnostics.HasError() && key.IsNull() {
@@ -319,6 +352,8 @@ func (r *keyOwningResource) modifyBasePlan(
 	resp.Diagnostics.Append(d...)
 	var key types.Object
 	resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, path.Root(r.kind.attr), &key)...)
+	var createKey types.Bool
+	resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, path.Root(r.kind.flag), &createKey)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -342,12 +377,7 @@ func (r *keyOwningResource) modifyBasePlan(
 	resp.Private = baseResp.Private
 	resp.Deferred = baseResp.Deferred
 
-	keyRaw, err := key.ToTerraformValue(ctx)
-	if err != nil {
-		resp.Diagnostics.AddError("Error Planning "+r.kind.label, err.Error())
-		return
-	}
-	full, err := withAttribute(resp.Plan.Schema.Type().TerraformType(ctx), baseResp.Plan.Raw, r.kind.attr, keyRaw)
+	full, err := r.withKey(ctx, resp.Plan.Schema.Type().TerraformType(ctx), baseResp.Plan.Raw, key, createKey)
 	if err != nil {
 		resp.Diagnostics.AddError("Error Planning "+r.kind.label, err.Error())
 		return
@@ -355,7 +385,7 @@ func (r *keyOwningResource) modifyBasePlan(
 	resp.Plan.Raw = full
 }
 
-// strip returns v, an object of the v2 schema, without the key attribute, as an object of the v1 schema.
+// strip returns v, an object of the v2 schema, without the key attributes, as an object of the v1 schema.
 func (r *keyOwningResource) strip(ctx context.Context, bs schema.Schema, v tftypes.Value) (tftypes.Value, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	baseType := bs.Type().TerraformType(ctx)
@@ -374,16 +404,19 @@ func (r *keyOwningResource) strip(ctx context.Context, bs schema.Schema, v tftyp
 	// As shares the value's own map, so copy it before removing the key.
 	attrs = maps.Clone(attrs)
 	delete(attrs, r.kind.attr)
+	delete(attrs, r.kind.flag)
 	return tftypes.NewValue(baseType, attrs), diags
 }
 
-func (r *keyOwningResource) setWithKey(ctx context.Context, state *tfsdk.State, base tftypes.Value, key types.Object, respDiags *diag.Diagnostics) {
-	keyRaw, err := key.ToTerraformValue(ctx)
-	if err != nil {
-		respDiags.AddError("Error Saving "+r.kind.label, err.Error())
-		return
-	}
-	full, err := withAttribute(state.Schema.Type().TerraformType(ctx), base, r.kind.attr, keyRaw)
+func (r *keyOwningResource) setWithKey(
+	ctx context.Context,
+	state *tfsdk.State,
+	base tftypes.Value,
+	key types.Object,
+	createKey types.Bool,
+	respDiags *diag.Diagnostics,
+) {
+	full, err := r.withKey(ctx, state.Schema.Type().TerraformType(ctx), base, key, createKey)
 	if err != nil {
 		respDiags.AddError("Error Saving "+r.kind.label, err.Error())
 		return
@@ -391,8 +424,21 @@ func (r *keyOwningResource) setWithKey(ctx context.Context, state *tfsdk.State, 
 	state.Raw = full
 }
 
-// withAttribute returns base, an object without attribute name, as an object of fullType with name set.
-func withAttribute(fullType tftypes.Type, base tftypes.Value, name string, value tftypes.Value) (tftypes.Value, error) {
+// withKey returns base, an object of the v1 schema, as an object of fullType with the key attributes set.
+func (r *keyOwningResource) withKey(ctx context.Context, fullType tftypes.Type, base tftypes.Value, key types.Object, createKey types.Bool) (tftypes.Value, error) {
+	keyRaw, err := key.ToTerraformValue(ctx)
+	if err != nil {
+		return base, err
+	}
+	flagRaw, err := createKey.ToTerraformValue(ctx)
+	if err != nil {
+		return base, err
+	}
+	return withAttributes(fullType, base, map[string]tftypes.Value{r.kind.attr: keyRaw, r.kind.flag: flagRaw})
+}
+
+// withAttributes returns base, an object without the given attributes, as an object of fullType with them set.
+func withAttributes(fullType tftypes.Type, base tftypes.Value, values map[string]tftypes.Value) (tftypes.Value, error) {
 	if base.IsNull() {
 		return tftypes.NewValue(fullType, nil), nil
 	}
@@ -401,7 +447,7 @@ func withAttribute(fullType tftypes.Type, base tftypes.Value, name string, value
 		return base, err
 	}
 	attrs = maps.Clone(attrs)
-	attrs[name] = value
+	maps.Copy(attrs, values)
 	if err := tftypes.ValidateValue(fullType, attrs); err != nil {
 		return base, err
 	}

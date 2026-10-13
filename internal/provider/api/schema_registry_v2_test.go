@@ -31,10 +31,10 @@ func TestSchemaRegistryV2CreatesSendTheSchemaRegistryType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, _, err := c.CreateVirtualClusterV2("vcn_sr_test", ClusterParameters{Type: VirtualClusterTypeSchemaRegistry}); err != nil {
+	if _, _, err := c.CreateVirtualClusterV2("vcn_sr_test", ClusterParameters{Type: VirtualClusterTypeSchemaRegistry}, false); err != nil {
 		t.Fatal(err)
 	}
-	if clusterReq.Name != "test" || clusterReq.Type != VirtualClusterTypeSchemaRegistry {
+	if clusterReq.Name != "test" || clusterReq.Type != VirtualClusterTypeSchemaRegistry || !clusterReq.SkipAgentKeyCreation {
 		t.Fatalf("unexpected create_virtual_cluster_v2 request %+v", clusterReq)
 	}
 

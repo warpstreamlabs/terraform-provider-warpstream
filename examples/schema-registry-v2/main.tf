@@ -11,7 +11,6 @@ provider "warpstream" {
   token = "YOUR_API_KEY"
 }
 
-# Schema Registry created together with its agent key.
 resource "warpstream_schema_registry_v2" "example" {
   name = "vcn_sr_example"
   tier = "dev"
@@ -23,11 +22,16 @@ resource "warpstream_schema_registry_v2" "example" {
   }
 }
 
+resource "warpstream_agent_key_v2" "example" {
+  name               = "akn_example"
+  virtual_cluster_id = warpstream_schema_registry_v2.example.id
+}
+
 # The agent key authenticates the WarpStream Schema Registry Agents with the
 # WarpStream control plane. This is what you'll use in your Agent helm chart.
 # Read it with `terraform output -raw agent_key`.
 output "agent_key" {
-  value     = warpstream_schema_registry_v2.example.agent_key.key
+  value     = warpstream_agent_key_v2.example.key
   sensitive = true
 }
 

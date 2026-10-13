@@ -5,7 +5,7 @@ subcategory: ""
 description: |-
   This resource allows you to create and delete workspaces.
   The WarpStream provider must be authenticated with an account key to consume this resource.
-  Unlike the v1 resource, this resource creates its application key together with the object and manages it, see application_key.
+  Unlike the v1 resource, this resource can also create an application key (v2 key format) with the object and manage it, see create_application_key.
 ---
 
 # warpstream_workspace_v2 (Resource)
@@ -15,7 +15,7 @@ This resource allows you to create and delete workspaces.
 The WarpStream provider must be authenticated with an account key to consume this resource.
 
 
-Unlike the v1 resource, this resource creates its application key together with the object and manages it, see `application_key`.
+Unlike the v1 resource, this resource can also create an application key (v2 key format) with the object and manage it, see `create_application_key`.
 
 ## Example Usage
 
@@ -32,12 +32,19 @@ provider "warpstream" {
   token = "aks_xxx"
 }
 
+# Creates no application key, like the v1 resource. Add one with warpstream_application_key_v2.
 resource "warpstream_workspace_v2" "example" {
   name = "example-workspace"
 }
 
+# Also creates an application key (v2 key format) and keeps its raw secret in state.
+resource "warpstream_workspace_v2" "example_with_key" {
+  name                   = "example-workspace-with-key"
+  create_application_key = true
+}
+
 output "application_key" {
-  value     = warpstream_workspace_v2.example.application_key.key
+  value     = warpstream_workspace_v2.example_with_key.application_key.key
   sensitive = true
 }
 ```
@@ -49,9 +56,13 @@ output "application_key" {
 
 - `name` (String) Workspace Name. Must be unique across WarpStream account. Must contain spaces, hyphens, underscores and alphanumeric characters only. Must be between 3 and 128 characters in length.
 
+### Optional
+
+- `create_application_key` (Boolean) Whether to create an application key (v2 key format) with the object and manage it, see `application_key`. Defaults to false. Cannot be changed after creation.
+
 ### Read-Only
 
-- `application_key` (Attributes) The application key (v2 key format) created and managed by this resource. Its raw secret is only returned when the key is created and is kept in Terraform state. If the key is deleted outside Terraform, the next apply creates a new one. (see [below for nested schema](#nestedatt--application_key))
+- `application_key` (Attributes) The application key (v2 key format) created and managed by this resource when `create_application_key` is true. Its raw secret is only returned when the key is created and is kept in Terraform state. If the key is deleted outside Terraform, the next apply creates a new one. (see [below for nested schema](#nestedatt--application_key))
 - `created_at` (String) Workspace Creation Timestamp.
 - `id` (String) Workspace ID.
 

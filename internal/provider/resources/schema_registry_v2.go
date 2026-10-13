@@ -16,9 +16,9 @@ func NewSchemaRegistryV2Resource() resource.Resource {
 	return &keyOwningResource{base: base, create: base.createV2, typeName: "_schema_registry_v2", kind: agentKeyKind}
 }
 
-// createV2 is a copy of Create that calls CreateVirtualClusterV2, which also creates a v2 agent key.
+// createV2 is a copy of Create that calls CreateVirtualClusterV2, which can also create a v2 agent key.
 // Keep it in sync with Create.
-func (r *schemaRegistryResource) createV2(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) (objectID string, key *api.APIKey) {
+func (r *schemaRegistryResource) createV2(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse, createAgentKey bool) (objectID string, key *api.APIKey) {
 	var plan models.SchemaRegistryResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -41,7 +41,8 @@ func (r *schemaRegistryResource) createV2(ctx context.Context, req resource.Crea
 			Tier:   plan.Tier.ValueString(),
 			Region: cloudPlan.Region.ValueStringPointer(),
 			Cloud:  cloudPlan.Provider.ValueString(),
-		})
+		},
+		createAgentKey)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Schema Registry",

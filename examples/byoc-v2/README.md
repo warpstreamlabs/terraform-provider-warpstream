@@ -1,7 +1,9 @@
 # Overview
 
-The example in main.tf creates a WarpStream BYOC cluster with `warpstream_virtual_cluster_v2`, along with a topic and client credentials.
+The example in main.tf creates a WarpStream BYOC cluster with `warpstream_virtual_cluster_v2`, along with a topic, client credentials and an agent key.
 
-Unlike `warpstream_virtual_cluster`, the v2 resource creates the cluster's agent key (v2 key format) together with the cluster. The raw key is only returned when it is created, so Terraform keeps it in state as `agent_key.key`, and that is the only copy. Keep your state in a secure backend.
+The agent key comes from `warpstream_agent_key_v2`, which creates it in the v2 key format. The raw key is only returned when it is created, so Terraform keeps it in state as `key`, and that is the only copy. Keep your state in a secure backend.
+
+To have the cluster create its own agent key instead, set `create_agent_key = true` and read it from `agent_key.key`.
 
 If the agent key is deleted outside Terraform, the next `terraform apply` creates a new one.

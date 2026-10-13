@@ -19,11 +19,19 @@ provider "warpstream" {
   alias = "account"
 }
 
-# Create a workspace together with its application key
+# Create a workspace
 resource "warpstream_workspace_v2" "foo" {
   provider = warpstream.account # Using the account provider
 
   name = "foo"
+}
+
+# Create an application key for the workspace
+resource "warpstream_application_key_v2" "workspace_foo" {
+  provider = warpstream.account # Using the account provider
+
+  name         = "akn_example_application_key"
+  workspace_id = warpstream_workspace_v2.foo.id
 }
 
 # Create a user role that has admin access to the newly created workspace
@@ -42,11 +50,11 @@ resource "warpstream_user_role" "example_user_role" {
 
 # Create a provider for the workspace using the workspace's application key
 provider "warpstream" {
-  token = warpstream_workspace_v2.foo.application_key.key
+  token = warpstream_application_key_v2.workspace_foo.key
   alias = "workspace-foo"
 }
 
-# Create a cluster together with its agent key
+# Create a cluster
 resource "warpstream_virtual_cluster_v2" "example" {
   provider = warpstream.workspace-foo # Using the workspace specific provider
 
@@ -59,10 +67,17 @@ resource "warpstream_virtual_cluster_v2" "example" {
   }
 }
 
+resource "warpstream_agent_key_v2" "example" {
+  provider = warpstream.workspace-foo # Using the workspace specific provider
+
+  name               = "akn_example"
+  virtual_cluster_id = warpstream_virtual_cluster_v2.example.id
+}
+
 # The agent key authenticates the WarpStream Agents with the WarpStream control
 # plane. This is what you'll use in your Agent helm chart. Read it with
 # `terraform output -raw agent_key`.
 output "agent_key" {
-  value     = warpstream_virtual_cluster_v2.example.agent_key.key
+  value     = warpstream_agent_key_v2.example.key
   sensitive = true
 }

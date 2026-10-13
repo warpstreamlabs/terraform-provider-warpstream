@@ -16,9 +16,9 @@ func NewTableFlowV2Resource() resource.Resource {
 	return &keyOwningResource{base: base, create: base.createV2, typeName: "_tableflow_cluster_v2", kind: agentKeyKind}
 }
 
-// createV2 is a copy of Create that calls CreateVirtualClusterV2, which also creates a v2 agent key.
+// createV2 is a copy of Create that calls CreateVirtualClusterV2, which can also create a v2 agent key.
 // Keep it in sync with Create.
-func (r *tableFlowResource) createV2(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) (objectID string, key *api.APIKey) {
+func (r *tableFlowResource) createV2(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse, createAgentKey bool) (objectID string, key *api.APIKey) {
 	var plan models.TableFlowResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -41,7 +41,8 @@ func (r *tableFlowResource) createV2(ctx context.Context, req resource.CreateReq
 			Tier:   plan.Tier.ValueString(),
 			Region: cloudPlan.Region.ValueStringPointer(),
 			Cloud:  cloudPlan.Provider.ValueString(),
-		})
+		},
+		createAgentKey)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream TableFlow",

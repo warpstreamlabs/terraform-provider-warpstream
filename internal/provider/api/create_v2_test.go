@@ -62,7 +62,7 @@ func newFakeV2CreateServer(t *testing.T) (*fakeV2CreateServer, *Client) {
 func TestCreateVirtualClusterV2DeletesOrphanAndRetries(t *testing.T) {
 	s, c := newFakeV2CreateServer(t)
 
-	vc, key, err := c.CreateVirtualClusterV2("vcn_test", ClusterParameters{Type: VirtualClusterTypeBYOC})
+	vc, key, err := c.CreateVirtualClusterV2("vcn_test", ClusterParameters{Type: VirtualClusterTypeBYOC}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestCreateVirtualClusterV2KeepsPreexistingCluster(t *testing.T) {
 	s.clusters = []VirtualCluster{{ID: "vci_old", Name: "vcn_test", Type: VirtualClusterTypeBYOC,
 		CreatedAt: time.Now().Add(-time.Hour).UTC().Format(time.RFC3339Nano)}}
 
-	_, _, err := c.CreateVirtualClusterV2("vcn_test", ClusterParameters{Type: VirtualClusterTypeBYOC})
+	_, _, err := c.CreateVirtualClusterV2("vcn_test", ClusterParameters{Type: VirtualClusterTypeBYOC}, true)
 	if !errors.Is(err, ErrAmbiguous) || !strings.Contains(err.Error(), "delete any virtual cluster named vcn_test") {
 		t.Fatalf("expected a manual cleanup error, got %v", err)
 	}

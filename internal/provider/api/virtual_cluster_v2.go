@@ -11,11 +11,11 @@ import (
 	"time"
 )
 
-// CreateVirtualClusterV2 creates a virtual cluster together with a v2 agent key through
-// create_virtual_cluster_v2. The key's secret is only in this response. After an ambiguous failure, a
+// CreateVirtualClusterV2 creates a virtual cluster through create_virtual_cluster_v2, with a v2 agent key
+// if createAgentKey is set. The key's secret is only in this response. After an ambiguous failure, a
 // cluster with this name and type created since the attempt started is ours; deleting it also revokes
 // its agent key.
-func (c *Client) CreateVirtualClusterV2(name string, opts ClusterParameters) (*VirtualCluster, *APIKey, error) {
+func (c *Client) CreateVirtualClusterV2(name string, opts ClusterParameters, createAgentKey bool) (*VirtualCluster, *APIKey, error) {
 	var trimmed string
 	switch opts.Type {
 	case VirtualClusterTypeSchemaRegistry:
@@ -33,6 +33,8 @@ func (c *Client) CreateVirtualClusterV2(name string, opts ClusterParameters) (*V
 		RegionGroup:   opts.RegionGroup,
 		CloudProvider: opts.Cloud,
 		Tags:          opts.Tags,
+		// create_virtual_cluster_v2 creates an agent key unless told not to.
+		SkipAgentKeyCreation: !createAgentKey,
 	})
 	if err != nil {
 		return nil, nil, err

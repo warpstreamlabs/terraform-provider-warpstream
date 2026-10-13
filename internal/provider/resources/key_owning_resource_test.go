@@ -38,7 +38,7 @@ func TestKeyOwningResourceStripDoesNotChangeItsInput(t *testing.T) {
 	}
 	_ = full.Copy()
 
-	back, err := withAttribute(fullType, stripped, "agent_key", attrs["agent_key"])
+	back, err := withAttributes(fullType, stripped, map[string]tftypes.Value{"agent_key": attrs["agent_key"]})
 	if err != nil {
 		t.Fatal(err)
 	}

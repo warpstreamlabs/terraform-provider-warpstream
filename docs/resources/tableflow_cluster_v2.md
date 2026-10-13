@@ -5,7 +5,7 @@ subcategory: ""
 description: |-
   This resource allows you to create, update and delete TableFlow clusters.
   The WarpStream provider must be authenticated with an application key to consume this resource.
-  Unlike the v1 resource, this resource creates its agent key together with the object and manages it, see agent_key.
+  Unlike the v1 resource, this resource can also create an agent key (v2 key format) with the object and manage it, see create_agent_key.
 ---
 
 # warpstream_tableflow_cluster_v2 (Resource)
@@ -15,7 +15,7 @@ This resource allows you to create, update and delete TableFlow clusters.
 The WarpStream provider must be authenticated with an application key to consume this resource.
 
 
-Unlike the v1 resource, this resource creates its agent key together with the object and manages it, see `agent_key`.
+Unlike the v1 resource, this resource can also create an agent key (v2 key format) with the object and manage it, see `create_agent_key`.
 
 ## Example Usage
 
@@ -32,13 +32,21 @@ provider "warpstream" {
   token = "aks_xxx"
 }
 
+# Creates no agent key, like the v1 resource. Add one with warpstream_agent_key_v2.
 resource "warpstream_tableflow_cluster_v2" "example" {
   name = "vcn_dl_example"
   tier = "dev"
 }
 
+# Also creates an agent key (v2 key format) and keeps its raw secret in state.
+resource "warpstream_tableflow_cluster_v2" "example_with_key" {
+  name             = "vcn_dl_example_with_key"
+  tier             = "dev"
+  create_agent_key = true
+}
+
 output "agent_key" {
-  value     = warpstream_tableflow_cluster_v2.example.agent_key.key
+  value     = warpstream_tableflow_cluster_v2.example_with_key.agent_key.key
   sensitive = true
 }
 ```
@@ -54,10 +62,11 @@ output "agent_key" {
 ### Optional
 
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
+- `create_agent_key` (Boolean) Whether to create an agent key (v2 key format) with the object and manage it, see `agent_key`. Defaults to false. Cannot be changed after creation.
 
 ### Read-Only
 
-- `agent_key` (Attributes) The agent key (v2 key format) created and managed by this resource. Its raw secret is only returned when the key is created and is kept in Terraform state. If the key is deleted outside Terraform, the next apply creates a new one. (see [below for nested schema](#nestedatt--agent_key))
+- `agent_key` (Attributes) The agent key (v2 key format) created and managed by this resource when `create_agent_key` is true. Its raw secret is only returned when the key is created and is kept in Terraform state. If the key is deleted outside Terraform, the next apply creates a new one. (see [below for nested schema](#nestedatt--agent_key))
 - `created_at` (String) Virtual Cluster Creation Timestamp.
 - `id` (String) TableFlow ID.
 - `workspace_id` (String) Workspace ID. ID of the workspace to which the virtual cluster belongs. Assigned based on the workspace of the application key used to authenticate the WarpStream provider. Cannot be changed after creation.

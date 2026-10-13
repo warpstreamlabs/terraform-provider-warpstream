@@ -15,12 +15,12 @@ type workspaceCreateV2Response struct {
 	ApplicationKey *APIKey `json:"application_key"`
 }
 
-// CreateWorkspaceV2 creates a workspace together with a v2 application key through
-// create_workspace_v2. The key's secret is only in this response. After an ambiguous failure, a
+// CreateWorkspaceV2 creates a workspace through create_workspace_v2, with a v2 application key if
+// createApplicationKey is set. The key's secret is only in this response. After an ambiguous failure, a
 // workspace with this name created since the attempt started is ours; deleting it also revokes its
 // application key.
-func (c *Client) CreateWorkspaceV2(name string) (string, *APIKey, error) {
-	payload, err := json.Marshal(WorkspaceCreateRequest{Name: name})
+func (c *Client) CreateWorkspaceV2(name string, createApplicationKey bool) (string, *APIKey, error) {
+	payload, err := json.Marshal(WorkspaceCreateRequest{Name: name, SkipApplicationKeyCreation: !createApplicationKey})
 	if err != nil {
 		return "", nil, err
 	}
