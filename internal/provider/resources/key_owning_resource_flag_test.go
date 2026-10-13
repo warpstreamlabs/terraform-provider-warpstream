@@ -131,11 +131,14 @@ func TestKeyOwningResourceModifyPlan(t *testing.T) {
 	id := tftypes.NewValue(tftypes.String, "vci_1")
 	for _, tc := range []struct {
 		name        string
+		create      bool  // No prior state.
 		prior       *bool // Flag in state; nil for an imported object.
 		planned     bool
 		wantErr     bool
-		wantUnknown bool // Whether the missing key is planned for recreation.
+		wantUnknown bool // Whether the key is planned to be created; otherwise it must be planned as null.
 	}{
+		{name: "create without key", create: true, planned: false},
+		{name: "create with key", create: true, planned: true, wantUnknown: true},
 		{name: "no key wanted", prior: &no, planned: false},
 		{name: "missing key is recreated", prior: &yes, planned: true, wantUnknown: true},
 		{name: "flag turned on", prior: &no, planned: true, wantErr: true},
@@ -149,7 +152,11 @@ func TestKeyOwningResourceModifyPlan(t *testing.T) {
 			r := newFlagTestResource(nil, &got)
 			s := flagTestSchema(t, r)
 			state := flagTestValue(t, s, id, nil, false, tc.prior)
-			plan := flagTestValue(t, s, id, nil, false, &tc.planned)
+			if tc.create {
+				state = tftypes.NewValue(s.Type().TerraformType(ctx), nil)
+			}
+			// The framework plans unset computed attributes as unknown whenever anything changes.
+			plan := flagTestValue(t, s, id, nil, true, &tc.planned)
 			resp := resource.ModifyPlanResponse{Plan: tfsdk.Plan{Schema: s, Raw: plan}}
 			r.ModifyPlan(ctx, resource.ModifyPlanRequest{
 				Config: tfsdk.Config{Schema: s, Raw: plan},
@@ -167,7 +174,7 @@ func TestKeyOwningResourceModifyPlan(t *testing.T) {
 			if resp.Diagnostics.HasError() {
 				t.Fatal(resp.Diagnostics)
 			}
-			if key.IsUnknown() != tc.wantUnknown {
+			if key.IsUnknown() != tc.wantUnknown || (!tc.wantUnknown && !key.IsNull()) {
 				t.Fatalf("planned key %v, want unknown %v", key, tc.wantUnknown)
 			}
 		})

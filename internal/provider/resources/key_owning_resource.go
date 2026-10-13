@@ -307,22 +307,33 @@ func (r *keyOwningResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 		}
 	}
 
-	if req.State.Raw.IsNull() {
-		return
-	}
-	var planned, prior types.Bool
+	var planned types.Bool
 	resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, path.Root(r.kind.flag), &planned)...)
-	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root(r.kind.flag), &prior)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// An imported object has no flag in state yet, so it can be set to either value.
-	if !prior.IsNull() && !planned.IsUnknown() && !planned.Equal(prior) {
-		resp.Diagnostics.AddAttributeError(path.Root(r.kind.flag), "Cannot change "+r.kind.flag,
-			fmt.Sprintf("%s cannot be changed after creation. To add a key to an existing object, use a separate key resource.", r.kind.flag))
+	if !req.State.Raw.IsNull() {
+		var prior types.Bool
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root(r.kind.flag), &prior)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		// An imported object has no flag in state yet, so it can be set to either value.
+		if !prior.IsNull() && !planned.IsUnknown() && !planned.Equal(prior) {
+			resp.Diagnostics.AddAttributeError(path.Root(r.kind.flag), "Cannot change "+r.kind.flag,
+				fmt.Sprintf("%s cannot be changed after creation. To add a key to an existing object, use a separate key resource.", r.kind.flag))
+			return
+		}
+	}
+	if planned.IsUnknown() {
 		return
 	}
 	if !planned.ValueBool() {
+		// No key is wanted: plan it as null, not as unknown, which the framework does whenever anything changes.
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(r.kind.attr), ownedKeyValue(nil))...)
+		return
+	}
+	if req.State.Raw.IsNull() {
 		return
 	}
 
