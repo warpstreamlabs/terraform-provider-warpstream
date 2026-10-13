@@ -5,7 +5,7 @@ subcategory: ""
 description: |-
   This resource allows you to create, update and delete virtual clusters.
   The WarpStream provider must be authenticated with an application key to consume this resource.
-  Unlike the v1 resource, this resource creates its agent key together with the object and manages it, see agent_key.
+  Unlike the v1 resource, this resource can also create an agent key (v2 key format) with the object and manage it, see create_agent_key.
 ---
 
 # warpstream_virtual_cluster_v2 (Resource)
@@ -15,7 +15,7 @@ This resource allows you to create, update and delete virtual clusters.
 The WarpStream provider must be authenticated with an application key to consume this resource.
 
 
-Unlike the v1 resource, this resource creates its agent key together with the object and manages it, see `agent_key`.
+Unlike the v1 resource, this resource can also create an agent key (v2 key format) with the object and manage it, see `create_agent_key`.
 
 ## Example Usage
 
@@ -32,13 +32,21 @@ provider "warpstream" {
   token = "aks_xxx"
 }
 
+# Creates no agent key, like the v1 resource. Add one with warpstream_agent_key_v2.
 resource "warpstream_virtual_cluster_v2" "example" {
   name = "vcn_example"
   tier = "dev"
 }
 
+# Also creates an agent key (v2 key format) and keeps its raw secret in state.
+resource "warpstream_virtual_cluster_v2" "example_with_key" {
+  name             = "vcn_example_with_key"
+  tier             = "dev"
+  create_agent_key = true
+}
+
 output "agent_key" {
-  value     = warpstream_virtual_cluster_v2.example.agent_key.key
+  value     = warpstream_virtual_cluster_v2.example_with_key.agent_key.key
   sensitive = true
 }
 ```
@@ -56,13 +64,14 @@ output "agent_key" {
 - `broker_configuration` (Map of String) Additional cluster-level broker configuration, as a map of Kafka-style config names to string values. Use it for settings that have no dedicated attribute under `configuration`, for example `message.max.bytes = "1048576"`, `delete.topic.enable = "true"`, or `offsets.retention.minutes = "10080"`. Note that removing a key from this map does **not** reset the config on the cluster: to change a setting back, set it explicitly to the value you want.
 - `cloud` (Attributes) Virtual Cluster Cloud Location. (see [below for nested schema](#nestedatt--cloud))
 - `configuration` (Attributes) Virtual Cluster Configuration. (see [below for nested schema](#nestedatt--configuration))
+- `create_agent_key` (Boolean) Whether to create an agent key (v2 key format) with the object and manage it, see `agent_key`. Defaults to false. Cannot be changed after creation.
 - `events` (Attributes) Virtual Cluster Events Configuration. When omitted or null, Terraform does not update Events and reads `enabled` from the backend into state. Backend-only event-type keys are not automatically added to resource state. Within a present `events` block, later omitting the entire `event_types` map retains any previously tracked keys. New virtual clusters have Events enabled by default. When present, Terraform manages Events using the configured values. (see [below for nested schema](#nestedatt--events))
 - `tags` (Map of String) Tags associated with the virtual cluster.
 - `type` (String) Virtual Cluster Type. Currently, the only valid virtual cluster types is `byoc` (default).
 
 ### Read-Only
 
-- `agent_key` (Attributes) The agent key (v2 key format) created and managed by this resource. Its raw secret is only returned when the key is created and is kept in Terraform state. If the key is deleted outside Terraform, the next apply creates a new one. (see [below for nested schema](#nestedatt--agent_key))
+- `agent_key` (Attributes) The agent key (v2 key format) created and managed by this resource when `create_agent_key` is true. Its raw secret is only returned when the key is created and is kept in Terraform state. If the key is deleted outside Terraform, the next apply creates a new one. (see [below for nested schema](#nestedatt--agent_key))
 - `agent_pool_id` (String) Agent Pool ID.
 - `agent_pool_name` (String) Agent Pool Name.
 - `bootstrap_url` (String) Bootstrap URL to connect to the Virtual Cluster.

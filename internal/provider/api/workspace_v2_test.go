@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -19,6 +20,7 @@ func TestCreateWorkspaceV2DeletesOrphanAndRetries(t *testing.T) {
 		hits       = map[string]int{}
 		workspaces []Workspace
 		deleted    []string
+		skipped    []bool
 	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
@@ -27,6 +29,9 @@ func TestCreateWorkspaceV2DeletesOrphanAndRetries(t *testing.T) {
 		hits[path]++
 		switch path {
 		case "create_workspace_v2":
+			var req WorkspaceCreateRequest
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			skipped = append(skipped, req.SkipApplicationKeyCreation)
 			id := "wi_" + strings.Repeat("1", hits[path])
 			workspaces = append(workspaces, Workspace{ID: id, Name: "ws", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)})
 			if hits[path] == 1 {
@@ -53,7 +58,7 @@ func TestCreateWorkspaceV2DeletesOrphanAndRetries(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	id, key, err := c.CreateWorkspaceV2("ws")
+	id, key, err := c.CreateWorkspaceV2("ws", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,6 +67,14 @@ func TestCreateWorkspaceV2DeletesOrphanAndRetries(t *testing.T) {
 	}
 	if len(deleted) != 1 || deleted[0] != "wi_1" || hits["create_workspace_v2"] != 2 {
 		t.Fatalf("unexpected hits %v, deleted %v", hits, deleted)
+	}
+
+	// Without the key, the workspace is created the same way but the key is skipped.
+	if _, _, err := c.CreateWorkspaceV2("ws2", false); err != nil {
+		t.Fatal(err)
+	}
+	if want := []bool{false, false, true}; !slices.Equal(skipped, want) {
+		t.Fatalf("skip_application_key_creation sent %v, want %v", skipped, want)
 	}
 }
 

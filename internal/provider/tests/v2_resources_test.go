@@ -19,9 +19,45 @@ func TestAccVirtualClusterV2Resource(t *testing.T) {
 	name := "vcn_test_acc_v2_" + acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
 	testAccV2ResourceKey(t, providerConfig+fmt.Sprintf(`
 resource "warpstream_virtual_cluster_v2" "test" {
+  name             = %q
+  tier             = "fundamentals"
+  create_agent_key = true
+}`, name), "warpstream_virtual_cluster_v2.test", "agent_key", name)
+}
+
+func TestAccVirtualClusterV2ResourceWithoutKey(t *testing.T) {
+	name := "vcn_test_acc_v2_" + acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	config := `
+resource "warpstream_virtual_cluster_v2" "test" {
   name = %q
   tier = "fundamentals"
-}`, name), "warpstream_virtual_cluster_v2.test", "agent_key", name)
+  %s
+}`
+	testAccV2ResourceWithoutKey(t,
+		providerConfig+fmt.Sprintf(config, name, ""),
+		providerConfig+fmt.Sprintf(config, name, "create_agent_key = true"),
+		"warpstream_virtual_cluster_v2.test", "agent_key", "create_agent_key")
+}
+
+// testAccV2ResourceWithoutKey checks that a v2 resource creates no key by default, and that asking for
+// one afterwards is rejected rather than applied.
+func testAccV2ResourceWithoutKey(t *testing.T, config, configWithKey, resourcePath, keyAttr, flag string) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourcePath, flag, "false"),
+					resource.TestCheckNoResourceAttr(resourcePath, keyAttr+".id"),
+				),
+			},
+			{
+				Config:      configWithKey,
+				ExpectError: regexp.MustCompile(flag + ` cannot be changed after creation`),
+			},
+		},
+	})
 }
 
 // testAccV2ResourceKey checks that a v2 resource stores its v2 key, keeps it across a refresh, and

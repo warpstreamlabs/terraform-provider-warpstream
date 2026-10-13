@@ -11,6 +11,7 @@ import (
 
 var applicationKeyKind = ownedKeyKind{
 	attr:  "application_key",
+	flag:  "create_application_key",
 	label: "application key",
 	recreate: func(client *api.Client, workspaceID, workspaceName string) (*api.APIKey, error) {
 		return client.CreateApplicationKeyV2(ownedKeyName(workspaceName, "application_key"), workspaceID, false)
@@ -22,9 +23,9 @@ func NewWorkspaceV2Resource() resource.Resource {
 	return &keyOwningResource{base: base, create: base.createV2, typeName: "_workspace_v2", kind: applicationKeyKind}
 }
 
-// createV2 is a copy of Create that calls CreateWorkspaceV2, which also creates a v2 application key.
+// createV2 is a copy of Create that calls CreateWorkspaceV2, which can also create a v2 application key.
 // Keep it in sync with Create.
-func (r *workspaceResource) createV2(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) (objectID string, key *api.APIKey) {
+func (r *workspaceResource) createV2(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse, createApplicationKey bool) (objectID string, key *api.APIKey) {
 	// Retrieve values from plan
 	var plan models.Workspace
 	diags := req.Plan.Get(ctx, &plan)
@@ -34,7 +35,7 @@ func (r *workspaceResource) createV2(ctx context.Context, req resource.CreateReq
 	}
 
 	// Create new workspace
-	newWorkspaceID, applicationKey, err := r.client.CreateWorkspaceV2(plan.Name.ValueString())
+	newWorkspaceID, applicationKey, err := r.client.CreateWorkspaceV2(plan.Name.ValueString(), createApplicationKey)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Workspace",

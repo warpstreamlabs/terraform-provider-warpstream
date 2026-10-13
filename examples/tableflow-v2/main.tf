@@ -11,7 +11,6 @@ provider "warpstream" {
   token = "YOUR_API_KEY"
 }
 
-# Tableflow cluster created together with its agent key.
 resource "warpstream_tableflow_cluster_v2" "example" {
   name = "vcn_dl_example"
   tier = "dev"
@@ -56,10 +55,15 @@ destination_bucket_url: s3://tableflow-bucket?region=us-east-1
   EOT
 }
 
+resource "warpstream_agent_key_v2" "example" {
+  name               = "akn_example"
+  virtual_cluster_id = warpstream_tableflow_cluster_v2.example.id
+}
+
 # The agent key authenticates the WarpStream Agents with the WarpStream control
 # plane. This is what you'll use in your Agent helm chart. Read it with
 # `terraform output -raw agent_key`.
 output "agent_key" {
-  value     = warpstream_tableflow_cluster_v2.example.agent_key.key
+  value     = warpstream_agent_key_v2.example.key
   sensitive = true
 }

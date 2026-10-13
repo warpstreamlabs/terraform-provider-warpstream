@@ -31,10 +31,10 @@ func TestTableFlowV2CreatesSendTheTableFlowType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, _, err := c.CreateVirtualClusterV2("vcn_dl_test", ClusterParameters{Type: VirtualClusterTypeTableFlow}); err != nil {
+	if _, _, err := c.CreateVirtualClusterV2("vcn_dl_test", ClusterParameters{Type: VirtualClusterTypeTableFlow}, false); err != nil {
 		t.Fatal(err)
 	}
-	if clusterReq.Name != "test" || clusterReq.Type != VirtualClusterTypeTableFlow {
+	if clusterReq.Name != "test" || clusterReq.Type != VirtualClusterTypeTableFlow || !clusterReq.SkipAgentKeyCreation {
 		t.Fatalf("unexpected create_virtual_cluster_v2 request %+v", clusterReq)
 	}
 
