@@ -43,6 +43,8 @@ func (d *agentKeysDataSource) Schema(_ context.Context, _ datasource.SchemaReque
 This data source lists agent keys.
 
 The WarpStream provider must be authenticated with an application key to read this data source.
+
+Keys in the v2 key format are listed with an empty key secret: it is only returned when the key is created.
 `,
 		Attributes: map[string]schema.Attribute{
 			"agent_keys": schema.ListNestedAttribute{Computed: true, NestedObject: agentKeyDataSourceSchema},
