@@ -53,7 +53,7 @@ Read-Only:
 
 - `created_at` (String)
 - `id` (String)
-- `key` (String, Sensitive)
+- `key` (String, Sensitive) Key secret. Empty for keys in the v2 key format.
 - `name` (String)
 - `read_only` (Boolean)
 - `virtual_cluster_id` (String)
