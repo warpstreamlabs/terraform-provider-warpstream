@@ -73,7 +73,7 @@ This data source allows you to look up a virtual cluster and its agent keys.
 
 The WarpStream provider must be authenticated with an application key to read this data source.
 
-Keys in the v2 key format always appear with an empty key secret. The secret is only shown once when it is newly created.
+Keys in the v2 key format always appear with an empty key secret. The secret is only shown once in the agent key resource when the resource is newly created.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
