@@ -75,7 +75,7 @@ This data source lists application keys.
 If the WarpStream provider is authenticated with an application key, this data source lists application keys in that key's workspace only.
 If the WarpStream provider is authenticated with an account key, it lists application keys in all workspaces.
 
-Keys in the v2 key format are listed with an empty key secret: it is only returned when the key is created.
+Keys in the v2 key format always appear with an empty key secret. The secret is only shown once when it is newly created.
 `,
 		Attributes: map[string]schema.Attribute{
 			"application_keys": schema.ListNestedAttribute{Computed: true, NestedObject: applicationKeyDataSourceSchema},

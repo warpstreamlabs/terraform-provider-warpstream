@@ -5,7 +5,7 @@ subcategory: ""
 description: |-
   This data source lists agent keys.
   The WarpStream provider must be authenticated with an application key to read this data source.
-  Keys in the v2 key format are listed with an empty key secret: it is only returned when the key is created.
+  Keys in the v2 key format always appear with an empty key secret. The secret is only shown once in the agent key resource when the resource is newly created.
 ---
 
 # warpstream_agent_keys (Data Source)
@@ -14,7 +14,7 @@ This data source lists agent keys.
 
 The WarpStream provider must be authenticated with an application key to read this data source.
 
-Keys in the v2 key format are listed with an empty key secret: it is only returned when the key is created.
+Keys in the v2 key format always appear with an empty key secret. The secret is only shown once in the agent key resource when the resource is newly created.
 
 ## Example Usage
 
