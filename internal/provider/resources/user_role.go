@@ -184,18 +184,11 @@ func (r *userRoleResource) Create(ctx context.Context, req resource.CreateReques
 
 	// Map response body to schema and populate Computed attribute values
 	state := models.UserRole{
-		ID:        types.StringValue(role.ID),
-		Name:      types.StringValue(role.Name),
-		CreatedAt: types.StringValue(role.CreatedAt),
+		ID:           types.StringValue(role.ID),
+		Name:         types.StringValue(role.Name),
+		CreatedAt:    types.StringValue(role.CreatedAt),
+		AccessGrants: grantModelsOrderedLike(plan.AccessGrants, role.AccessGrants),
 	}
-	grantModels := make([]models.UserRoleGrant, 0, len(role.AccessGrants))
-	for _, grant := range role.AccessGrants {
-		grantModels = append(grantModels, models.UserRoleGrant{
-			WorkspaceID: types.StringValue(grant.WorkspaceID),
-			GrantType:   types.StringValue(grant.ManagedGrantKey),
-		})
-	}
-	state.AccessGrants = grantModels
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, state)
@@ -230,19 +223,11 @@ func (r *userRoleResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 	// Overwrite Role with refreshed state
 	state = models.UserRole{
-		ID:        types.StringValue(role.ID),
-		Name:      types.StringValue(role.Name),
-		CreatedAt: types.StringValue(role.CreatedAt),
+		ID:           types.StringValue(role.ID),
+		Name:         types.StringValue(role.Name),
+		CreatedAt:    types.StringValue(role.CreatedAt),
+		AccessGrants: grantModelsOrderedLike(state.AccessGrants, role.AccessGrants),
 	}
-
-	grants := make([]models.UserRoleGrant, 0, len(role.AccessGrants))
-	for _, grant := range role.AccessGrants {
-		grants = append(grants, models.UserRoleGrant{
-			WorkspaceID: types.StringValue(grant.WorkspaceID),
-			GrantType:   types.StringValue(grant.ManagedGrantKey),
-		})
-	}
-	state.AccessGrants = grants
 
 	// Set state
 	diags = resp.State.Set(ctx, &state)
@@ -293,19 +278,11 @@ func (r *userRoleResource) Update(ctx context.Context, req resource.UpdateReques
 
 	// Map response body to schema and populate Computed attribute values
 	state := models.UserRole{
-		ID:        types.StringValue(role.ID),
-		Name:      types.StringValue(role.Name),
-		CreatedAt: types.StringValue(role.CreatedAt),
+		ID:           types.StringValue(role.ID),
+		Name:         types.StringValue(role.Name),
+		CreatedAt:    types.StringValue(role.CreatedAt),
+		AccessGrants: grantModelsOrderedLike(plan.AccessGrants, role.AccessGrants),
 	}
-
-	grantModels := make([]models.UserRoleGrant, 0, len(role.AccessGrants))
-	for _, grant := range role.AccessGrants {
-		grantModels = append(grantModels, models.UserRoleGrant{
-			WorkspaceID: types.StringValue(grant.WorkspaceID),
-			GrantType:   types.StringValue(grant.ManagedGrantKey),
-		})
-	}
-	state.AccessGrants = grantModels
 
 	// Set state
 	diags = resp.State.Set(ctx, &state)
@@ -338,4 +315,37 @@ func (r *userRoleResource) Delete(ctx context.Context, req resource.DeleteReques
 		)
 		return
 	}
+}
+
+// grantModelsOrderedLike converts apiGrants to models, ordered to match reference.
+// The API doesn't guarantee an order for a role's grants, so storing them as returned would surface a reordering as drift.
+// Grants not in reference are appended in API order, so out-of-band changes still show up in the plan.
+func grantModelsOrderedLike(reference []models.UserRoleGrant, apiGrants []api.AccessGrant) []models.UserRoleGrant {
+	type grantKey struct{ workspaceID, grantType string }
+
+	remaining := make(map[grantKey]int, len(apiGrants))
+	for _, grant := range apiGrants {
+		remaining[grantKey{grant.WorkspaceID, grant.ManagedGrantKey}]++
+	}
+
+	ordered := make([]models.UserRoleGrant, 0, len(apiGrants))
+	take := func(key grantKey) {
+		if remaining[key] == 0 {
+			return
+		}
+		remaining[key]--
+		ordered = append(ordered, models.UserRoleGrant{
+			WorkspaceID: types.StringValue(key.workspaceID),
+			GrantType:   types.StringValue(key.grantType),
+		})
+	}
+
+	for _, grant := range reference {
+		take(grantKey{grant.WorkspaceID.ValueString(), grant.GrantType.ValueString()})
+	}
+	for _, grant := range apiGrants {
+		take(grantKey{grant.WorkspaceID, grant.ManagedGrantKey})
+	}
+
+	return ordered
 }
