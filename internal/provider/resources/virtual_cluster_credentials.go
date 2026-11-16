@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -22,8 +23,9 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource              = &virtualClusterCredentialsResource{}
-	_ resource.ResourceWithConfigure = &virtualClusterCredentialsResource{}
+	_ resource.Resource                = &virtualClusterCredentialsResource{}
+	_ resource.ResourceWithConfigure   = &virtualClusterCredentialsResource{}
+	_ resource.ResourceWithImportState = &virtualClusterCredentialsResource{}
 )
 
 // NewVirtualClusterCredentialsResource is a helper function to simplify the provider implementation.
@@ -184,16 +186,6 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 		return // Diagnostics handled by helper.
 	}
 
-	// Obtain virtual cluster info
-	cluster, err := r.client.GetVirtualCluster(vci)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error Reading WarpStream Virtual Cluster",
-			"Could not read WarpStream Virtual Cluster ID "+vci+": "+err.Error(),
-		)
-		return
-	}
-
 	// Create new virtual cluster credentials
 	var importedPassword *string
 
@@ -201,7 +193,7 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 		importedPassword = plan.Password.ValueStringPointer()
 	}
 
-	c, err := r.client.CreateCredentials(plan.Name.ValueString(), plan.ClusterSuperuser.ValueBool(), plan.ReadOnly.ValueBool(), importedPassword, *cluster)
+	c, err := r.client.CreateCredentials(plan.Name.ValueString(), plan.ClusterSuperuser.ValueBool(), plan.ReadOnly.ValueBool(), importedPassword, vci)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Virtual Cluster Credentials",
@@ -250,7 +242,7 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 		return // Diagnostics handled by helper.
 	}
 
-	cluster, err := r.client.GetVirtualCluster(vci)
+	creds, err := r.client.GetCredentials(vci)
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
 			resp.State.RemoveResource(ctx)
@@ -258,17 +250,8 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 		}
 
 		resp.Diagnostics.AddError(
-			"Error Reading WarpStream Virtual Cluster",
-			"Could not read WarpStream Virtual Cluster ID "+vci+": "+err.Error(),
-		)
-		return
-	}
-
-	creds, err := r.client.GetCredentials(*cluster)
-	if err != nil {
-		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Virtual Cluster Credentials",
-			"Could not read WarpStream Virtual Cluster Credentials"+": "+err.Error(),
+			"Could not read WarpStream Virtual Cluster Credentials: "+err.Error(),
 		)
 		return
 	}
@@ -323,21 +306,8 @@ func (r *virtualClusterCredentialsResource) Delete(ctx context.Context, req reso
 		return // Diagnostics handled by helper.
 	}
 
-	cluster, err := r.client.GetVirtualCluster(vci)
-	if err != nil {
-		if errors.Is(err, api.ErrNotFound) {
-			return
-		}
-
-		resp.Diagnostics.AddError(
-			"Error Reading WarpStream Virtual Cluster",
-			"Could not read WarpStream Virtual Cluster ID "+vci+": "+err.Error(),
-		)
-		return
-	}
-
 	// Delete existing credentials
-	err = r.client.DeleteCredentials(state.ID.ValueString(), *cluster)
+	err := r.client.DeleteCredentials(state.ID.ValueString(), vci)
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
 			return
@@ -357,6 +327,20 @@ func (r *virtualClusterCredentialsResource) ImportState(
 	req resource.ImportStateRequest,
 	resp *resource.ImportStateResponse,
 ) {
+	if vcID, credID, ok := strings.Cut(req.ID, "/"); ok {
+		if vcID == "" || credID == "" {
+			resp.Diagnostics.AddError(
+				"Invalid Import ID",
+				"Expected an ID in the format: virtual_cluster_id/credential_id or credential_id",
+			)
+			return
+		}
+
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("virtual_cluster_id"), vcID)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), credID)...)
+		return
+	}
+
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 
 	// This is a hacy thing because the read function expects `virtual_cluster_id` to be set.
@@ -377,7 +361,7 @@ func (r *virtualClusterCredentialsResource) ImportState(
 	}
 
 	for _, vc := range virtualClusters {
-		creds, err := r.client.GetCredentials(vc)
+		creds, err := r.client.GetCredentials(vc.ID)
 		if err != nil {
 
 			// cluster could disappear between getting vcs and getting creds
@@ -407,7 +391,7 @@ func (r *virtualClusterCredentialsResource) ImportState(
 		return
 	}
 
-	resp.State.SetAttribute(ctx, path.Root("virtual_cluster_id"), *virtualClusterID)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("virtual_cluster_id"), *virtualClusterID)...)
 }
 
 // getVirtualClusterIDWithDeprecation is a helper to read virtual cluster ID from the new or old field,
