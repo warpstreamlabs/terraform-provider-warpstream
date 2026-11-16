@@ -83,7 +83,7 @@ func (r *virtualClusterCredentialsResource) Schema(_ context.Context, _ resource
 		Description: `
 This resource allows you to create and delete virtual cluster credentials.
 
-The WarpStream provider must be authenticated with an application key to consume this resource.
+The WarpStream provider must be authenticated with a workspace-wide application key or a cluster-scoped application key with resource_kind = "virtual_cluster_credentials" to consume this resource.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

@@ -4,7 +4,7 @@ page_title: "warpstream_application_key_v2 Resource - terraform-provider-warpstr
 subcategory: ""
 description: |-
   This resource allows you to create, update and delete application keys.
-  If the WarpStream provider is authenticated with an application key, this resource can access application keys in that key's workspace only.
+  If the WarpStream provider is authenticated with a workspace-wide application key, this resource can access application keys in that key's workspace only.
   If the WarpStream provider is authenticated with an account key, it can access application keys in any workspace.
   Application keys are either workspace-wide (default) or scoped to a single virtual cluster sub-resource.
   Cluster-scoped keys require both virtual_cluster_id and resource_kind.
@@ -15,7 +15,7 @@ description: |-
 
 This resource allows you to create, update and delete application keys.
 
-If the WarpStream provider is authenticated with an application key, this resource can access application keys in that key's workspace only.
+If the WarpStream provider is authenticated with a workspace-wide application key, this resource can access application keys in that key's workspace only.
 If the WarpStream provider is authenticated with an account key, it can access application keys in any workspace.
 
 Application keys are either workspace-wide (default) or scoped to a single virtual cluster sub-resource.

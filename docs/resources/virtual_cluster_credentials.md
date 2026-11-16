@@ -4,14 +4,14 @@ page_title: "warpstream_virtual_cluster_credentials Resource - terraform-provide
 subcategory: ""
 description: |-
   This resource allows you to create and delete virtual cluster credentials.
-  The WarpStream provider must be authenticated with an application key to consume this resource.
+  The WarpStream provider must be authenticated with a workspace-wide application key or a cluster-scoped application key with resource_kind = "virtual_cluster_credentials" to consume this resource.
 ---
 
 # warpstream_virtual_cluster_credentials (Resource)
 
 This resource allows you to create and delete virtual cluster credentials.
 
-The WarpStream provider must be authenticated with an application key to consume this resource.
+The WarpStream provider must be authenticated with a workspace-wide application key or a cluster-scoped application key with resource_kind = "virtual_cluster_credentials" to consume this resource.
 
 ## Example Usage
 
@@ -74,7 +74,7 @@ Import is supported using the following syntax:
 ```shell
 # Virtual Cluster Credentials can be imported by specifying the virtual cluster ID and credential ID,
 # or by specifying the credential ID alone. For the latter, the provider needs to be authenticated
-# with an application key that has permission to list all virtual clusters in the workspace.
+# with a workspace-wide application key (cluster-scoped application keys cannot list virtual clusters).
 # NOTE: this won't fetch the value of the `password` field when importing.
 terraform import warpstream_virtual_cluster_credentials.example vci_XXXXXXXXXX/cci_XXXXXXXXXX
 terraform import warpstream_virtual_cluster_credentials.example cci_XXXXXXXXXX

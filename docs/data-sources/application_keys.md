@@ -4,7 +4,7 @@ page_title: "warpstream_application_keys Data Source - terraform-provider-warpst
 subcategory: ""
 description: |-
   This data source lists application keys.
-  If the WarpStream provider is authenticated with an application key, this data source lists application keys in that key's workspace only.
+  If the WarpStream provider is authenticated with a workspace-wide application key, this data source lists application keys in that key's workspace only.
   If the WarpStream provider is authenticated with an account key, it lists application keys in all workspaces.
   Keys in the v2 key format always appear with an empty key secret. The secret is only shown once in the application key resource when the resource is newly created.
 ---
@@ -13,7 +13,7 @@ description: |-
 
 This data source lists application keys.
 
-If the WarpStream provider is authenticated with an application key, this data source lists application keys in that key's workspace only.
+If the WarpStream provider is authenticated with a workspace-wide application key, this data source lists application keys in that key's workspace only.
 If the WarpStream provider is authenticated with an account key, it lists application keys in all workspaces.
 
 Keys in the v2 key format always appear with an empty key secret. The secret is only shown once in the application key resource when the resource is newly created.
