@@ -47,10 +47,10 @@ type CredentialsDeleteRequest struct {
 }
 
 // CreateCredentials - Create new virtual cluster credentials.
-func (c *Client) CreateCredentials(name string, su bool, readOnly bool, importedPassword *string, vc VirtualCluster) (*VirtualClusterCredentials, error) {
+func (c *Client) CreateCredentials(name string, su bool, readOnly bool, importedPassword *string, vcID string) (*VirtualClusterCredentials, error) {
 	payload, err := json.Marshal(CredentialsCreateRequest{
 		Name:             strings.TrimPrefix(name, "ccn_"),
-		VirtualClusterID: vc.ID,
+		VirtualClusterID: vcID,
 		ClusterSuperuser: su,
 		ReadOnly:         readOnly,
 		ImportedPassword: importedPassword,
@@ -87,8 +87,8 @@ func (c *Client) CreateCredentials(name string, su bool, readOnly bool, imported
 }
 
 // DeleteCredentials - Delete virtual cluster credentials.
-func (c *Client) DeleteCredentials(id string, vc VirtualCluster) error {
-	payload, err := json.Marshal(CredentialsDeleteRequest{ID: id, VirtualClusterID: vc.ID})
+func (c *Client) DeleteCredentials(id string, vcID string) error {
+	payload, err := json.Marshal(CredentialsDeleteRequest{ID: id, VirtualClusterID: vcID})
 	if err != nil {
 		return err
 	}
@@ -111,8 +111,8 @@ func (c *Client) DeleteCredentials(id string, vc VirtualCluster) error {
 }
 
 // GetCredentials - Returns all virtual clusters credentials of a given Virtual Cluster (indexed by ID).
-func (c *Client) GetCredentials(vc VirtualCluster) (map[string]VirtualClusterCredentials, error) {
-	payload, err := json.Marshal(CredentialsListRequest{VirtualClusterID: vc.ID})
+func (c *Client) GetCredentials(vcID string) (map[string]VirtualClusterCredentials, error) {
+	payload, err := json.Marshal(CredentialsListRequest{VirtualClusterID: vcID})
 	if err != nil {
 		return nil, err
 	}

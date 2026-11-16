@@ -31,7 +31,7 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					virtualCluster, err := client.FindVirtualCluster(fmt.Sprintf("vcn_test_acc_%s", nameSuffix))
 					require.NoError(t, err)
 
-					credentials, err := client.GetCredentials(*virtualCluster)
+					credentials, err := client.GetCredentials(virtualCluster.ID)
 					require.NoError(t, err)
 
 					var vcCredentialID string
@@ -43,7 +43,7 @@ func TestAccVirtualClusterCredentialsResourceDeletePlan(t *testing.T) {
 					}
 					require.NotEmpty(t, vcCredentialID)
 
-					err = client.DeleteCredentials(vcCredentialID, *virtualCluster)
+					err = client.DeleteCredentials(vcCredentialID, virtualCluster.ID)
 					require.NoError(t, err)
 				},
 				PlanOnly:           true,
@@ -159,6 +159,63 @@ func TestAccVirtualClusterCredentialsResourcePassword(t *testing.T) {
 						plancheck.ExpectResourceAction("warpstream_virtual_cluster_credentials.test", plancheck.ResourceActionDestroyBeforeCreate),
 					},
 				},
+			},
+		},
+	})
+}
+
+func TestAccVirtualClusterCredentialsResourceClusterScopedKey(t *testing.T) {
+	client, err := api.NewClientDefault()
+	require.NoError(t, err)
+
+	suffix := acctest.RandStringFromCharSet(6, acctest.CharSetAlphaNum)
+	region := "us-east-1"
+	vc, err := client.CreateVirtualCluster(testClusterName(suffix), api.ClusterParameters{
+		Type:   api.VirtualClusterTypeBYOC,
+		Tier:   api.VirtualClusterTierDev,
+		Region: &region,
+		Cloud:  "aws",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, client.DeleteVirtualCluster(vc.ID, vc.Name))
+	})
+
+	scopedKey, err := client.CreateClusterScopedApplicationKey(
+		"akn_test_scoped_creds_"+suffix,
+		"",
+		vc.ID,
+		api.ResourceKindVirtualClusterCredentials,
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, client.DeleteAPIKey(scopedKey.ID))
+	})
+
+	cfg := fmt.Sprintf(`
+provider "warpstream" {
+  token = %q
+}
+
+resource "warpstream_virtual_cluster_credentials" "test" {
+  name               = "ccn_test_%s"
+  virtual_cluster_id = %q
+  cluster_superuser  = true
+}
+`, scopedKey.Key, suffix, vc.ID)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: cfg,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("warpstream_virtual_cluster_credentials.test", "username"),
+					resource.TestCheckResourceAttrSet("warpstream_virtual_cluster_credentials.test", "password"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "name", "ccn_test_"+suffix),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "cluster_superuser", "true"),
+					resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "read_only", "false"),
+				),
 			},
 		},
 	})

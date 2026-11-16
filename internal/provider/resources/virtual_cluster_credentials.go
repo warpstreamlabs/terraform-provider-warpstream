@@ -184,16 +184,6 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 		return // Diagnostics handled by helper.
 	}
 
-	// Obtain virtual cluster info
-	cluster, err := r.client.GetVirtualCluster(vci)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error Reading WarpStream Virtual Cluster",
-			"Could not read WarpStream Virtual Cluster ID "+vci+": "+err.Error(),
-		)
-		return
-	}
-
 	// Create new virtual cluster credentials
 	var importedPassword *string
 
@@ -201,7 +191,7 @@ func (r *virtualClusterCredentialsResource) Create(ctx context.Context, req reso
 		importedPassword = plan.Password.ValueStringPointer()
 	}
 
-	c, err := r.client.CreateCredentials(plan.Name.ValueString(), plan.ClusterSuperuser.ValueBool(), plan.ReadOnly.ValueBool(), importedPassword, *cluster)
+	c, err := r.client.CreateCredentials(plan.Name.ValueString(), plan.ClusterSuperuser.ValueBool(), plan.ReadOnly.ValueBool(), importedPassword, vci)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating WarpStream Virtual Cluster Credentials",
@@ -250,7 +240,7 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 		return // Diagnostics handled by helper.
 	}
 
-	cluster, err := r.client.GetVirtualCluster(vci)
+	creds, err := r.client.GetCredentials(vci)
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
 			resp.State.RemoveResource(ctx)
@@ -258,17 +248,8 @@ func (r *virtualClusterCredentialsResource) Read(ctx context.Context, req resour
 		}
 
 		resp.Diagnostics.AddError(
-			"Error Reading WarpStream Virtual Cluster",
-			"Could not read WarpStream Virtual Cluster ID "+vci+": "+err.Error(),
-		)
-		return
-	}
-
-	creds, err := r.client.GetCredentials(*cluster)
-	if err != nil {
-		resp.Diagnostics.AddError(
 			"Error Reading WarpStream Virtual Cluster Credentials",
-			"Could not read WarpStream Virtual Cluster Credentials"+": "+err.Error(),
+			"Could not read WarpStream Virtual Cluster Credentials: "+err.Error(),
 		)
 		return
 	}
@@ -323,21 +304,8 @@ func (r *virtualClusterCredentialsResource) Delete(ctx context.Context, req reso
 		return // Diagnostics handled by helper.
 	}
 
-	cluster, err := r.client.GetVirtualCluster(vci)
-	if err != nil {
-		if errors.Is(err, api.ErrNotFound) {
-			return
-		}
-
-		resp.Diagnostics.AddError(
-			"Error Reading WarpStream Virtual Cluster",
-			"Could not read WarpStream Virtual Cluster ID "+vci+": "+err.Error(),
-		)
-		return
-	}
-
 	// Delete existing credentials
-	err = r.client.DeleteCredentials(state.ID.ValueString(), *cluster)
+	err := r.client.DeleteCredentials(state.ID.ValueString(), vci)
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
 			return
@@ -377,7 +345,7 @@ func (r *virtualClusterCredentialsResource) ImportState(
 	}
 
 	for _, vc := range virtualClusters {
-		creds, err := r.client.GetCredentials(vc)
+		creds, err := r.client.GetCredentials(vc.ID)
 		if err != nil {
 
 			// cluster could disappear between getting vcs and getting creds
