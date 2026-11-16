@@ -4,14 +4,14 @@ page_title: "warpstream_topic Resource - terraform-provider-warpstream"
 subcategory: ""
 description: |-
   This resource allows you to create, update and delete a topic.
-  The WarpStream provider must be authenticated with an application key to consume this resource.
+  The WarpStream provider must be authenticated with a workspace-wide application key or a cluster-scoped application key with resource_kind = "virtual_cluster_topics" to consume this resource.
 ---
 
 # warpstream_topic (Resource)
 
 This resource allows you to create, update and delete a topic.
 
-The WarpStream provider must be authenticated with an application key to consume this resource.
+The WarpStream provider must be authenticated with a workspace-wide application key or a cluster-scoped application key with resource_kind = "virtual_cluster_topics" to consume this resource.
 
 ## Example Usage
 

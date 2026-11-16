@@ -7,7 +7,7 @@ terraform {
 }
 
 provider "warpstream" {
-  # Use a generic WarpStream API key here, not a cluster-specific Agent key.
+  # Use a workspace-wide application key here, not a cluster-scoped application key or agent key.
   token = "YOUR_API_KEY"
 }
 

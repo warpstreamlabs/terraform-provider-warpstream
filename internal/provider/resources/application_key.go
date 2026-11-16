@@ -150,7 +150,7 @@ func (r *applicationKeyResource) Schema(_ context.Context, _ resource.SchemaRequ
 		Description: `
 This resource allows you to create, update and delete application keys.
 
-If the WarpStream provider is authenticated with an application key, this resource can access application keys in that key's workspace only.
+If the WarpStream provider is authenticated with a workspace-wide application key, this resource can access application keys in that key's workspace only.
 If the WarpStream provider is authenticated with an account key, it can access application keys in any workspace.
 
 Application keys are either workspace-wide (default) or scoped to a single virtual cluster sub-resource.

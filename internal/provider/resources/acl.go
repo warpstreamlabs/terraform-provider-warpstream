@@ -72,7 +72,7 @@ func (a *aclResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 		Description: `
 This resource allows you to create, read and delete ACLs related to a Virtual Cluster.
 
-The WarpStream provider must be authenticated with an application key to consume this resource.
+The WarpStream provider must be authenticated with a workspace-wide application key or a cluster-scoped application key with resource_kind = "virtual_cluster_acls" to consume this resource.
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
