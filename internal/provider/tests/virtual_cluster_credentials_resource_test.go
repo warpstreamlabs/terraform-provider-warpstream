@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/stretchr/testify/require"
 	"github.com/warpstreamlabs/terraform-provider-warpstream/internal/provider/api"
@@ -102,6 +103,11 @@ func TestAccVirtualClusterCredentialsResource(t *testing.T) {
 				// ImportStateVerify: true,
 			},
 			{
+				ResourceName:      "warpstream_virtual_cluster_credentials.test",
+				ImportState:       true,
+				ImportStateIdFunc: virtualClusterCredentialsCompositeImportID,
+			},
+			{
 				Config: testAccVirtualClusterCredentialsResource_withSuperuser(false),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
@@ -164,6 +170,11 @@ func TestAccVirtualClusterCredentialsResourcePassword(t *testing.T) {
 	})
 }
 
+func virtualClusterCredentialsCompositeImportID(state *terraform.State) (string, error) {
+	attrs := state.RootModule().Resources["warpstream_virtual_cluster_credentials.test"].Primary.Attributes
+	return fmt.Sprintf("%s/%s", attrs["virtual_cluster_id"], attrs["id"]), nil
+}
+
 func TestAccVirtualClusterCredentialsResourceClusterScopedKey(t *testing.T) {
 	client, err := api.NewClientDefault()
 	require.NoError(t, err)
@@ -216,6 +227,13 @@ resource "warpstream_virtual_cluster_credentials" "test" {
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "cluster_superuser", "true"),
 					resource.TestCheckResourceAttr("warpstream_virtual_cluster_credentials.test", "read_only", "false"),
 				),
+			},
+			{
+				ResourceName:            "warpstream_virtual_cluster_credentials.test",
+				ImportState:             true,
+				ImportStateIdFunc:       virtualClusterCredentialsCompositeImportID,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password", "created_at"},
 			},
 		},
 	})

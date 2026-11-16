@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -22,8 +23,9 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource              = &virtualClusterCredentialsResource{}
-	_ resource.ResourceWithConfigure = &virtualClusterCredentialsResource{}
+	_ resource.Resource                = &virtualClusterCredentialsResource{}
+	_ resource.ResourceWithConfigure   = &virtualClusterCredentialsResource{}
+	_ resource.ResourceWithImportState = &virtualClusterCredentialsResource{}
 )
 
 // NewVirtualClusterCredentialsResource is a helper function to simplify the provider implementation.
@@ -325,6 +327,20 @@ func (r *virtualClusterCredentialsResource) ImportState(
 	req resource.ImportStateRequest,
 	resp *resource.ImportStateResponse,
 ) {
+	if vcID, credID, ok := strings.Cut(req.ID, "/"); ok {
+		if vcID == "" || credID == "" {
+			resp.Diagnostics.AddError(
+				"Invalid Import ID",
+				"Expected an ID in the format: virtual_cluster_id/credential_id or credential_id",
+			)
+			return
+		}
+
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("virtual_cluster_id"), vcID)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), credID)...)
+		return
+	}
+
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 
 	// This is a hacy thing because the read function expects `virtual_cluster_id` to be set.
@@ -375,7 +391,7 @@ func (r *virtualClusterCredentialsResource) ImportState(
 		return
 	}
 
-	resp.State.SetAttribute(ctx, path.Root("virtual_cluster_id"), *virtualClusterID)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("virtual_cluster_id"), *virtualClusterID)...)
 }
 
 // getVirtualClusterIDWithDeprecation is a helper to read virtual cluster ID from the new or old field,
